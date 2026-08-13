@@ -31,14 +31,17 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Any
 
-from src.tokens.morse_tokens import SPECIAL_INPUT_MARKERS
+from src.tokens.morse_tokens import TX_INPUT_MARKERS
 from src.tx import protocol
 from src.tx.encoder import ElementSequence, build_sequence, find_unsendable
 from src.tx.fingerprint import tokens_fingerprint
 from src.tx.keyer import Keyer, KeyingReport, KeySink, RecordingKeySink
 from src.tx.serial_key import SerialKeyConfig, SerialKeyError, SerialKeySink
 
-_MARKER_RE = re.compile("|".join(re.escape(m) for m in SPECIAL_INPUT_MARKERS))
+# TX_INPUT_MARKERS (SPECIAL_INPUT_MARKERS + 送信専用の {KAKKO}/{TOJI}) を使う。
+# key_server は送信専用の経路 (合成器は通らない) なので、両方を 1 文字として
+# 数えないと "{KAKKO}アイ{TOJI}" が 4 文字ではなく 15 文字と表示される。
+_MARKER_RE = re.compile("|".join(re.escape(m) for m in TX_INPUT_MARKERS))
 
 
 @dataclass(frozen=True)

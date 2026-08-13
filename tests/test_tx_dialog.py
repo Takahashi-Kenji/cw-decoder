@@ -289,6 +289,30 @@ def test_送れない文字があると送信できない(qapp) -> None:
     assert "髙" in dialog.status_label.text()
 
 
+def test_確認で撥ねられたら送り終えた記録も消える(qapp) -> None:
+    """**Important 4 (2026-08-13 最終レビュー): 撥ねられたら記録も捨てる。**
+
+    以前送れた記録だけを頼りに `[送信]` を有効なままにすると、打鍵側が
+    「もう通らない」と言っているのに気づけない。撥ねられたら
+    ``_sent_ok`` からもその (文字列, 速度) を消す。
+    """
+    dialog, clients = build(qapp)
+    dialog.connect_to_keyer()
+    dialog.japanese_edit.setPlainText("こんにちは")
+    dialog.refresh_kana()
+    dialog.run_check()
+    dialog._send_pending = (dialog.wire_text(), dialog.wpm_spin.value())
+    dialog._on_sent(SendResult(100, False, False, 12.3, 1.0, 0.3))
+    assert dialog.can_send() is True
+
+    clients[0].reject_with = NetKeyRejected(
+        "unsendable", "送信できない文字", [{"index": 0, "char": "こ"}]
+    )
+    dialog.run_check()
+
+    assert dialog.can_send() is False
+
+
 def test_未接続なら確認も送信も押せない(qapp) -> None:
     dialog, _ = build(qapp)
     dialog.japanese_edit.setPlainText("こんにちは")
@@ -476,8 +500,15 @@ def test_中止理由が無ければ汎用文言になる(qapp) -> None:
     assert dialog._client is not None           # 汎用中止では接続を切らない
 
 
-def test_送信が終わると同じ文字列でも送信を押せない(qapp) -> None:
-    """**同じ文を続けて送る事故を防ぐ。** 送信後は確認からやり直す."""
+def test_送信が終わっても同じ文字列なら送り直せる(qapp) -> None:
+    """**2026-08-12 に振る舞いを変えた。**
+
+    以前は「送信後は確認からやり直す」だった。交信中に同じ文を送り直す
+    たびに確認の往復を待つのが、実運用で一番効く無駄だったため
+    (運用者の要望)。**関門を外したのではない** — 打鍵側が「その文字列は
+    この速度で送れる」と答えた事実を覚えているだけで、文字列か速度が
+    変われば確認からやり直す (下の 2 つのテスト)。
+    """
     dialog, _clients = build(qapp)
     dialog.connect_to_keyer()
     dialog.japanese_edit.setPlainText("こんにちは")
@@ -488,8 +519,8 @@ def test_送信が終わると同じ文字列でも送信を押せない(qapp) -
     dialog.run_send()
     wait_for_worker(dialog)
 
-    assert dialog.can_send() is False
-    assert dialog.send_btn.isEnabled() is False
+    assert dialog.can_send() is True
+    assert dialog.send_btn.isEnabled() is True
 
 
 def test_速度を変えると確認が無効に戻る(qapp) -> None:
@@ -1452,3 +1483,284 @@ class TestClearButton:
 
         assert dialog.clear_btn.isEnabled() is False
         dialog._worker = None
+
+
+def _ok_result(*, aborted: bool = False, reason=None) -> SendResult:
+    """打鍵側からの応答のふり."""
+    return SendResult(
+        elements_sent=10, aborted=aborted, watchdog_tripped=False,
+        seconds=1.0, max_error_ms=0.1, mean_error_ms=0.05, reason=reason,
+    )
+
+
+def _simulate_send(dialog, **kw) -> None:
+    """``run_send`` を経由せず ``_on_sent`` を直接呼ぶテスト用.
+
+    本番は ``run_send`` がワーカー生成時に ``_send_pending`` (送った文字列と
+    速度の組) を確定させ、``_on_sent`` はそれを使う (2026-08-13 最終レビュー
+    Minor 6)。ここでは非同期ワーカーを起こさずに完了だけを模したいので、
+    呼び出し時点の文字列・速度をそのまま ``_send_pending`` にセットしてから
+    ``_on_sent`` を呼ぶ — ``run_send`` を直前に呼んだのと同じ状態を作る。
+    """
+    dialog._send_pending = (dialog.wire_text(), dialog.wpm_spin.value())
+    dialog._on_sent(_ok_result(**kw))
+
+
+class TestSentTextsNeedNoRecheck:
+    """**一度送ったものは確認を押し直さなくてよい** (運用者の要望、2026-08-12).
+
+    交信中に送信文を作り直すのは手間が大きい。同じ文を送り直すたびに
+    ``[確認]`` の往復を待つのは、実運用で一番効く無駄だった。
+
+    **関門を外すわけではない。** 打鍵側が「その文字列はこの速度で送れる」と
+    答えた事実を覚えておき、**まったく同じ文字列・同じ速度**のときだけ
+    ``[送信]`` を直接押せるようにする。速度が変われば秒数が変わるので覚え直す。
+    """
+
+    def _dialog(self, tmp_path, **kw):
+        from src.app.tx_dialog import TxDialog
+
+        settings = AppSettings(tx_endpoint="127.0.0.1:45679", tx_wpm=20.0)
+        return TxDialog(
+            settings, profile=OperatorProfile(),
+            templates_path=tmp_path / "なし.json", **kw,
+        )
+
+    @staticmethod
+    def _connect(dialog):
+        """接続済みにして、確認を通した状態にする."""
+        client = FakeClient("127.0.0.1")
+        dialog._client = client
+        return client
+
+    def test_送信し終えたら確認なしで送れる(self, qapp, tmp_path) -> None:
+        dialog = self._dialog(tmp_path)
+        self._connect(dialog)
+        dialog.japanese_edit.setPlainText("コンニチハ")
+        dialog.run_check()
+        assert dialog.can_send() is True
+
+        _simulate_send(dialog)
+
+        assert dialog.can_send() is True          # 押し直さなくてよい
+
+    def test_中止したものは覚えない(self, qapp, tmp_path) -> None:
+        """**途中で止めたものは「送れた」とは言えない。**"""
+        dialog = self._dialog(tmp_path)
+        self._connect(dialog)
+        dialog.japanese_edit.setPlainText("コンニチハ")
+        dialog.run_check()
+
+        _simulate_send(dialog, aborted=True, reason="stop")
+
+        assert dialog.can_send() is False
+
+    def test_別の文は確認が要る(self, qapp, tmp_path) -> None:
+        dialog = self._dialog(tmp_path)
+        self._connect(dialog)
+        dialog.japanese_edit.setPlainText("コンニチハ")
+        dialog.run_check()
+        _simulate_send(dialog)
+
+        dialog.japanese_edit.setPlainText("サヨウナラ")
+
+        assert dialog.can_send() is False
+
+    def test_同じ文に戻せばまた送れる(self, qapp, tmp_path) -> None:
+        """**これが目的。** 型を選び直しても確認の往復が要らない."""
+        dialog = self._dialog(tmp_path)
+        self._connect(dialog)
+        dialog.japanese_edit.setPlainText("コンニチハ")
+        dialog.run_check()
+        _simulate_send(dialog)
+        dialog.japanese_edit.setPlainText("サヨウナラ")
+        assert dialog.can_send() is False
+
+        dialog.japanese_edit.setPlainText("コンニチハ")
+
+        assert dialog.can_send() is True
+
+    def test_速度を変えたら確認し直す(self, qapp, tmp_path) -> None:
+        """**秒数が変わる。** 20 WPM で確認した 6.3 秒は 5 WPM では 4 倍になる."""
+        dialog = self._dialog(tmp_path)
+        self._connect(dialog)
+        dialog.japanese_edit.setPlainText("コンニチハ")
+        dialog.run_check()
+        _simulate_send(dialog)
+
+        dialog.wpm_spin.setValue(25.0)
+
+        assert dialog.can_send() is False
+
+    def test_速度を戻せばまた送れる(self, qapp, tmp_path) -> None:
+        dialog = self._dialog(tmp_path)
+        self._connect(dialog)
+        dialog.japanese_edit.setPlainText("コンニチハ")
+        dialog.run_check()
+        _simulate_send(dialog)
+        dialog.wpm_spin.setValue(25.0)
+        assert dialog.can_send() is False
+
+        dialog.wpm_spin.setValue(20.0)
+
+        assert dialog.can_send() is True
+
+    def test_繋がっていなければ送れない(self, qapp, tmp_path) -> None:
+        """**覚えていても、打鍵側が居なければ送れない。**"""
+        dialog = self._dialog(tmp_path)
+        self._connect(dialog)
+        dialog.japanese_edit.setPlainText("コンニチハ")
+        dialog.run_check()
+        _simulate_send(dialog)
+
+        dialog._client = None
+
+        assert dialog.can_send() is False
+
+    def test_確定済みの記録は中止した再送では消えない(self, qapp, tmp_path) -> None:
+        """**中止は打鍵側のお墨付きを無効にしない** (2026-08-13 最終レビュー Minor 7).
+
+        一度最後まで送れた記録は、そのあとの再送を運用者が `[中止]` しても
+        残る。中止したのは「今回の再送」であって、前回の完了そのものが
+        取り消されるわけではない — このまま送れば通ることに変わりはない。
+        """
+        dialog = self._dialog(tmp_path)
+        client = self._connect(dialog)
+        dialog.japanese_edit.setPlainText("コンニチハ")
+        dialog.run_check()
+        _simulate_send(dialog)
+        assert dialog.can_send() is True
+
+        client.send = lambda text, wpm: SendResult(30, True, False, 5.0, 1.0, 0.3, "stop")
+        dialog.run_send()
+        wait_for_worker(dialog)
+
+        assert dialog.can_send() is True
+
+    def test_符号表が違う相手に繋ぎ直したら忘れる(self, qapp, tmp_path) -> None:
+        """**打鍵側が変わったら、覚えていた確認は当てにならない。**
+
+        以前は ``_forget_sent_texts()`` を直接呼ぶだけの空洞テストだった。
+        ``connect_to_keyer`` 自身が指紋の食い違いを見て記録を捨てることを、
+        実際にその経路を通して確かめる (2026-08-13 最終レビュー Critical 2)。
+        """
+        dialog = self._dialog(tmp_path, client_factory=FakeClient)
+        dialog.connect_to_keyer()
+        dialog.japanese_edit.setPlainText("コンニチハ")
+        dialog.run_check()
+        _simulate_send(dialog)
+        assert dialog.can_send() is True
+
+        class MismatchedClient(FakeClient):
+            def connect(self) -> Hello:
+                return Hello(
+                    1,
+                    "this-does-not-match-the-real-fingerprint",
+                    {"port": "COM3", "key": "DTR", "ptt": "RTS"},
+                    False,
+                )
+
+        dialog._client_factory = MismatchedClient
+        dialog.connect_to_keyer()
+
+        assert dialog.can_send() is False
+
+
+class TestTemplateAppliesOnSelect:
+    """**型を選んだ瞬間に本文へ入れる** (運用者の要望、2026-08-12).
+
+    交信中に送信文を作るのは時間の勝負で、``[型を使う]`` を押す 1 手間が重い。
+    選ぶだけで入るようにする。**手で書いた内容は消えるので、直前に戻す
+    ボタンを添える。**
+    """
+
+    def _dialog(self, tmp_path, templates):
+        from src.app.tx_dialog import TxDialog
+
+        path = tmp_path / "templates.json"
+        save_templates(templates, path)
+        return TxDialog(
+            AppSettings(tx_endpoint="127.0.0.1:45679"),
+            profile=OperatorProfile(), templates_path=path, mode="european",
+        )
+
+    @staticmethod
+    def _two():
+        return [
+            ReplyTemplate(name="CQ", mode="european", text="CQ CQ DE JH0ILL K"),
+            ReplyTemplate(name="締め", mode="european", text="TU 73 GB"),
+        ]
+
+    def test_選ぶだけで本文が入れ替わる(self, qapp, tmp_path) -> None:
+        dialog = self._dialog(tmp_path, self._two())
+        # **開いただけでは入れない。** 勝手に本文が埋まると驚く
+        assert dialog.japanese_edit.toPlainText() == ""
+
+        dialog.template_combo.setCurrentIndex(1)
+
+        assert dialog.japanese_edit.toPlainText() == "TU 73 GB"
+
+    def test_開いたときの型は_型を使う_で入れる(self, qapp, tmp_path) -> None:
+        """先頭の型は選び直せない (既に選ばれている) のでボタンが要る."""
+        dialog = self._dialog(tmp_path, self._two())
+
+        dialog.use_template_btn.click()
+
+        assert dialog.japanese_edit.toPlainText() == "CQ CQ DE JH0ILL K"
+
+    def test_元に戻せる(self, qapp, tmp_path) -> None:
+        """**手で書いた内容を消してしまったときの逃げ道。**"""
+        dialog = self._dialog(tmp_path, self._two())
+        dialog.japanese_edit.setPlainText("テガキ ノ ナイヨウ")
+
+        dialog.template_combo.setCurrentIndex(1)
+        assert dialog.japanese_edit.toPlainText() == "TU 73 GB"
+
+        dialog.undo_template_btn.click()
+
+        assert dialog.japanese_edit.toPlainText() == "テガキ ノ ナイヨウ"
+
+    def test_元に戻すとホレラタの囲みも戻る(self, qapp, tmp_path) -> None:
+        """**Important 3 (2026-08-13 最終レビュー): 囲みも一緒に戻す。**
+
+        ``apply_template`` は中身を見て ``wrap_check`` も書き換える。以前の
+        ``undo_template`` は本文しか戻さなかったので、和文の本文 + 囲み ON
+        の状態から欧文の型を選ぶと囲みが OFF になり、そこで元に戻しても
+        本文は和文に戻るのに囲みが OFF のまま残っていた。無囲みの和文は
+        そのまま送信されて相手のデコーダで化ける (「送れるのに化ける」)。
+        """
+        dialog = self._dialog(tmp_path, self._two())
+        dialog.wrap_check.setChecked(True)
+        dialog.japanese_edit.setPlainText("コンニチハ")
+        assert dialog.wrap_check.isChecked() is True
+
+        dialog.template_combo.setCurrentIndex(1)      # 欧文の型 → 囲み OFF になる
+        assert dialog.wrap_check.isChecked() is False
+
+        dialog.undo_template_btn.click()
+
+        assert dialog.japanese_edit.toPlainText() == "コンニチハ"
+        assert dialog.wrap_check.isChecked() is True
+
+    def test_戻すボタンは何も消していなければ押せない(self, qapp, tmp_path) -> None:
+        dialog = self._dialog(tmp_path, self._two())
+        dialog.japanese_edit.setPlainText("")
+
+        dialog.template_combo.setCurrentIndex(1)
+
+        assert dialog.undo_template_btn.isEnabled() is False
+
+    def test_二度戻さない(self, qapp, tmp_path) -> None:
+        """戻したら記憶は消える (押すたびに古い内容が甦らない)."""
+        dialog = self._dialog(tmp_path, self._two())
+        dialog.japanese_edit.setPlainText("テガキ")
+        dialog.template_combo.setCurrentIndex(1)
+
+        dialog.undo_template_btn.click()
+
+        assert dialog.undo_template_btn.isEnabled() is False
+
+    def test_型が無くても落ちない(self, qapp, tmp_path) -> None:
+        dialog = self._dialog(tmp_path, [])
+        assert dialog.template_combo.count() == 0
+        assert dialog.japanese_edit.toPlainText() == ""

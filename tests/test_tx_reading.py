@@ -291,3 +291,11 @@ class TestUnknownMarkerSpacing:
         glued = build_sequence("ナマエ ハ? デス", 20.0).total_seconds
         spaced = build_sequence("ナマエ ハ ? デス", 20.0).total_seconds
         assert spaced > glued
+
+
+class TestTxOnlyMarkers:
+    def test_括弧マーカーは変換を素通りする(self) -> None:
+        profile = OperatorProfile()
+        result = to_sendable_kana("{KAKKO}アイ{TOJI}", profile)
+        assert "{KAKKO}" in result.text and "{TOJI}" in result.text
+        assert result.bad_chars == ()

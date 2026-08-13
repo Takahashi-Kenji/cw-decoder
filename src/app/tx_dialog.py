@@ -166,6 +166,23 @@ class TxDialog(QDialog):
         self._worker: _SendWorker | None = None
         # **確認が通った文字列。** これと今の文字列が一致するときだけ送れる
         self._confirmed_text: str | None = None
+        # **送り終えた (文字列, 速度) の組。** 一度打鍵側が「この速度で
+        # 送れる」と答え、実際に最後まで送れたものは、確認を押し直さずに
+        # 送れるようにする (運用者の要望、2026-08-12)。交信中に同じ文を
+        # 送り直すたびに確認の往復を待つのが、実運用で一番効く無駄だった。
+        # **画面を閉じれば忘れる。** 古い確認結果で送る事故を残さないため。
+        self._sent_ok: set[tuple[str, float]] = set()
+        # 型を入れる直前の (本文, wrap_check の状態) の組 (`[元に戻す]` 用)。
+        # 戻したら捨てる。**wrap_check も一緒に覚える。** `apply_template` は
+        # 中身を見て自動で ``wrap_check`` を書き換えるので、本文だけ戻すと
+        # 和文の本文なのに囲み OFF のまま残り、無囲みの和文がそのまま送信されて
+        # 相手のデコーダで化ける (「送れるのに化ける」2026-08-12 最終レビュー)。
+        self._state_before_template: tuple[str, bool] | None = None
+        # **送信ワーカーへ渡した (文字列, 速度) の組。** ``run_send`` がワーカーを
+        # 作った時点で確定させ、``_on_sent`` はこれを使う。完了時に
+        # ``wpm_spin.value()`` を読み直すと、送信中に運用者が速度を変えたときに
+        # 実際に送った速度と違う値を「送れた」記録として覚えてしまう。
+        self._send_pending: tuple[str, float] | None = None
         # **画面が今表示しているモード** (``auto`` を含む)。設定ファイルの
         # ``mode`` ではない — あれは画面を閉じるときにしか書き戻されないので、
         # 画面が和文でも設定が欧文なら和文の型が消えていた
@@ -271,11 +288,23 @@ class TxDialog(QDialog):
         for template in self._templates:
             self.template_combo.addItem(template.name)
         picker.addWidget(self.template_combo, 1)
+        # **選んだ瞬間に本文へ入れる** (運用者の要望、2026-08-12)。交信中に
+        # 送信文を作るのは時間の勝負で、ボタンを押す 1 手間が重い。
+        # ``[型を使う]`` は残す — 同じ型をもう一度差し込み直したいとき
+        # (相手コールを入れ直した後など) に選び直せないため。
+        self.template_combo.currentIndexChanged.connect(self._on_template_selected)
         self.use_template_btn = QPushButton("型を使う")
         # **``clicked`` は ``checked: bool`` を渡す。** 引数の食い違いは
         # 過去にこのリポジトリで実際に踏んでいる
         self.use_template_btn.clicked.connect(lambda: self.apply_template())
         picker.addWidget(self.use_template_btn)
+        # **消してしまった本文への逃げ道。** 選ぶだけで入れ替わる以上、
+        # 手で書いた内容を事故で失う経路ができる
+        self.undo_template_btn = QPushButton("元に戻す")
+        self.undo_template_btn.setToolTip("型を入れる直前の本文に戻します")
+        self.undo_template_btn.setEnabled(False)
+        self.undo_template_btn.clicked.connect(lambda: self.undo_template())
+        picker.addWidget(self.undo_template_btn)
         # **経歴が空だと型が 1 つも実用にならない** (`{自局コール}` `{名前}` が
         # 埋まらず `?` になる)。ここから書けるようにする。
         self.profile_btn = QPushButton("経歴…")
@@ -497,9 +526,41 @@ class TxDialog(QDialog):
         self._templates = templates_for_mode(
             load_templates(self._templates_path), self._mode
         )
+        # **作り直しの間は選択の信号を止める。** 止めないと ``clear()`` と
+        # ``addItem()`` が ``currentIndexChanged`` を出し、本文が勝手に
+        # 入れ替わる (選択で適用するようにした副作用)
+        self.template_combo.blockSignals(True)
         self.template_combo.clear()
         for template in self._templates:
             self.template_combo.addItem(template.name)
+        self.template_combo.blockSignals(False)
+
+    def _on_template_selected(self, _index: int) -> None:
+        """一覧で選ばれたら、そのまま本文へ入れる.
+
+        **画面を組み立てている途中には呼ばれない** (``currentIndexChanged``
+        を繋ぐのは一覧を作った後)。作り直し中の誤爆を防ぐため、
+        ``open_template_dialog`` は繋ぎ直す前に信号を止める。
+        """
+        self.apply_template()
+
+    def undo_template(self) -> None:
+        """型を入れる直前の本文と ``wrap_check`` の状態に戻す. **一度だけ。**
+
+        **本文だけでは足りない。** ``apply_template`` は中身を見て
+        ``wrap_check`` も書き換えるので、本文だけ戻すと和文の本文なのに
+        囲み OFF のまま残り、無囲みの和文がそのまま送信されて相手のデコーダで
+        化ける (2026-08-12 最終レビュー)。先に ``wrap_check`` を戻してから
+        本文を戻す — 逆にすると本文の ``setPlainText`` が起こす
+        ``refresh_kana`` が一瞬古い ``wrap_check`` のままの警告を出しかねない。
+        """
+        if self._state_before_template is None:
+            return
+        text, wrap_checked = self._state_before_template
+        self._state_before_template = None
+        self.wrap_check.setChecked(wrap_checked)
+        self.japanese_edit.setPlainText(text)
+        self.undo_template_btn.setEnabled(False)
 
     def apply_template(self) -> None:
         """選んだ型に欄を差し込み、日本語ボックスへ入れる.
@@ -542,6 +603,16 @@ class TxDialog(QDialog):
         template = self._templates[index]
         filled = fill(template.text, self.field_values(template.mode))
         converted = to_sendable_kana(filled, self._profile).text
+        # **入れる前の (本文, wrap_check の状態) を覚えておく** (`[元に戻す]`)。
+        # 本文が空なら覚えない — 戻す意味が無いのにボタンが押せると紛らわしい。
+        # **直後の ``setChecked`` より前に読む。** ここで捕まえておかないと
+        # 「元に戻す」が本文だけ戻し、和文の本文なのに囲み OFF のまま残る
+        # (送れるのに化ける)。
+        previous = self.japanese_edit.toPlainText()
+        self._state_before_template = (
+            (previous, self.wrap_check.isChecked()) if previous else None
+        )
+        self.undo_template_btn.setEnabled(bool(previous))
         # setChecked は値が変わったときだけ toggled (→ refresh_kana) を
         # 起こす。その後の setPlainText でも textChanged (→ refresh_kana)
         # が起きるので、多くても 2 回で確定する (どちらも副作用は無い)。
@@ -579,9 +650,29 @@ class TxDialog(QDialog):
         self._update_buttons()
 
     def can_send(self) -> bool:
-        """**確認が通った文字列と今の文字列が一致しているか。**"""
+        """送れるか. **確認が通っているか、前に送り終えたものと同じなら送れる。**
+
+        関門を外したわけではない。打鍵側が「その文字列はこの速度で送れる」と
+        答えた事実を覚えておき、**まったく同じ文字列・同じ速度**のときだけ
+        確認を省く。速度が変われば秒数が変わるので覚え直す
+        (20 WPM の 6.3 秒は 5 WPM では 4 倍の長さの電波になる)。
+
+        **打鍵側が居なければ送れない**のは変わらない。
+        """
         text = self.wire_text()
-        return bool(text) and self._confirmed_text == text and self._client is not None
+        if not text or self._client is None:
+            return False
+        return (
+            self._confirmed_text == text
+            or (text, self.wpm_spin.value()) in self._sent_ok
+        )
+
+    def _forget_sent_texts(self) -> None:
+        """覚えていた「送り終えた」記録を捨てる.
+
+        **打鍵側が変わったら当てにならない。** 別の PC・別の符号表かもしれない。
+        """
+        self._sent_ok.clear()
 
     # ---- 操作 ----
     def retry_tick(self) -> None:
@@ -660,6 +751,10 @@ class TxDialog(QDialog):
         if not hello.fingerprint_matches:
             # **静かな食い違いを見える警告にする** (設計書 §2.1)
             message += "\n**警告: 符号表が両 PC で違います。** リポジトリを揃えてください。"
+            # **「送り終えた」記録も当てにならない。** 別の PC・別の符号表かも
+            # しれないので、覚えていた記録で確認を飛ばして送らせない
+            # (2026-08-13 最終レビュー Critical 1)。
+            self._forget_sent_texts()
         self.status_label.setText(message)
         self._confirmed_text = None
         self._update_buttons()
@@ -675,6 +770,10 @@ class TxDialog(QDialog):
             result = self._client.check(text, self.wpm_spin.value())
         except NetKeyRejected as exc:
             self._confirmed_text = None
+            # **撥ねられたら「送り終えた」記録も当てにならない。** 打鍵側が
+            # 「もう通らない」と言っているのに、以前送れた記録だけで [送信] を
+            # 有効なままにしない (2026-08-13 最終レビュー Important 4)。
+            self._sent_ok.discard((text, self.wpm_spin.value()))
             detail = "".join(bad["char"] for bad in exc.unsendable)
             self.status_label.setText(f"{exc}: {detail}" if detail else str(exc))
         except NetKeyError as exc:
@@ -692,7 +791,13 @@ class TxDialog(QDialog):
         if not self.can_send() or self._client is None:
             return
         self.status_label.setText("送信中…")
-        self._worker = _SendWorker(self._client, self.wire_text(), self.wpm_spin.value())
+        text = self.wire_text()
+        wpm = self.wpm_spin.value()
+        # **ここで確定させる。** ``_on_sent`` が完了時に ``wpm_spin.value()`` を
+        # 読み直すと、送信中に運用者が速度を変えたときに実際に送った速度と
+        # 違う値を「送れた」記録にしてしまう (2026-08-13 最終レビュー Minor 6)。
+        self._send_pending = (text, wpm)
+        self._worker = _SendWorker(self._client, text, wpm)
         self._worker.finished_ok.connect(self._on_sent)
         self._worker.failed.connect(self._on_send_failed)
         self._worker.start()
@@ -704,8 +809,17 @@ class TxDialog(QDialog):
 
     def _on_sent(self, result: SendResult) -> None:
         self._worker = None
-        # **送ったものは確認済みでなくなる。** 同じ文を続けて送るときも確認から
+        sent_pair = self._send_pending
+        self._send_pending = None
+        # **確認済みの印は落とす** (編集したら送れない、を保つため)。
+        # 代わりに「送り終えた」ほうへ移す
         self._confirmed_text = None
+        if not result.aborted and sent_pair is not None:
+            # **最後まで送れたものだけ覚える。** 途中で止めたものは
+            # 「送れた」とは言えない。**中止しても、それより前に完了した
+            # 記録は消さない** — 打鍵側のお墨付きは今回の中止で無効に
+            # なるわけではない (意図的、2026-08-13 最終レビュー Minor 7)。
+            self._sent_ok.add(sent_pair)
         if result.aborted:
             if result.reason == "stop":
                 # **運用者自身が止めた。** 接続は生きているので繋ぎ直さない。

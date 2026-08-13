@@ -36,6 +36,8 @@ from src.tokens.morse_tokens import (
     EUROPEAN_CHAR_TO_CODE,
     JAPANESE_CHAR_TO_CODES,
     SPECIAL_INPUT_MARKERS,
+    TX_INPUT_MARKERS,
+    TX_ONLY_EUROPEAN_CHAR_TO_CODE,
     WORD_BREAK_CODE,
     text_to_codes,
 )
@@ -66,13 +68,23 @@ DANRAKU = "。"
 # ``find_unsendable`` の位置解決 (``text.index(segment.text, offset)``) が壊れる。
 _JAPANESE_TX_CHARS: frozenset[str] = frozenset(JAPANESE_CHAR_TO_CODES) | {SPAN_CLOSE}
 
+# 欧文の送信可能文字。**符号表を書き写さない** (アーキテクチャ原則 2)。受信語彙の
+# EUROPEAN_CHAR_TO_CODE に、送信専用の記号表 (TX_ONLY_EUROPEAN_CHAR_TO_CODE) を足す。
+# 受信は従来どおり EUROPEAN_CHAR_TO_CODE だけなので、これらの符号を受けたときは
+# ? (TABLE_MISS) になる (RX 側は変更しない)。
+_EUROPEAN_TX_CHARS: frozenset[str] = frozenset(EUROPEAN_CHAR_TO_CODE) | frozenset(
+    TX_ONLY_EUROPEAN_CHAR_TO_CODE
+)
+
 
 def _as_danraku(text: str) -> str:
     """符号化の直前に `」` を段落へ読み替える (1 文字 → 1 文字)."""
     return text.replace(SPAN_CLOSE, DANRAKU)
 
 
-_MARKER_RE = re.compile("|".join(re.escape(m) for m in SPECIAL_INPUT_MARKERS))
+# 送信側は {KAKKO}/{TOJI} (送信専用の括弧マーカー) も通す。受信語彙には無いので
+# SPECIAL_INPUT_MARKERS だけの合成器・受信側には影響しない。
+_MARKER_RE = re.compile("|".join(re.escape(m) for m in TX_INPUT_MARKERS))
 
 # 和文表にしか無い文字 (カタカナ・句読点・濁点等)。モード推定の手掛かりにする。
 # **符号表を書き写さず、そこから作る** (アーキテクチャ原則 2)。数字や `-` のように
@@ -255,12 +267,10 @@ def find_unsendable(text: str) -> tuple[BadChar, ...]:
         # segment の開始位置を元テキスト上で求め直す (マーカーを含むため)
         start = text.index(segment.text, offset)
         offset = start + len(segment.text)
-        # 和文側は `」` を段落の別名として通す (``_JAPANESE_TX_CHARS``)
-        table = (
-            EUROPEAN_CHAR_TO_CODE
-            if segment.mode == "european"
-            else _JAPANESE_TX_CHARS
-        )
+        # 和文側は `」` を段落の別名として通す (``_JAPANESE_TX_CHARS``)。
+        # 欧文側は送信専用の記号 (``TX_ONLY_EUROPEAN_CHAR_TO_CODE``) も通す
+        # (``_EUROPEAN_TX_CHARS``)。
+        table = _EUROPEAN_TX_CHARS if segment.mode == "european" else _JAPANESE_TX_CHARS
         i = 0
         while i < len(segment.text):
             marker = _MARKER_RE.match(segment.text, i)
@@ -289,7 +299,9 @@ def encode(text: str) -> list[str]:
     segments = split_segments(text)
     codes: list[str] = []
     for i, segment in enumerate(segments):
-        codes.extend(text_to_codes(_as_danraku(segment.text), segment.mode))  # type: ignore[arg-type]
+        codes.extend(text_to_codes(  # type: ignore[arg-type]
+            _as_danraku(segment.text), segment.mode, include_tx_only=True
+        ))
         # ``「…」`` の直前など、segment が空白で終わるとき、text_to_codes は
         # その末尾の WORD_BREAK を「意味なし」として削ってしまう (符号表側の
         # 既存仕様。1 segment だけを見ているので、後ろに続きがあることを

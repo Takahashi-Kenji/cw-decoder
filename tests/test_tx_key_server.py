@@ -33,8 +33,21 @@ def test_マーカーの無い文はそのまま数える() -> None:
     assert visible_length("CQ DE JA1ABC") == 12
 
 
+def test_送信専用マーカーも1文字と数える() -> None:
+    # {KAKKO}/{TOJI} は SPECIAL_INPUT_MARKERS ではなく TX_ONLY_MARKERS 由来。
+    # ここを数え損ねると "{KAKKO}アイ{TOJI}" が 4 文字ではなく 15 文字になる。
+    assert visible_length("{KAKKO}アイ{TOJI}") == 4
+
+
 def test_送れる文が要素列になる() -> None:
     sequence = prepare("CQ DE JA1ABC K", 20.0, max_duration_s=120.0)
+    assert sequence.durations.size > 0
+    assert sequence.total_seconds > 0.0
+
+
+def test_送信専用の記号を含む文が要素列になる() -> None:
+    """送信専用の記号 (設計書 2026-08-13-tx-only-chars-design.md) は key_server 経由でも拒否されない."""
+    sequence = prepare('CQ (TEST) "73" K', 20.0, max_duration_s=120.0)
     assert sequence.durations.size > 0
     assert sequence.total_seconds > 0.0
 

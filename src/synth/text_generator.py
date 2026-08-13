@@ -42,7 +42,7 @@ _NAMES: Final[tuple[str, ...]] = (
     "TARO", "JIRO", "KEN", "HIRO", "TOSHI", "YOSHI", "AKI", "TETSU",
 )
 _QTH: Final[tuple[str, ...]] = (
-    "TOKYO", "OSAKA", "KANAGAWA", "YOKOHAMA", "SENDAI", "SAPPORO", "FUKUOKA",
+    "TOKYO", "OSAKA", "KANAGAWA", "SENDAI", "YOKOHAMA", "SAPPORO", "FUKUOKA",
 )
 
 EuropeanPattern = Literal[

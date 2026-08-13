@@ -31,7 +31,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from src.tokens.morse_tokens import JAPANESE_CHAR_TO_CODES, SPECIAL_INPUT_MARKERS
+from src.tokens.morse_tokens import JAPANESE_CHAR_TO_CODES, TX_INPUT_MARKERS
 from src.tx.profile import OperatorProfile
 
 # 小書き文字は和文モールスに無いので大書きへ倒す。
@@ -70,7 +70,9 @@ PUNCTUATION_MAP: dict[str, str] = {
 # `」` は明示的に通さないと `「FT991」` の閉じが送れなくなる。
 _SENDABLE: frozenset[str] = frozenset(JAPANESE_CHAR_TO_CODES) | frozenset(" 「」")
 
-_MARKER_RE = re.compile("|".join(re.escape(m) for m in SPECIAL_INPUT_MARKERS))
+# {KAKKO}/{TOJI} (送信専用の括弧マーカー) も素通りさせる。変換自体はこの層の
+# 責務ではなく、符号化 (encoder.encode) がまとめて解釈する。
+_MARKER_RE = re.compile("|".join(re.escape(m) for m in TX_INPUT_MARKERS))
 
 
 @dataclass(frozen=True)

@@ -283,6 +283,31 @@ JAPANESE_CHAR_TO_CODES: Final[dict[str, tuple[str, ...]]] = _build_japanese_char
 
 
 # ============================================================
+# 送信専用の補助表 (受信語彙に無い符号。送信は NN を通らないので送れる)
+# ============================================================
+# **トークン集合には入れない。** 入れると ID がずれて学習済みモデルが無意味になる
+# (tests/test_tx_only_chars.py の TestTokenSetUnchanged が歯止め)。
+# 出典は tests/data/eGov_morse_reference.py の EGOV_EUROPEAN_PUNCT_TX_ONLY と
+# EGOV_JAPANESE_BRACKETS_NOT_IN_VOCAB を参照 (照合テストあり)。
+# 受信側は従来どおり: これらの符号を受けたときは ? (TABLE_MISS) になる。
+TX_ONLY_EUROPEAN_CHAR_TO_CODE: Final[dict[str, str]] = {
+    ":": "---・・・",
+    "'": "・----・",
+    '"': "・-・・-・",   # 和文の上向き括弧と同符号
+    "(": "-・--・",      # プロサイン KN と同符号
+    ")": "-・--・-",     # 和文の下向き括弧と同符号
+    "×": "-・・-",       # 乗算記号。X と同符号
+}
+
+# 和文の本物の括弧。文字 「」 は欧文区間マーカー・段落の別名として既に
+# 使われているため、{HORE} と同じ中括弧マーカーで入力する。
+TX_ONLY_MARKERS: Final[dict[str, str]] = {
+    "{KAKKO}": "-・--・-",   # 下向き括弧 「
+    "{TOJI}": "・-・・-・",   # 上向き括弧 」
+}
+
+
+# ============================================================
 # 特殊マーカー (合成入力用)
 # ============================================================
 # プロサインや和文専用記号は ``[XX]`` 表記のため、表の逆引きには含まれない.
@@ -293,12 +318,16 @@ SPECIAL_INPUT_MARKERS: Final[dict[str, str]] = {
     "{SK}":   "・・・-・-",      # 交信終了
 }
 
+# 送信側が使うマーカー全集合。**合成器は SPECIAL_INPUT_MARKERS だけを見る**
+# ({KAKKO}/{TOJI} の符号は語彙に無く、ラベル生成に流れると TOKEN_TO_ID で落ちる)。
+TX_INPUT_MARKERS: Final[dict[str, str]] = {**SPECIAL_INPUT_MARKERS, **TX_ONLY_MARKERS}
+
 
 # ============================================================
 # 公開 API
 # ============================================================
 def text_to_codes(
-    text: str, mode: Mode, emit_word_breaks: bool = True
+    text: str, mode: Mode, emit_word_breaks: bool = True, include_tx_only: bool = False
 ) -> list[str]:
     """テキストを符号列に変換 (合成器用).
 
@@ -307,9 +336,17 @@ def text_to_codes(
     - ``{HORE}`` / ``{RATA}`` / ``{SK}`` の中括弧マーカーは特殊符号に展開
     - スペース: ``emit_word_breaks=True`` (デフォルト) なら ``WORD_BREAK_CODE``
       を 1 つ emit. ``False`` ならスキップ (旧挙動).
+    - ``include_tx_only=True`` (送信側専用) なら送信専用表とマーカーもマージして解釈
     """
     codes: list[str] = []
-    char_to_code = EUROPEAN_CHAR_TO_CODE if mode == "european" else None
+    markers = TX_INPUT_MARKERS if include_tx_only else SPECIAL_INPUT_MARKERS
+    char_to_code: dict[str, str] | None = None
+    if mode == "european":
+        char_to_code = (
+            {**EUROPEAN_CHAR_TO_CODE, **TX_ONLY_EUROPEAN_CHAR_TO_CODE}
+            if include_tx_only
+            else EUROPEAN_CHAR_TO_CODE
+        )
     char_to_codes_ja = JAPANESE_CHAR_TO_CODES if mode == "japanese" else None
     # 大文字化はマーカーが既に大文字なので safe
     work = text.upper() if mode == "european" else text
@@ -318,7 +355,7 @@ def text_to_codes(
     while i < n:
         # 特殊マーカーを優先マッチ
         matched = False
-        for marker, code in SPECIAL_INPUT_MARKERS.items():
+        for marker, code in markers.items():
             if work.startswith(marker, i):
                 codes.append(code)
                 i += len(marker)
@@ -374,6 +411,9 @@ __all__ = [
     "JAPANESE_TABLE",
     "Mode",
     "TOKEN_TO_ID",
+    "TX_INPUT_MARKERS",
+    "TX_ONLY_EUROPEAN_CHAR_TO_CODE",
+    "TX_ONLY_MARKERS",
     "Token",
     "UNIFIED_TOKENS",
     "VOCAB_SIZE",

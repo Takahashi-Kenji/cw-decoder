@@ -18,6 +18,8 @@ from src.tokens.morse_tokens import (
     EUROPEAN_CHAR_TO_CODE,
     JAPANESE_CHAR_TO_CODES,
     SPECIAL_INPUT_MARKERS,
+    TX_ONLY_EUROPEAN_CHAR_TO_CODE,
+    TX_ONLY_MARKERS,
 )
 
 # 指紋の桁数。人が目で読んで違いに気づける程度で足りる。
@@ -37,6 +39,13 @@ def tokens_fingerprint() -> str:
         digest.update(f"J{char}={'|'.join(codes)}\n".encode())
     for marker, code in sorted(SPECIAL_INPUT_MARKERS.items()):
         digest.update(f"M{marker}={code}\n".encode())
+    # 送信専用表も送れる文字の集合を変える。ここに入れないと、片方の PC だけ
+    # 更新されても指紋が一致してしまい、この指紋が防ぐはずの不一致警告が
+    # 出なくなる (打鍵側が新しい文字を撥ねるのに、アプリは気づけない)。
+    for char, code in sorted(TX_ONLY_EUROPEAN_CHAR_TO_CODE.items()):
+        digest.update(f"X{char}={code}\n".encode())
+    for marker, code in sorted(TX_ONLY_MARKERS.items()):
+        digest.update(f"T{marker}={code}\n".encode())
     return digest.hexdigest()[:FINGERPRINT_LENGTH]
 
 

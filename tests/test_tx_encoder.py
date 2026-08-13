@@ -371,3 +371,39 @@ class TestWrapJapanese:
     def test_wrapping_adds_the_prosigns(self) -> None:
         """囲むとホレとラタが**符号として増える** (相手の切替のため)."""
         assert len(encode(wrap_japanese("コンニチハ"))) == len(encode("コンニチハ")) + 2
+
+
+class TestTxOnlyChars:
+    """送信専用符号 (設計書 2026-08-13-tx-only-chars-design.md)."""
+
+    def test_欧文の記号が送信可能判定(self) -> None:
+        assert find_unsendable('CQ (TEST) "73" RIG:IC7610 5 × 9') == ()
+
+    def test_欧文の記号が符号化される(self) -> None:
+        assert encode("(A)") == ["-・--・", "・-", "-・--・-"]
+
+    def test_和文括弧マーカーが送信可能判定(self) -> None:
+        assert find_unsendable("{HORE}アイ {KAKKO}アイ{TOJI} ウエ") == ()
+
+    def test_和文括弧マーカーが符号化される(self) -> None:
+        got = encode("{HORE}{KAKKO}ア{TOJI}")
+        assert got[-3:] == ["-・--・-", "--・--", "・-・・-・"]
+
+    def test_括弧マーカーはホレの外でも使える(self) -> None:
+        # {KAKKO}/{TOJI} は {HORE} 文脈に限らず、どこでもマーカーとして解釈される
+        got = encode("CQ {KAKKO}")
+        assert got[-1] == "-・--・-"
+
+    def test_欧文区間の意味は不変(self) -> None:
+        # 「…」 は今までどおり「中身を欧文で送り、閉じは段落」である。
+        # 上向き括弧の符号 (・-・・-・) は出ない。下向き括弧の符号
+        # (-・--・-) はこのテキストには括弧も ")" も無いので触れない
+        # (")" と同符号のため、単純な不在アサートは別の理由で通ってしまい
+        # 検証にならない)
+        got = encode("{HORE}ア「A」イ")
+        assert got.count("・-・-・・") == 1   # 段落 (区間の閉じ) がちょうど 1 回
+        assert "・-・・-・" not in got        # 上向き括弧の符号は出ない
+
+    def test_和文モードで生の括弧文字は従来どおり送れない(self) -> None:
+        bad = find_unsendable("{HORE}ア(イ)")
+        assert [b.char for b in bad] == ["(", ")"]
