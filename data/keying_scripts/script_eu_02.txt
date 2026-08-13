@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 18.4
+wpm: 24
+---
+RST 599 CQ CQ CQ DE JH0ILL JH0ILL K

@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 19.0
+wpm: 24
+---
+QSO DATE 2026-08-03 1200Z +

@@ -1,0 +1,6 @@
+mode: european
+estimated_duration_s: 10.3
+wpm: 24
+label_note: 実際に打鍵していない {HORE}/{RATA}/{SK} をラベルから除去 (2026-08-03)
+---
+TU ES 73 QSL? QSL?

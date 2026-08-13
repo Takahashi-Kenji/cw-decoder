@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 14.2
+wpm: 20
+---
+ヰ、ヱ、ヌ、ヲ、ン、ヌノ、イヌ

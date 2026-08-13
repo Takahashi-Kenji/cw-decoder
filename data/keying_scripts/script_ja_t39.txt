@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 14.5
+wpm: 24
+---
+デンワ ハ 026-123-4567。

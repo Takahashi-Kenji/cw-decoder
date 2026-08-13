@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 19.9
+wpm: 16
+---
+QRZ? QRZ? DE JA1ABC PSE K

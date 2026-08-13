@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 16.5
+wpm: 24
+---
+サイキン ハ ワブン ノ レンシユウ ヲ シテ イマス

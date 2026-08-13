@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 16.8
+wpm: 24
+---
+QRA TOKYO, OSAKA, NAGOYA, KOBE

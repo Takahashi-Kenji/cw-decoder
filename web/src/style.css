@@ -1,0 +1,96 @@
+:root {
+  font-family: system-ui, sans-serif;
+  line-height: 1.6;
+}
+
+body {
+  margin: 0;
+  padding: 1.5rem;
+  background: #14171a;
+  color: #e8e8e8;
+}
+
+.controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+button {
+  padding: 0.5rem 1.2rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+canvas {
+  width: 100%;
+  max-width: 640px;
+  background: #0b0d0f;
+  border: 1px solid #333;
+}
+
+.level,
+.diag {
+  color: #9aa0a6;
+  font-size: 0.85rem;
+}
+
+.output {
+  margin-top: 1.5rem;
+}
+
+.output h2 {
+  font-size: 0.9rem;
+  color: #9aa0a6;
+  margin-bottom: 0.25rem;
+}
+
+.text {
+  font-family: ui-monospace, monospace;
+  font-size: 1.4rem;
+  letter-spacing: 0.05em;
+  /* 無音による改行 (
+) をそのまま表示する。既定の HTML は改行を潰すので、
+     これが無いと改行機能が画面上まったく効かない */
+  white-space: pre-wrap;
+  word-break: break-all;
+  min-height: 3rem;
+  margin: 0;
+}
+
+/* 確定は通常色、暫定はグレー (後から変わる可能性がある) */
+.committed {
+  color: #e8e8e8;
+}
+
+.provisional {
+  color: #6b7076;
+}
+
+/* 「?」は由来をツールチップで確認できる (TABLE_MISS = 変換表に該当なし) */
+.fallback {
+  color: #d08a3e;
+  cursor: help;
+}
+
+/* 確信度不足 (LOW_CONFIDENCE) の文字。「?」ではなく最尤の文字を薄く出す。
+   確定テキスト自体は変えていない (CER は悪化しない) ので、これは表示だけの区別。 */
+.uncertain {
+  color: #d08a3e;
+  opacity: 0.55;
+  cursor: help;
+}
+
+/* スキッシュ閾値の現在値。狭いと桁数で幅が揺れて隣がガタつくので固定幅 */
+.squelch-value {
+  display: inline-block;
+  min-width: 3.5em;
+  color: #ff8c1e;
+  font-variant-numeric: tabular-nums;
+}
+
+.controls input[type='range'] {
+  width: 90px;
+  vertical-align: middle;
+}

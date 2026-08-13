@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 16.1
+wpm: 20
+---
+SRI QRM QSY 7046 KHZ PSE +

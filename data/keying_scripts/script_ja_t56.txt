@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 16.8
+wpm: 24
+---
+2026-08-03、1200 デス

@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 14.6
+wpm: 24
+---
+ハジメマシテ、ヨロシク オネガイ シマス

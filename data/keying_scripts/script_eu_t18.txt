@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 19.4
+wpm: 20
+---
+ANT 3EL YAGI UP 12M = PWR 100W

@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 17.4
+wpm: 20
+---
+JA1ABC/P DE JR2GHI R R FB TNX

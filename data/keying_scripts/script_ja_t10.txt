@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 16.2
+wpm: 16
+---
+アンテナ ハ ダイポール デス

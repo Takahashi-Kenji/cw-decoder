@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 15.2
+wpm: 20
+---
+シンゴウ ハ ヨワイ デス ガ トレマス

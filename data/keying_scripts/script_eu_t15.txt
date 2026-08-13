@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 17.4
+wpm: 16
+---
+GE OM UR RST 469 NAME TAK +

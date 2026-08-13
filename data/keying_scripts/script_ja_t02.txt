@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 15.9
+wpm: 16
+---
+オハヨウ ゴザイマス、ドウゾ

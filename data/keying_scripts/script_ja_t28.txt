@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 18.4
+wpm: 20
+---
+スコシ ハヤイ デス、モウ スコシ ユツクリ

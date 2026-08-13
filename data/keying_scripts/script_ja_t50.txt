@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 18.0
+wpm: 20
+---
+コーヒー、ケーキ、ビール、ラーメン

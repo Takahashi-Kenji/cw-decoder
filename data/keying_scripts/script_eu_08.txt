@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 14.2
+wpm: 24
+---
+CQ CQ CQ DE JF1GL JF1GL K

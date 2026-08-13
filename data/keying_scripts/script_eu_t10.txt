@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 17.8
+wpm: 16
+---
+TNX VY FB QSO OM 73 ES GL

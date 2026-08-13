@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cw-decoder"
+version = "0.1.0"
+description = "AIモールス信号デコーダ (Phase 1: 符号トークン体系 + 合成データジェネレータ)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "JH0ILL" }]
+
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "torch>=2.7",
+    "torchaudio>=2.7",
+    "soundfile>=0.12",
+    "sounddevice>=0.5",
+    "soxr>=0.5",
+    "PySide6>=6.7",
+    "pyqtgraph>=0.13",
+    "httpx>=0.27",
+    "python-dotenv>=1.0",
+    # 送信 (拡張機能)。どちらも純 Python・オフライン動作
+    "pyserial>=3.5",      # DTR/RTS で電鍵を叩く
+    "pykakasi>=2.2",      # 漢字かな交じり → カタカナ (和文は送信できる文字が限られる)
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "ruff>=0.4",
+    "onnx>=1.16",
+    "onnxruntime>=1.18",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "RUF001", "RUF002", "RUF003",  # 日本語コメント中の全角記号を許容
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B018"]

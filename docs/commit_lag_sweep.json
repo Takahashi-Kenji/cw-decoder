@@ -1,0 +1,62 @@
+[
+  {
+    "commit_lag_s": 0.5,
+    "n_files": 90,
+    "n_reference_tokens": 2009,
+    "match_rate": 0.011111111111111112,
+    "cer": 0.18018914883026382,
+    "match_rate_with_finalize": 0.011111111111111112,
+    "cer_with_finalize": 0.17949975478175575,
+    "n_reference_tokens_full": 2039
+  },
+  {
+    "commit_lag_s": 0.75,
+    "n_files": 90,
+    "n_reference_tokens": 2009,
+    "match_rate": 0.24444444444444444,
+    "cer": 0.06819313091090094,
+    "match_rate_with_finalize": 0.24444444444444444,
+    "cer_with_finalize": 0.06817067189798921,
+    "n_reference_tokens_full": 2039
+  },
+  {
+    "commit_lag_s": 1.0,
+    "n_files": 90,
+    "n_reference_tokens": 2009,
+    "match_rate": 0.6,
+    "cer": 0.02887008461921354,
+    "match_rate_with_finalize": 0.5888888888888889,
+    "cer_with_finalize": 0.029426189308484552,
+    "n_reference_tokens_full": 2039
+  },
+  {
+    "commit_lag_s": 1.5,
+    "n_files": 90,
+    "n_reference_tokens": 2009,
+    "match_rate": 0.6777777777777778,
+    "cer": 0.018914883026381283,
+    "match_rate_with_finalize": 0.6555555555555556,
+    "cer_with_finalize": 0.0196174595389897,
+    "n_reference_tokens_full": 2039
+  },
+  {
+    "commit_lag_s": 2.0,
+    "n_files": 90,
+    "n_reference_tokens": 2009,
+    "match_rate": 0.7333333333333333,
+    "cer": 0.01443504230960677,
+    "match_rate_with_finalize": 0.7111111111111111,
+    "cer_with_finalize": 0.015203531142717018,
+    "n_reference_tokens_full": 2039
+  },
+  {
+    "commit_lag_s": 2.5,
+    "n_files": 90,
+    "n_reference_tokens": 2009,
+    "match_rate": 0.8111111111111111,
+    "cer": 0.009955201592832254,
+    "match_rate_with_finalize": 0.7888888888888889,
+    "cer_with_finalize": 0.010789602746444336,
+    "n_reference_tokens_full": 2039
+  }
+]

@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 17.7
+wpm: 24
+---
+ハチ、キユウ、ゼロ、1234567890。

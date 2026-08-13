@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 18.1
+wpm: 16
+---
+コンデイシヨン ガ ワルイ デス ネ

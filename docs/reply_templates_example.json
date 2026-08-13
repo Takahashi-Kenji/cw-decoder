@@ -1,0 +1,54 @@
+{
+  "templates": [
+    {
+      "name": "CQ (欧文)",
+      "mode": "european",
+      "text": "CQ CQ CQ DE {自局コール} {自局コール} {自局コール} PSE K"
+    },
+    {
+      "name": "CQ (和文)",
+      "mode": "japanese",
+      "text": "CQ CQ CQ DE {自局コール} {自局コール} {HORE}ワブン ドウゾ{RATA} K"
+    },
+    {
+      "name": "応答 (欧文)",
+      "mode": "european",
+      "text": "{相手コール} DE {自局コール} GM UR RST {RST} {RST} TNX FER CALL HW? {相手コール} DE {自局コール} K"
+    },
+    {
+      "name": "応答 (和文)",
+      "mode": "japanese",
+      "text": "{相手コール} DE {自局コール} RST {RST} {HORE}コンニチハ、ナマエ ハ {名前}、キョウテン ハ {QTH} デス、ヨロシク オネガイシマス{RATA} K"
+    },
+    {
+      "name": "レポート交換",
+      "mode": "european",
+      "text": "{相手コール} DE {自局コール} R R TNX FER RPT UR RST {RST} {RST} K"
+    },
+    {
+      "name": "設備の紹介",
+      "mode": "japanese",
+      "text": "{相手コール} DE {自局コール} {HORE}リグ ハ {リグ}、アンテナ ハ {アンテナ}、シュツリョク ハ {出力} デス、ヨロシク{RATA} K"
+    },
+    {
+      "name": "天気の話",
+      "mode": "japanese",
+      "text": "{相手コール} DE {自局コール} {HORE}コチラ ノ テンキ ハ ハレ デス、ソチラ ハ イカガ デスカ{RATA} K"
+    },
+    {
+      "name": "もう一度お願い",
+      "mode": "any",
+      "text": "{相手コール} DE {自局コール} PSE AGN AGN K"
+    },
+    {
+      "name": "締め (欧文)",
+      "mode": "european",
+      "text": "{相手コール} DE {自局コール} TNX FER NICE QSO CUAGN 73 73 {相手コール} DE {自局コール} SK"
+    },
+    {
+      "name": "締め (和文)",
+      "mode": "japanese",
+      "text": "{相手コール} DE {自局コール} {HORE}コウシン アリガトウ ゴザイマシタ、マタ ヨロシク オネガイシマス{RATA} 73 SK"
+    }
+  ]
+}

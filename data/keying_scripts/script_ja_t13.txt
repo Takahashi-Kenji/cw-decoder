@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 15.1
+wpm: 24
+---
+コチラ ハ アメ デス、スコシ サムイ デス

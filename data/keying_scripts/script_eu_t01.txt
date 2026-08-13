@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 16.1
+wpm: 16
+---
+CQ CQ CQ DE JA1ABC K

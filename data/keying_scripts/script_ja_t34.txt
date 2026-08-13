@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 17.7
+wpm: 16
+---
+ミナサン オゲンキ デ、サヨウナラ

@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 18.5
+wpm: 20
+---
+QSL INFO@JARL.OR.JP TNX 73

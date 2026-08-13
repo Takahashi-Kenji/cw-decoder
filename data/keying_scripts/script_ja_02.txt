@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 11.8
+wpm: 24
+---
+オハヨウ、アツイ デス、シカタ ナイ

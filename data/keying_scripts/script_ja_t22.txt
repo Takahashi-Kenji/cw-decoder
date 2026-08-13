@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 14.1
+wpm: 16
+---
+コレデ オワリ マス、73

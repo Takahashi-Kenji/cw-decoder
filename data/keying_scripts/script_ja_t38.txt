@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 17.9
+wpm: 20
+---
+シユウハスウ ハ 7-0-3-5 キロヘルツ

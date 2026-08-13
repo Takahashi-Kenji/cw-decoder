@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 14.1
+wpm: 24
+---
+UR RST 479 NAME TOSHI QTH KANAGAWA

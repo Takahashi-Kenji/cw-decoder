@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 18.9
+wpm: 24
+---
+NR 1-2-3, 4-5-6, 7-8-9, 0

@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 17.3
+wpm: 24
+---
+ケータイ ハ 090-1234-5678 デス

@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 16.7
+wpm: 24
+---
+FREQ 7,025.5 KHZ QSY? PSE RPT

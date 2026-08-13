@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 16.3
+wpm: 20
+---
+テンキ ハ クモリ、カゼ ガ ツヨイ デス

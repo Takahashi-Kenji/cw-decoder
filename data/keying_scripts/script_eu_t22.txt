@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 18.4
+wpm: 16
+---
+HW? QSL? QRZ? TU? OK?

@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 17.2
+wpm: 24
+---
+QRZ? QRL? FM7Y6GGB RST 559 QSO

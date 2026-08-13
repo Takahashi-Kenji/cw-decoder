@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 16.4
+wpm: 24
+---
+MY MAIL JR3GHI@JARL.COM, UR?

@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 16.8
+wpm: 16
+---
+マイニチ アツクテ タイヘン デス ネ

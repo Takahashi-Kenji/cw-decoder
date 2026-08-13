@@ -1,0 +1,84 @@
+# 試聴サンプル・学習データ・モデル
+data/samples/
+data/eval/
+data/real/
+# 打鍵録音・実ノイズ WAV は大容量のため除外 (原稿 TXT は追跡)
+data/keying_scripts/*.wav
+data/keyed_extra/*.wav
+data/noise/
+# models/ 配下は原則無視するが、推論専用の軽量チェックポイントだけは追跡する。
+# (親ディレクトリを除外したままだと個別ファイルを戻せないため段階的に展開)
+models/*
+!models/full/
+models/full/*
+!models/full/best_infer.pt
+
+# ブラウザ版デコーダ (web/) のビルド生成物・エクスポート済み ONNX
+web/public/model/*.onnx
+web/node_modules/
+web/dist/
+web/.vite/
+# LAN 配信用の自己署名証明書 (秘密鍵を含む。scripts/make-lan-cert.sh で各自生成する)
+web/certs/
+# Playwright MCP の作業ディレクトリ (スナップショット・スクリーンショット)
+.playwright-mcp/
+
+# Python 仮想環境・キャッシュ
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# 配布・ビルド
+build/
+dist/
+*.egg-info/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Cipher セッション (上位に既存)
+data/cipher-sessions.db*
+
+# ログ・実験出力
+runs/
+logs/
+*.log
+
+# デコード結果のアドホック実験出力
+decode_result*.txt
+*_decode.txt
+
+# ユーザー提供の試聴 WAV (音声データはリポジトリに含めない)
+sample_wav/
+
+# Claude Code セッション内部ファイル
+.claude/scheduled_tasks.lock
+.claude/scheduled_tasks.json
+
+# LLM API キー (機密)
+.env
+
+# リポジトリ直下に置いた作業用 WAV (data/ に配置したものが正)
+/*.wav
+
+# 外部レビュー・改善指示のアドホック文書 (ローカル運用)
+/CLAUDE_CODE_IMPROVEMENT_INSTRUCTIONS.md
+/CODEX_REVIEW_*.md
+/docs/accuracy-improvement-evaluation-and-roadmap.md
+
+# 打鍵録音のアップロード元 (取り込み後は data/real/train が正)
+data/欧文/
+data/和文/

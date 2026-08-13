@@ -1,0 +1,1772 @@
+{
+  "ckpt": "models/full/best.pt",
+  "keyed_dir": "data/keying_scripts",
+  "diagnosis": {
+    "correct_word_breaks": {
+      "confidence": {
+        "n": 65,
+        "min": 0.6016519069671631,
+        "p25": 0.9973130822181702,
+        "median": 0.9998217225074768,
+        "p75": 0.99994957447052,
+        "max": 0.9999924898147583,
+        "mean": 0.9777291893959046
+      },
+      "frame_run_length": {
+        "n": 65,
+        "min": 1.0,
+        "p25": 2.0,
+        "median": 3.0,
+        "p75": 3.0,
+        "max": 3.0,
+        "mean": 2.4615384615384617
+      }
+    },
+    "false_word_breaks": {
+      "confidence": {
+        "n": 48,
+        "min": 0.4878194332122803,
+        "p25": 0.849329948425293,
+        "median": 0.9886881411075592,
+        "p75": 0.9974943250417709,
+        "max": 0.9999527931213379,
+        "mean": 0.8981914979716142
+      },
+      "frame_run_length": {
+        "n": 48,
+        "min": 1.0,
+        "p25": 1.0,
+        "median": 2.0,
+        "p75": 3.0,
+        "max": 3.0,
+        "mean": 2.0208333333333335
+      }
+    }
+  },
+  "baseline_point": {
+    "beta": 0.0,
+    "tau": 0.0,
+    "ter": 0.23354564755838642,
+    "substitutions": 34,
+    "deletions": 23,
+    "insertions": 53,
+    "word_break_insertions": 33,
+    "word_break_deletions": 11,
+    "by_mode": {
+      "european": 0.18072289156626506,
+      "japanese": 0.2927927927927928
+    }
+  },
+  "best_point": {
+    "beta": -3.0,
+    "tau": 0.95,
+    "ter": 0.1932059447983015,
+    "substitutions": 20,
+    "deletions": 46,
+    "insertions": 25,
+    "word_break_insertions": 7,
+    "word_break_deletions": 30,
+    "by_mode": {
+      "european": 0.18473895582329317,
+      "japanese": 0.20270270270270271
+    }
+  },
+  "plateau": true,
+  "improvement_pt": 4.033970276008492,
+  "points": [
+    {
+      "beta": 0.0,
+      "tau": 0.0,
+      "ter": 0.23354564755838642,
+      "substitutions": 34,
+      "deletions": 23,
+      "insertions": 53,
+      "word_break_insertions": 33,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.2927927927927928
+      }
+    },
+    {
+      "beta": 0.0,
+      "tau": 0.1,
+      "ter": 0.23354564755838642,
+      "substitutions": 34,
+      "deletions": 23,
+      "insertions": 53,
+      "word_break_insertions": 33,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.2927927927927928
+      }
+    },
+    {
+      "beta": 0.0,
+      "tau": 0.2,
+      "ter": 0.23354564755838642,
+      "substitutions": 34,
+      "deletions": 23,
+      "insertions": 53,
+      "word_break_insertions": 33,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.2927927927927928
+      }
+    },
+    {
+      "beta": 0.0,
+      "tau": 0.3,
+      "ter": 0.23354564755838642,
+      "substitutions": 34,
+      "deletions": 23,
+      "insertions": 53,
+      "word_break_insertions": 33,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.2927927927927928
+      }
+    },
+    {
+      "beta": 0.0,
+      "tau": 0.4,
+      "ter": 0.23354564755838642,
+      "substitutions": 34,
+      "deletions": 23,
+      "insertions": 53,
+      "word_break_insertions": 33,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.2927927927927928
+      }
+    },
+    {
+      "beta": 0.0,
+      "tau": 0.5,
+      "ter": 0.23354564755838642,
+      "substitutions": 33,
+      "deletions": 24,
+      "insertions": 53,
+      "word_break_insertions": 33,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.2927927927927928
+      }
+    },
+    {
+      "beta": 0.0,
+      "tau": 0.6,
+      "ter": 0.22929936305732485,
+      "substitutions": 34,
+      "deletions": 24,
+      "insertions": 50,
+      "word_break_insertions": 30,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17670682730923695,
+        "japanese": 0.2882882882882883
+      }
+    },
+    {
+      "beta": 0.0,
+      "tau": 0.7,
+      "ter": 0.22505307855626328,
+      "substitutions": 33,
+      "deletions": 25,
+      "insertions": 48,
+      "word_break_insertions": 28,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.28378378378378377
+      }
+    },
+    {
+      "beta": 0.0,
+      "tau": 0.8,
+      "ter": 0.2208067940552017,
+      "substitutions": 31,
+      "deletions": 27,
+      "insertions": 46,
+      "word_break_insertions": 27,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2747747747747748
+      }
+    },
+    {
+      "beta": 0.0,
+      "tau": 0.9,
+      "ter": 0.21443736730360935,
+      "substitutions": 26,
+      "deletions": 32,
+      "insertions": 43,
+      "word_break_insertions": 25,
+      "word_break_deletions": 15,
+      "by_mode": {
+        "european": 0.17670682730923695,
+        "japanese": 0.25675675675675674
+      }
+    },
+    {
+      "beta": 0.0,
+      "tau": 0.95,
+      "ter": 0.208067940552017,
+      "substitutions": 26,
+      "deletions": 34,
+      "insertions": 38,
+      "word_break_insertions": 20,
+      "word_break_deletions": 17,
+      "by_mode": {
+        "european": 0.17670682730923695,
+        "japanese": 0.24324324324324326
+      }
+    },
+    {
+      "beta": 0.0,
+      "tau": 0.99,
+      "ter": 0.21231422505307856,
+      "substitutions": 24,
+      "deletions": 43,
+      "insertions": 33,
+      "word_break_insertions": 15,
+      "word_break_deletions": 27,
+      "by_mode": {
+        "european": 0.1927710843373494,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -0.5,
+      "tau": 0.0,
+      "ter": 0.22717622080679406,
+      "substitutions": 33,
+      "deletions": 25,
+      "insertions": 49,
+      "word_break_insertions": 29,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2882882882882883
+      }
+    },
+    {
+      "beta": -0.5,
+      "tau": 0.1,
+      "ter": 0.22717622080679406,
+      "substitutions": 33,
+      "deletions": 25,
+      "insertions": 49,
+      "word_break_insertions": 29,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2882882882882883
+      }
+    },
+    {
+      "beta": -0.5,
+      "tau": 0.2,
+      "ter": 0.22717622080679406,
+      "substitutions": 33,
+      "deletions": 25,
+      "insertions": 49,
+      "word_break_insertions": 29,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2882882882882883
+      }
+    },
+    {
+      "beta": -0.5,
+      "tau": 0.3,
+      "ter": 0.22717622080679406,
+      "substitutions": 33,
+      "deletions": 25,
+      "insertions": 49,
+      "word_break_insertions": 29,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2882882882882883
+      }
+    },
+    {
+      "beta": -0.5,
+      "tau": 0.4,
+      "ter": 0.22717622080679406,
+      "substitutions": 33,
+      "deletions": 25,
+      "insertions": 49,
+      "word_break_insertions": 29,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2882882882882883
+      }
+    },
+    {
+      "beta": -0.5,
+      "tau": 0.5,
+      "ter": 0.22717622080679406,
+      "substitutions": 33,
+      "deletions": 25,
+      "insertions": 49,
+      "word_break_insertions": 29,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2882882882882883
+      }
+    },
+    {
+      "beta": -0.5,
+      "tau": 0.6,
+      "ter": 0.22505307855626328,
+      "substitutions": 33,
+      "deletions": 25,
+      "insertions": 48,
+      "word_break_insertions": 28,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.28378378378378377
+      }
+    },
+    {
+      "beta": -0.5,
+      "tau": 0.7,
+      "ter": 0.2208067940552017,
+      "substitutions": 31,
+      "deletions": 27,
+      "insertions": 46,
+      "word_break_insertions": 27,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2747747747747748
+      }
+    },
+    {
+      "beta": -0.5,
+      "tau": 0.8,
+      "ter": 0.21443736730360935,
+      "substitutions": 28,
+      "deletions": 30,
+      "insertions": 43,
+      "word_break_insertions": 25,
+      "word_break_deletions": 13,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.26126126126126126
+      }
+    },
+    {
+      "beta": -0.5,
+      "tau": 0.9,
+      "ter": 0.21231422505307856,
+      "substitutions": 26,
+      "deletions": 34,
+      "insertions": 40,
+      "word_break_insertions": 22,
+      "word_break_deletions": 17,
+      "by_mode": {
+        "european": 0.17670682730923695,
+        "japanese": 0.25225225225225223
+      }
+    },
+    {
+      "beta": -0.5,
+      "tau": 0.95,
+      "ter": 0.208067940552017,
+      "substitutions": 28,
+      "deletions": 36,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 19,
+      "by_mode": {
+        "european": 0.18473895582329317,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -0.5,
+      "tau": 0.99,
+      "ter": 0.2059447983014862,
+      "substitutions": 21,
+      "deletions": 46,
+      "insertions": 30,
+      "word_break_insertions": 12,
+      "word_break_deletions": 29,
+      "by_mode": {
+        "european": 0.1927710843373494,
+        "japanese": 0.22072072072072071
+      }
+    },
+    {
+      "beta": -1.0,
+      "tau": 0.0,
+      "ter": 0.22505307855626328,
+      "substitutions": 33,
+      "deletions": 25,
+      "insertions": 48,
+      "word_break_insertions": 28,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.28378378378378377
+      }
+    },
+    {
+      "beta": -1.0,
+      "tau": 0.1,
+      "ter": 0.22505307855626328,
+      "substitutions": 33,
+      "deletions": 25,
+      "insertions": 48,
+      "word_break_insertions": 28,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.28378378378378377
+      }
+    },
+    {
+      "beta": -1.0,
+      "tau": 0.2,
+      "ter": 0.22505307855626328,
+      "substitutions": 33,
+      "deletions": 25,
+      "insertions": 48,
+      "word_break_insertions": 28,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.28378378378378377
+      }
+    },
+    {
+      "beta": -1.0,
+      "tau": 0.3,
+      "ter": 0.22505307855626328,
+      "substitutions": 33,
+      "deletions": 25,
+      "insertions": 48,
+      "word_break_insertions": 28,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.28378378378378377
+      }
+    },
+    {
+      "beta": -1.0,
+      "tau": 0.4,
+      "ter": 0.22505307855626328,
+      "substitutions": 33,
+      "deletions": 25,
+      "insertions": 48,
+      "word_break_insertions": 28,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.28378378378378377
+      }
+    },
+    {
+      "beta": -1.0,
+      "tau": 0.5,
+      "ter": 0.22505307855626328,
+      "substitutions": 33,
+      "deletions": 25,
+      "insertions": 48,
+      "word_break_insertions": 28,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.28378378378378377
+      }
+    },
+    {
+      "beta": -1.0,
+      "tau": 0.6,
+      "ter": 0.2208067940552017,
+      "substitutions": 31,
+      "deletions": 27,
+      "insertions": 46,
+      "word_break_insertions": 27,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2747747747747748
+      }
+    },
+    {
+      "beta": -1.0,
+      "tau": 0.7,
+      "ter": 0.21443736730360935,
+      "substitutions": 28,
+      "deletions": 30,
+      "insertions": 43,
+      "word_break_insertions": 25,
+      "word_break_deletions": 13,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.26126126126126126
+      }
+    },
+    {
+      "beta": -1.0,
+      "tau": 0.8,
+      "ter": 0.21019108280254778,
+      "substitutions": 26,
+      "deletions": 32,
+      "insertions": 41,
+      "word_break_insertions": 23,
+      "word_break_deletions": 15,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.25225225225225223
+      }
+    },
+    {
+      "beta": -1.0,
+      "tau": 0.9,
+      "ter": 0.208067940552017,
+      "substitutions": 28,
+      "deletions": 35,
+      "insertions": 35,
+      "word_break_insertions": 17,
+      "word_break_deletions": 18,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.23873873873873874
+      }
+    },
+    {
+      "beta": -1.0,
+      "tau": 0.95,
+      "ter": 0.21019108280254778,
+      "substitutions": 26,
+      "deletions": 39,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 23,
+      "by_mode": {
+        "european": 0.18875502008032127,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -1.0,
+      "tau": 0.99,
+      "ter": 0.20169851380042464,
+      "substitutions": 21,
+      "deletions": 46,
+      "insertions": 28,
+      "word_break_insertions": 10,
+      "word_break_deletions": 29,
+      "by_mode": {
+        "european": 0.1927710843373494,
+        "japanese": 0.21171171171171171
+      }
+    },
+    {
+      "beta": -1.5,
+      "tau": 0.0,
+      "ter": 0.2208067940552017,
+      "substitutions": 34,
+      "deletions": 26,
+      "insertions": 44,
+      "word_break_insertions": 25,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2747747747747748
+      }
+    },
+    {
+      "beta": -1.5,
+      "tau": 0.1,
+      "ter": 0.2208067940552017,
+      "substitutions": 34,
+      "deletions": 26,
+      "insertions": 44,
+      "word_break_insertions": 25,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2747747747747748
+      }
+    },
+    {
+      "beta": -1.5,
+      "tau": 0.2,
+      "ter": 0.2208067940552017,
+      "substitutions": 34,
+      "deletions": 26,
+      "insertions": 44,
+      "word_break_insertions": 25,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2747747747747748
+      }
+    },
+    {
+      "beta": -1.5,
+      "tau": 0.3,
+      "ter": 0.2208067940552017,
+      "substitutions": 34,
+      "deletions": 26,
+      "insertions": 44,
+      "word_break_insertions": 25,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2747747747747748
+      }
+    },
+    {
+      "beta": -1.5,
+      "tau": 0.4,
+      "ter": 0.2208067940552017,
+      "substitutions": 33,
+      "deletions": 27,
+      "insertions": 44,
+      "word_break_insertions": 25,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2747747747747748
+      }
+    },
+    {
+      "beta": -1.5,
+      "tau": 0.5,
+      "ter": 0.21868365180467092,
+      "substitutions": 33,
+      "deletions": 27,
+      "insertions": 43,
+      "word_break_insertions": 25,
+      "word_break_deletions": 11,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.2702702702702703
+      }
+    },
+    {
+      "beta": -1.5,
+      "tau": 0.6,
+      "ter": 0.21443736730360935,
+      "substitutions": 28,
+      "deletions": 30,
+      "insertions": 43,
+      "word_break_insertions": 25,
+      "word_break_deletions": 13,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.26126126126126126
+      }
+    },
+    {
+      "beta": -1.5,
+      "tau": 0.7,
+      "ter": 0.21231422505307856,
+      "substitutions": 26,
+      "deletions": 32,
+      "insertions": 42,
+      "word_break_insertions": 24,
+      "word_break_deletions": 15,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.25675675675675674
+      }
+    },
+    {
+      "beta": -1.5,
+      "tau": 0.8,
+      "ter": 0.208067940552017,
+      "substitutions": 26,
+      "deletions": 34,
+      "insertions": 38,
+      "word_break_insertions": 20,
+      "word_break_deletions": 17,
+      "by_mode": {
+        "european": 0.17670682730923695,
+        "japanese": 0.24324324324324326
+      }
+    },
+    {
+      "beta": -1.5,
+      "tau": 0.9,
+      "ter": 0.2059447983014862,
+      "substitutions": 26,
+      "deletions": 37,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 21,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -1.5,
+      "tau": 0.95,
+      "ter": 0.208067940552017,
+      "substitutions": 24,
+      "deletions": 40,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 24,
+      "by_mode": {
+        "european": 0.18473895582329317,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -1.5,
+      "tau": 0.99,
+      "ter": 0.19957537154989385,
+      "substitutions": 20,
+      "deletions": 49,
+      "insertions": 25,
+      "word_break_insertions": 7,
+      "word_break_deletions": 30,
+      "by_mode": {
+        "european": 0.19678714859437751,
+        "japanese": 0.20270270270270271
+      }
+    },
+    {
+      "beta": -2.0,
+      "tau": 0.0,
+      "ter": 0.208067940552017,
+      "substitutions": 26,
+      "deletions": 29,
+      "insertions": 43,
+      "word_break_insertions": 25,
+      "word_break_deletions": 14,
+      "by_mode": {
+        "european": 0.1646586345381526,
+        "japanese": 0.25675675675675674
+      }
+    },
+    {
+      "beta": -2.0,
+      "tau": 0.1,
+      "ter": 0.208067940552017,
+      "substitutions": 26,
+      "deletions": 29,
+      "insertions": 43,
+      "word_break_insertions": 25,
+      "word_break_deletions": 14,
+      "by_mode": {
+        "european": 0.1646586345381526,
+        "japanese": 0.25675675675675674
+      }
+    },
+    {
+      "beta": -2.0,
+      "tau": 0.2,
+      "ter": 0.208067940552017,
+      "substitutions": 26,
+      "deletions": 29,
+      "insertions": 43,
+      "word_break_insertions": 25,
+      "word_break_deletions": 14,
+      "by_mode": {
+        "european": 0.1646586345381526,
+        "japanese": 0.25675675675675674
+      }
+    },
+    {
+      "beta": -2.0,
+      "tau": 0.3,
+      "ter": 0.208067940552017,
+      "substitutions": 26,
+      "deletions": 29,
+      "insertions": 43,
+      "word_break_insertions": 25,
+      "word_break_deletions": 14,
+      "by_mode": {
+        "european": 0.1646586345381526,
+        "japanese": 0.25675675675675674
+      }
+    },
+    {
+      "beta": -2.0,
+      "tau": 0.4,
+      "ter": 0.208067940552017,
+      "substitutions": 26,
+      "deletions": 29,
+      "insertions": 43,
+      "word_break_insertions": 25,
+      "word_break_deletions": 14,
+      "by_mode": {
+        "european": 0.1646586345381526,
+        "japanese": 0.25675675675675674
+      }
+    },
+    {
+      "beta": -2.0,
+      "tau": 0.5,
+      "ter": 0.208067940552017,
+      "substitutions": 26,
+      "deletions": 29,
+      "insertions": 43,
+      "word_break_insertions": 25,
+      "word_break_deletions": 14,
+      "by_mode": {
+        "european": 0.1646586345381526,
+        "japanese": 0.25675675675675674
+      }
+    },
+    {
+      "beta": -2.0,
+      "tau": 0.6,
+      "ter": 0.2059447983014862,
+      "substitutions": 26,
+      "deletions": 30,
+      "insertions": 41,
+      "word_break_insertions": 23,
+      "word_break_deletions": 15,
+      "by_mode": {
+        "european": 0.1646586345381526,
+        "japanese": 0.25225225225225223
+      }
+    },
+    {
+      "beta": -2.0,
+      "tau": 0.7,
+      "ter": 0.20382165605095542,
+      "substitutions": 26,
+      "deletions": 32,
+      "insertions": 38,
+      "word_break_insertions": 20,
+      "word_break_deletions": 17,
+      "by_mode": {
+        "european": 0.1686746987951807,
+        "japanese": 0.24324324324324326
+      }
+    },
+    {
+      "beta": -2.0,
+      "tau": 0.8,
+      "ter": 0.20169851380042464,
+      "substitutions": 28,
+      "deletions": 33,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 18,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -2.0,
+      "tau": 0.9,
+      "ter": 0.2059447983014862,
+      "substitutions": 26,
+      "deletions": 37,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 23,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -2.0,
+      "tau": 0.95,
+      "ter": 0.2059447983014862,
+      "substitutions": 23,
+      "deletions": 43,
+      "insertions": 31,
+      "word_break_insertions": 13,
+      "word_break_deletions": 28,
+      "by_mode": {
+        "european": 0.18473895582329317,
+        "japanese": 0.22972972972972974
+      }
+    },
+    {
+      "beta": -2.0,
+      "tau": 0.99,
+      "ter": 0.19532908704883228,
+      "substitutions": 19,
+      "deletions": 49,
+      "insertions": 24,
+      "word_break_insertions": 7,
+      "word_break_deletions": 32,
+      "by_mode": {
+        "european": 0.1927710843373494,
+        "japanese": 0.1981981981981982
+      }
+    },
+    {
+      "beta": -3.0,
+      "tau": 0.0,
+      "ter": 0.208067940552017,
+      "substitutions": 28,
+      "deletions": 33,
+      "insertions": 37,
+      "word_break_insertions": 19,
+      "word_break_deletions": 18,
+      "by_mode": {
+        "european": 0.17670682730923695,
+        "japanese": 0.24324324324324326
+      }
+    },
+    {
+      "beta": -3.0,
+      "tau": 0.1,
+      "ter": 0.208067940552017,
+      "substitutions": 28,
+      "deletions": 33,
+      "insertions": 37,
+      "word_break_insertions": 19,
+      "word_break_deletions": 18,
+      "by_mode": {
+        "european": 0.17670682730923695,
+        "japanese": 0.24324324324324326
+      }
+    },
+    {
+      "beta": -3.0,
+      "tau": 0.2,
+      "ter": 0.208067940552017,
+      "substitutions": 28,
+      "deletions": 33,
+      "insertions": 37,
+      "word_break_insertions": 19,
+      "word_break_deletions": 18,
+      "by_mode": {
+        "european": 0.17670682730923695,
+        "japanese": 0.24324324324324326
+      }
+    },
+    {
+      "beta": -3.0,
+      "tau": 0.3,
+      "ter": 0.208067940552017,
+      "substitutions": 28,
+      "deletions": 33,
+      "insertions": 37,
+      "word_break_insertions": 19,
+      "word_break_deletions": 18,
+      "by_mode": {
+        "european": 0.17670682730923695,
+        "japanese": 0.24324324324324326
+      }
+    },
+    {
+      "beta": -3.0,
+      "tau": 0.4,
+      "ter": 0.208067940552017,
+      "substitutions": 28,
+      "deletions": 33,
+      "insertions": 37,
+      "word_break_insertions": 19,
+      "word_break_deletions": 18,
+      "by_mode": {
+        "european": 0.17670682730923695,
+        "japanese": 0.24324324324324326
+      }
+    },
+    {
+      "beta": -3.0,
+      "tau": 0.5,
+      "ter": 0.208067940552017,
+      "substitutions": 28,
+      "deletions": 33,
+      "insertions": 37,
+      "word_break_insertions": 19,
+      "word_break_deletions": 18,
+      "by_mode": {
+        "european": 0.17670682730923695,
+        "japanese": 0.24324324324324326
+      }
+    },
+    {
+      "beta": -3.0,
+      "tau": 0.6,
+      "ter": 0.20169851380042464,
+      "substitutions": 28,
+      "deletions": 33,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 18,
+      "by_mode": {
+        "european": 0.17269076305220885,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -3.0,
+      "tau": 0.7,
+      "ter": 0.20382165605095542,
+      "substitutions": 26,
+      "deletions": 36,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 22,
+      "by_mode": {
+        "european": 0.17670682730923695,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -3.0,
+      "tau": 0.8,
+      "ter": 0.2059447983014862,
+      "substitutions": 26,
+      "deletions": 37,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 23,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -3.0,
+      "tau": 0.9,
+      "ter": 0.20169851380042464,
+      "substitutions": 21,
+      "deletions": 44,
+      "insertions": 30,
+      "word_break_insertions": 12,
+      "word_break_deletions": 29,
+      "by_mode": {
+        "european": 0.18473895582329317,
+        "japanese": 0.22072072072072071
+      }
+    },
+    {
+      "beta": -3.0,
+      "tau": 0.95,
+      "ter": 0.1932059447983015,
+      "substitutions": 20,
+      "deletions": 46,
+      "insertions": 25,
+      "word_break_insertions": 7,
+      "word_break_deletions": 30,
+      "by_mode": {
+        "european": 0.18473895582329317,
+        "japanese": 0.20270270270270271
+      }
+    },
+    {
+      "beta": -3.0,
+      "tau": 0.99,
+      "ter": 0.208067940552017,
+      "substitutions": 19,
+      "deletions": 55,
+      "insertions": 24,
+      "word_break_insertions": 7,
+      "word_break_deletions": 38,
+      "by_mode": {
+        "european": 0.20883534136546184,
+        "japanese": 0.2072072072072072
+      }
+    },
+    {
+      "beta": -4.0,
+      "tau": 0.0,
+      "ter": 0.2059447983014862,
+      "substitutions": 26,
+      "deletions": 37,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 23,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -4.0,
+      "tau": 0.1,
+      "ter": 0.2059447983014862,
+      "substitutions": 26,
+      "deletions": 37,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 23,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -4.0,
+      "tau": 0.2,
+      "ter": 0.2059447983014862,
+      "substitutions": 26,
+      "deletions": 37,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 23,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -4.0,
+      "tau": 0.3,
+      "ter": 0.2059447983014862,
+      "substitutions": 26,
+      "deletions": 37,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 23,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -4.0,
+      "tau": 0.4,
+      "ter": 0.2059447983014862,
+      "substitutions": 26,
+      "deletions": 37,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 23,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -4.0,
+      "tau": 0.5,
+      "ter": 0.2059447983014862,
+      "substitutions": 26,
+      "deletions": 37,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 23,
+      "by_mode": {
+        "european": 0.18072289156626506,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -4.0,
+      "tau": 0.6,
+      "ter": 0.20382165605095542,
+      "substitutions": 24,
+      "deletions": 38,
+      "insertions": 34,
+      "word_break_insertions": 16,
+      "word_break_deletions": 24,
+      "by_mode": {
+        "european": 0.17670682730923695,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -4.0,
+      "tau": 0.7,
+      "ter": 0.208067940552017,
+      "substitutions": 23,
+      "deletions": 43,
+      "insertions": 32,
+      "word_break_insertions": 14,
+      "word_break_deletions": 28,
+      "by_mode": {
+        "european": 0.18473895582329317,
+        "japanese": 0.23423423423423423
+      }
+    },
+    {
+      "beta": -4.0,
+      "tau": 0.8,
+      "ter": 0.19745222929936307,
+      "substitutions": 21,
+      "deletions": 44,
+      "insertions": 28,
+      "word_break_insertions": 10,
+      "word_break_deletions": 29,
+      "by_mode": {
+        "european": 0.18473895582329317,
+        "japanese": 0.21171171171171171
+      }
+    },
+    {
+      "beta": -4.0,
+      "tau": 0.9,
+      "ter": 0.19532908704883228,
+      "substitutions": 19,
+      "deletions": 48,
+      "insertions": 25,
+      "word_break_insertions": 7,
+      "word_break_deletions": 30,
+      "by_mode": {
+        "european": 0.18875502008032127,
+        "japanese": 0.20270270270270271
+      }
+    },
+    {
+      "beta": -4.0,
+      "tau": 0.95,
+      "ter": 0.19745222929936307,
+      "substitutions": 19,
+      "deletions": 50,
+      "insertions": 24,
+      "word_break_insertions": 7,
+      "word_break_deletions": 33,
+      "by_mode": {
+        "european": 0.19678714859437751,
+        "japanese": 0.1981981981981982
+      }
+    },
+    {
+      "beta": -4.0,
+      "tau": 0.99,
+      "ter": 0.21019108280254778,
+      "substitutions": 17,
+      "deletions": 61,
+      "insertions": 21,
+      "word_break_insertions": 4,
+      "word_break_deletions": 43,
+      "by_mode": {
+        "european": 0.2248995983935743,
+        "japanese": 0.19369369369369369
+      }
+    },
+    {
+      "beta": -6.0,
+      "tau": 0.0,
+      "ter": 0.19532908704883228,
+      "substitutions": 20,
+      "deletions": 47,
+      "insertions": 25,
+      "word_break_insertions": 7,
+      "word_break_deletions": 30,
+      "by_mode": {
+        "european": 0.18875502008032127,
+        "japanese": 0.20270270270270271
+      }
+    },
+    {
+      "beta": -6.0,
+      "tau": 0.1,
+      "ter": 0.19532908704883228,
+      "substitutions": 20,
+      "deletions": 47,
+      "insertions": 25,
+      "word_break_insertions": 7,
+      "word_break_deletions": 30,
+      "by_mode": {
+        "european": 0.18875502008032127,
+        "japanese": 0.20270270270270271
+      }
+    },
+    {
+      "beta": -6.0,
+      "tau": 0.2,
+      "ter": 0.19532908704883228,
+      "substitutions": 20,
+      "deletions": 47,
+      "insertions": 25,
+      "word_break_insertions": 7,
+      "word_break_deletions": 30,
+      "by_mode": {
+        "european": 0.18875502008032127,
+        "japanese": 0.20270270270270271
+      }
+    },
+    {
+      "beta": -6.0,
+      "tau": 0.3,
+      "ter": 0.19532908704883228,
+      "substitutions": 20,
+      "deletions": 47,
+      "insertions": 25,
+      "word_break_insertions": 7,
+      "word_break_deletions": 30,
+      "by_mode": {
+        "european": 0.18875502008032127,
+        "japanese": 0.20270270270270271
+      }
+    },
+    {
+      "beta": -6.0,
+      "tau": 0.4,
+      "ter": 0.19532908704883228,
+      "substitutions": 20,
+      "deletions": 47,
+      "insertions": 25,
+      "word_break_insertions": 7,
+      "word_break_deletions": 30,
+      "by_mode": {
+        "european": 0.18875502008032127,
+        "japanese": 0.20270270270270271
+      }
+    },
+    {
+      "beta": -6.0,
+      "tau": 0.5,
+      "ter": 0.19532908704883228,
+      "substitutions": 20,
+      "deletions": 47,
+      "insertions": 25,
+      "word_break_insertions": 7,
+      "word_break_deletions": 30,
+      "by_mode": {
+        "european": 0.18875502008032127,
+        "japanese": 0.20270270270270271
+      }
+    },
+    {
+      "beta": -6.0,
+      "tau": 0.6,
+      "ter": 0.19532908704883228,
+      "substitutions": 19,
+      "deletions": 48,
+      "insertions": 25,
+      "word_break_insertions": 7,
+      "word_break_deletions": 30,
+      "by_mode": {
+        "european": 0.18875502008032127,
+        "japanese": 0.20270270270270271
+      }
+    },
+    {
+      "beta": -6.0,
+      "tau": 0.7,
+      "ter": 0.19745222929936307,
+      "substitutions": 19,
+      "deletions": 50,
+      "insertions": 24,
+      "word_break_insertions": 7,
+      "word_break_deletions": 33,
+      "by_mode": {
+        "european": 0.19678714859437751,
+        "japanese": 0.1981981981981982
+      }
+    },
+    {
+      "beta": -6.0,
+      "tau": 0.8,
+      "ter": 0.20382165605095542,
+      "substitutions": 19,
+      "deletions": 53,
+      "insertions": 24,
+      "word_break_insertions": 7,
+      "word_break_deletions": 36,
+      "by_mode": {
+        "european": 0.20481927710843373,
+        "japanese": 0.20270270270270271
+      }
+    },
+    {
+      "beta": -6.0,
+      "tau": 0.9,
+      "ter": 0.21019108280254778,
+      "substitutions": 19,
+      "deletions": 57,
+      "insertions": 23,
+      "word_break_insertions": 6,
+      "word_break_deletions": 39,
+      "by_mode": {
+        "european": 0.21285140562248997,
+        "japanese": 0.2072072072072072
+      }
+    },
+    {
+      "beta": -6.0,
+      "tau": 0.95,
+      "ter": 0.2208067940552017,
+      "substitutions": 17,
+      "deletions": 69,
+      "insertions": 18,
+      "word_break_insertions": 1,
+      "word_break_deletions": 51,
+      "by_mode": {
+        "european": 0.2570281124497992,
+        "japanese": 0.18018018018018017
+      }
+    },
+    {
+      "beta": -6.0,
+      "tau": 0.99,
+      "ter": 0.25690021231422505,
+      "substitutions": 13,
+      "deletions": 91,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 72,
+      "by_mode": {
+        "european": 0.30522088353413657,
+        "japanese": 0.20270270270270271
+      }
+    },
+    {
+      "beta": -8.0,
+      "tau": 0.0,
+      "ter": 0.21019108280254778,
+      "substitutions": 19,
+      "deletions": 57,
+      "insertions": 23,
+      "word_break_insertions": 6,
+      "word_break_deletions": 39,
+      "by_mode": {
+        "european": 0.21285140562248997,
+        "japanese": 0.2072072072072072
+      }
+    },
+    {
+      "beta": -8.0,
+      "tau": 0.1,
+      "ter": 0.21019108280254778,
+      "substitutions": 19,
+      "deletions": 57,
+      "insertions": 23,
+      "word_break_insertions": 6,
+      "word_break_deletions": 39,
+      "by_mode": {
+        "european": 0.21285140562248997,
+        "japanese": 0.2072072072072072
+      }
+    },
+    {
+      "beta": -8.0,
+      "tau": 0.2,
+      "ter": 0.21019108280254778,
+      "substitutions": 19,
+      "deletions": 57,
+      "insertions": 23,
+      "word_break_insertions": 6,
+      "word_break_deletions": 39,
+      "by_mode": {
+        "european": 0.21285140562248997,
+        "japanese": 0.2072072072072072
+      }
+    },
+    {
+      "beta": -8.0,
+      "tau": 0.3,
+      "ter": 0.21019108280254778,
+      "substitutions": 19,
+      "deletions": 57,
+      "insertions": 23,
+      "word_break_insertions": 6,
+      "word_break_deletions": 39,
+      "by_mode": {
+        "european": 0.21285140562248997,
+        "japanese": 0.2072072072072072
+      }
+    },
+    {
+      "beta": -8.0,
+      "tau": 0.4,
+      "ter": 0.21019108280254778,
+      "substitutions": 19,
+      "deletions": 57,
+      "insertions": 23,
+      "word_break_insertions": 6,
+      "word_break_deletions": 39,
+      "by_mode": {
+        "european": 0.21285140562248997,
+        "japanese": 0.2072072072072072
+      }
+    },
+    {
+      "beta": -8.0,
+      "tau": 0.5,
+      "ter": 0.21019108280254778,
+      "substitutions": 19,
+      "deletions": 57,
+      "insertions": 23,
+      "word_break_insertions": 6,
+      "word_break_deletions": 39,
+      "by_mode": {
+        "european": 0.21285140562248997,
+        "japanese": 0.2072072072072072
+      }
+    },
+    {
+      "beta": -8.0,
+      "tau": 0.6,
+      "ter": 0.2059447983014862,
+      "substitutions": 19,
+      "deletions": 57,
+      "insertions": 21,
+      "word_break_insertions": 4,
+      "word_break_deletions": 39,
+      "by_mode": {
+        "european": 0.21285140562248997,
+        "japanese": 0.1981981981981982
+      }
+    },
+    {
+      "beta": -8.0,
+      "tau": 0.7,
+      "ter": 0.2208067940552017,
+      "substitutions": 17,
+      "deletions": 67,
+      "insertions": 20,
+      "word_break_insertions": 3,
+      "word_break_deletions": 49,
+      "by_mode": {
+        "european": 0.24899598393574296,
+        "japanese": 0.1891891891891892
+      }
+    },
+    {
+      "beta": -8.0,
+      "tau": 0.8,
+      "ter": 0.22717622080679406,
+      "substitutions": 15,
+      "deletions": 74,
+      "insertions": 18,
+      "word_break_insertions": 1,
+      "word_break_deletions": 55,
+      "by_mode": {
+        "european": 0.26907630522088355,
+        "japanese": 0.18018018018018017
+      }
+    },
+    {
+      "beta": -8.0,
+      "tau": 0.9,
+      "ter": 0.24628450106157113,
+      "substitutions": 13,
+      "deletions": 86,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 67,
+      "by_mode": {
+        "european": 0.2971887550200803,
+        "japanese": 0.1891891891891892
+      }
+    },
+    {
+      "beta": -8.0,
+      "tau": 0.95,
+      "ter": 0.25902335456475584,
+      "substitutions": 13,
+      "deletions": 92,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 73,
+      "by_mode": {
+        "european": 0.30522088353413657,
+        "japanese": 0.2072072072072072
+      }
+    },
+    {
+      "beta": -8.0,
+      "tau": 0.99,
+      "ter": 0.27176220806794055,
+      "substitutions": 13,
+      "deletions": 98,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 79,
+      "by_mode": {
+        "european": 0.3132530120481928,
+        "japanese": 0.22522522522522523
+      }
+    },
+    {
+      "beta": -12.0,
+      "tau": 0.0,
+      "ter": 0.26963906581740976,
+      "substitutions": 13,
+      "deletions": 97,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 78,
+      "by_mode": {
+        "european": 0.3132530120481928,
+        "japanese": 0.22072072072072071
+      }
+    },
+    {
+      "beta": -12.0,
+      "tau": 0.1,
+      "ter": 0.26963906581740976,
+      "substitutions": 13,
+      "deletions": 97,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 78,
+      "by_mode": {
+        "european": 0.3132530120481928,
+        "japanese": 0.22072072072072071
+      }
+    },
+    {
+      "beta": -12.0,
+      "tau": 0.2,
+      "ter": 0.26963906581740976,
+      "substitutions": 13,
+      "deletions": 97,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 78,
+      "by_mode": {
+        "european": 0.3132530120481928,
+        "japanese": 0.22072072072072071
+      }
+    },
+    {
+      "beta": -12.0,
+      "tau": 0.3,
+      "ter": 0.26963906581740976,
+      "substitutions": 13,
+      "deletions": 97,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 78,
+      "by_mode": {
+        "european": 0.3132530120481928,
+        "japanese": 0.22072072072072071
+      }
+    },
+    {
+      "beta": -12.0,
+      "tau": 0.4,
+      "ter": 0.26963906581740976,
+      "substitutions": 13,
+      "deletions": 97,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 78,
+      "by_mode": {
+        "european": 0.3132530120481928,
+        "japanese": 0.22072072072072071
+      }
+    },
+    {
+      "beta": -12.0,
+      "tau": 0.5,
+      "ter": 0.27176220806794055,
+      "substitutions": 13,
+      "deletions": 98,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 79,
+      "by_mode": {
+        "european": 0.3132530120481928,
+        "japanese": 0.22522522522522523
+      }
+    },
+    {
+      "beta": -12.0,
+      "tau": 0.6,
+      "ter": 0.27176220806794055,
+      "substitutions": 13,
+      "deletions": 98,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 79,
+      "by_mode": {
+        "european": 0.3132530120481928,
+        "japanese": 0.22522522522522523
+      }
+    },
+    {
+      "beta": -12.0,
+      "tau": 0.7,
+      "ter": 0.27176220806794055,
+      "substitutions": 13,
+      "deletions": 98,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 79,
+      "by_mode": {
+        "european": 0.3132530120481928,
+        "japanese": 0.22522522522522523
+      }
+    },
+    {
+      "beta": -12.0,
+      "tau": 0.8,
+      "ter": 0.27176220806794055,
+      "substitutions": 13,
+      "deletions": 98,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 79,
+      "by_mode": {
+        "european": 0.3132530120481928,
+        "japanese": 0.22522522522522523
+      }
+    },
+    {
+      "beta": -12.0,
+      "tau": 0.9,
+      "ter": 0.27176220806794055,
+      "substitutions": 13,
+      "deletions": 98,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 79,
+      "by_mode": {
+        "european": 0.3132530120481928,
+        "japanese": 0.22522522522522523
+      }
+    },
+    {
+      "beta": -12.0,
+      "tau": 0.95,
+      "ter": 0.27176220806794055,
+      "substitutions": 13,
+      "deletions": 98,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 79,
+      "by_mode": {
+        "european": 0.3132530120481928,
+        "japanese": 0.22522522522522523
+      }
+    },
+    {
+      "beta": -12.0,
+      "tau": 0.99,
+      "ter": 0.27176220806794055,
+      "substitutions": 13,
+      "deletions": 98,
+      "insertions": 17,
+      "word_break_insertions": 0,
+      "word_break_deletions": 79,
+      "by_mode": {
+        "european": 0.3132530120481928,
+        "japanese": 0.22522522522522523
+      }
+    }
+  ],
+  "synth_check": {
+    "baseline_ter": 0.48055735580038883,
+    "best_point_ter": 0.508101101749838,
+    "degradation_pt": 2.7543745949449194,
+    "passes": false
+  },
+  "synth_check_alt": {
+    "beta": -6.0,
+    "tau": 0.3,
+    "baseline_ter": 0.48055735580038883,
+    "point_ter": 0.508749189889825,
+    "degradation_pt": 2.819183408943615,
+    "passes": false
+  }
+}

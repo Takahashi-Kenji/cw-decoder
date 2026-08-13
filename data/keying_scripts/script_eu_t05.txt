@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 16.6
+wpm: 16
+---
+NAME TARO TARO HW CPY?

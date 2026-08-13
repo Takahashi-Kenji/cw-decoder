@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 17.4
+wpm: 20
+---
+RIG IC7300 PWR 50W ES ANT GP

@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 15.8
+wpm: 20
+---
+PSE QRS VY TNX OM ES HW CPY?

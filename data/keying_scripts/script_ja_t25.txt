@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 16.1
+wpm: 20
+---
+オナマエ ヲ モウ イチド オネガイ シマス

@@ -1,0 +1,6 @@
+mode: european
+estimated_duration_s: 8.2
+wpm: 24
+label_note: 実際に打鍵していない {HORE}/{RATA}/{SK} をラベルから除去 (2026-08-03)
+---
+QRT TNX QSO 73

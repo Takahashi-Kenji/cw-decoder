@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 16.1
+wpm: 24
+---
+RIG IC-7300 ANT HB-9CV UP 8M

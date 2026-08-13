@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 13.7
+wpm: 16
+---
+ソレデハ マタ、ドウゾ?

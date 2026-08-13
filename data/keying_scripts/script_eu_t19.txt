@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 17.6
+wpm: 20
+---
+E-MAIL JA1ABC@JARL.COM PSE

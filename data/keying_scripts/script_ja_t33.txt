@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 15.3
+wpm: 16
+---
+ホンジツ ハ ヨイ テンキ デス

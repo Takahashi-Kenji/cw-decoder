@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 17.6
+wpm: 20
+---
+ANT DIPOLE UP 10M AGL = PWR 5W

@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 13.3
+wpm: 20
+---
+オワリ マス。、73、サヨウナラ

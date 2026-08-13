@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 19.6
+wpm: 20
+---
+ドウゾ?、リヨウカイ?、オワリ?、ドウゾ?

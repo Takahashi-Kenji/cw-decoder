@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 15.4
+wpm: 20
+---
+バシヨ ヲ モウ イチド オネガイ シマス

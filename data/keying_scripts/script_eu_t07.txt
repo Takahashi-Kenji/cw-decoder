@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 16.3
+wpm: 20
+---
+QTH YOKOHAMA CITY KANAGAWA JAPAN

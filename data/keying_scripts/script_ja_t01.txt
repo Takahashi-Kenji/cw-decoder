@@ -1,0 +1,5 @@
+mode: japanese
+estimated_duration_s: 10.8
+wpm: 16
+---
+コンニチハ、ドウゾ

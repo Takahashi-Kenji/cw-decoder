@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 18.4
+wpm: 16
+---
+JA1ABC DE JR2GHI GM OM +

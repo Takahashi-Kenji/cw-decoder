@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 15.2
+wpm: 20
+---
+QSL VIA BURO TNX 73 ES GD DX

@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 15.1
+wpm: 20
+---
+WX FINE HR TEMP 24C ES WIND SW

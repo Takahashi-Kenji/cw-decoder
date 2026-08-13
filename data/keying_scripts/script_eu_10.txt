@@ -1,0 +1,5 @@
+mode: european
+estimated_duration_s: 7.3
+wpm: 24
+---
+6EGY5DIPVUSB7
