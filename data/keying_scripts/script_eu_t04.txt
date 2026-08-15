@@ -1,5 +1,5 @@
 mode: european
-estimated_duration_s: 16.0
+estimated_duration_s: 17.0
 wpm: 20
 ---
 UR RST 569 569 = QTH KANAGAWA

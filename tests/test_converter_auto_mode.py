@@ -1,5 +1,5 @@
 """自動モード変換器のテスト (ホレ/ラタによる欧文⇄和文切替)."""
-from src.tokens.converter import TokenConverter
+from src.tokens.converter import FALLBACK_CHAR, TokenConverter
 from src.tokens.morse_tokens import TOKEN_TO_ID
 
 HORE = TOKEN_TO_ID["-・・---"]   # 和文開始
@@ -75,7 +75,7 @@ def test_low_confidence_hore_does_not_switch():
     res = TokenConverter(mode="auto", confidence_threshold=0.8).convert(
         [HORE, A_I], confidences=[0.5, 1.0]
     )
-    assert res.text == "?A"
+    assert res.text == FALLBACK_CHAR + "A"
     assert res.final_mode == "european"
 
 
@@ -91,7 +91,7 @@ def test_low_confidence_prosign_is_rejected_by_default():
     """既定 (prosign_threshold=None) では従来どおり confidence_threshold で判定する."""
     conv = TokenConverter(mode="auto", confidence_threshold=0.5)
     res = conv.convert([HORE, A_I], [0.45, 0.99])
-    assert res.text == "?A", "閾値未満のホレは ? になり、モードは欧文のまま"
+    assert res.text == FALLBACK_CHAR + "A", "閾値未満のホレは ? になり、モードは欧文のまま"
     assert res.final_mode == "european"
 
 
@@ -114,13 +114,13 @@ def test_prosign_threshold_does_not_loosen_other_tokens():
     """プロサイン以外のトークンは confidence_threshold のまま判定される."""
     conv = TokenConverter(mode="auto", confidence_threshold=0.5, prosign_threshold=0.1)
     res = conv.convert([HORE, A_I], [0.99, 0.45])
-    assert res.text == "[ホレ]?", "イ は 0.45 < 0.5 なので ? のまま"
+    assert res.text == f"[ホレ]{FALLBACK_CHAR}", "イ は 0.45 < 0.5 なので読めなかった印のまま"
 
 
 def test_prosign_below_its_own_threshold_is_still_rejected():
     conv = TokenConverter(mode="auto", confidence_threshold=0.5, prosign_threshold=0.4)
     res = conv.convert([HORE, A_I], [0.35, 0.99])
-    assert res.text == "?A"
+    assert res.text == FALLBACK_CHAR + "A"
     assert res.final_mode == "european"
 
 
@@ -130,7 +130,7 @@ def test_prosign_threshold_ignored_in_fixed_mode():
         mode="japanese", confidence_threshold=0.5, prosign_threshold=0.1
     )
     res = conv.convert([HORE], [0.45])
-    assert res.text == "?", "固定和文では ・・--- は表に無く、低確信度なら ?"
+    assert res.text == FALLBACK_CHAR, "固定和文では ・・--- は表に無く、低確信度なら ?"
 
 
 def test_prosign_threshold_rejects_out_of_range():
@@ -166,7 +166,7 @@ def test_japanese_only_code_without_switch_is_table_miss():
     """無効化すると従来どおり ? になる."""
     conv = TokenConverter(mode="auto", switch_on_japanese_only=False)
     res = conv.convert([KO, A_I])
-    assert res.text == "?A"
+    assert res.text == FALLBACK_CHAR + "A"
     assert res.final_mode == "european"
 
 
@@ -181,7 +181,7 @@ def test_low_confidence_japanese_only_code_does_not_switch():
     """閾値を満たさない符号では切り替えない (誤検出でモードが飛ぶのを防ぐ)."""
     conv = TokenConverter(mode="auto", confidence_threshold=0.5)
     res = conv.convert([KO, A_I], [0.3, 0.99])
-    assert res.text == "?A"
+    assert res.text == FALLBACK_CHAR + "A"
     assert res.final_mode == "european"
 
 
@@ -202,4 +202,4 @@ def test_european_only_code_stays_european():
 def test_switch_is_ignored_in_fixed_mode():
     """固定欧文モードでは切り替えない (従来どおり ?)."""
     res = TokenConverter(mode="european").convert([KO])
-    assert res.text == "?"
+    assert res.text == FALLBACK_CHAR

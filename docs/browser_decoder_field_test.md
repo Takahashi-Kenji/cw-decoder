@@ -8,6 +8,8 @@ WAV ファイル入力で確認できる項目は 2026-08-06 に Playwright (Chr
 ある（ブラウザのマイク入力は実際の音声デバイスを要求する。WAV 入力経路には BPF が
 かからない設計なので、BPF の評価はライブ受信でしか行えない）。
 
+> **注記**: この記録に載るデコード結果のコールサインは、交信相手のプライバシーのため自局のもの (`JH0ILL`) に置き換えてあります。両方の出力に同じ置き換えを当てているので、比較の意味は変わりません。
+
 対象: `web/` (ブラウザ版 CW デコーダ)。設計書 `docs/superpowers/specs/2026-08-05-browser-cw-decoder-design.md` §12 Step 5
 (`docs/design.md` はデスクトップ版の設計書)。
 実施者: 項目 3〜5・7 = Claude (Playwright/Chromium)、項目 1・2・6 = （記入してください）
@@ -123,7 +125,7 @@ WAV ファイル入力で確認できる項目は 2026-08-06 に Playwright (Chr
 
   | サンプル | ブラウザ版 | デスクトップ版 (同設定) | 差 |
   |---|---|---|---|
-  | `oubun.wav` (29.0s) | `?EJA1RVOPG? MNA 5NN? JA1RVO GA 5NN[SK]` | `QEJA1RVOPG? MNA 5NN? JA1RVO GA 5NN[SK]` | 1 文字目のみ (`?` / `Q`) |
+  | `oubun.wav` (29.0s) | `?EJH0ILLPG? MNA 5NN? JH0ILL GA 5NN[SK]` | `QEJH0ILLPG? MNA 5NN? JH0ILL GA 5NN[SK]` | 1 文字目のみ (`?` / `Q`) |
   | `レコーディング.wav` (28.4s) | `CUN73GL?I RGLTU73EE TUDE 7 K3LAA1CC10?I` | `CUN73GLXI RGLTU73EE TUDE 7 K3LAA1CC10?I` | 8 文字目のみ (`?` / `X`) |
   | `wabun.wav` (90.4s, 和文表示) | `…ユワナ 7タ2マフ 6…リ アメ デス ??` | `…ユワナ 7タ2マ フ 6…リアメ デス ??` | 語間スペース 2 箇所のみ |
   | `20260729_204356.wav` (37.5s, 実打鍵) | `Q? ??I? EI?R? B` | `Q? ??I? ?EI?R? B` | 1 トークン |
@@ -219,8 +221,8 @@ WAV ファイル入力で確認できる項目は 2026-08-06 に Playwright (Chr
 
 ```
 入力ファイル: sample_wav/oubun.wav
-デスクトップ版出力: QIJA1RVO EPGMO NJMN NT JA1RVO GA 5NN6A   ← models/full/best.pt (旧世代・git 管理外)
-ブラウザ版出力    : ?EJA1RVOPG? MNA 5NN? JA1RVO GA 5NN[SK]   ← models/full/best_infer.pt (配布モデル)
+デスクトップ版出力: QIJH0ILL EPGMO NJMN NT JH0ILL GA 5NN6A   ← models/full/best.pt (旧世代・git 管理外)
+ブラウザ版出力    : ?EJH0ILLPG? MNA 5NN? JH0ILL GA 5NN[SK]   ← models/full/best_infer.pt (配布モデル)
 ```
 
 `scripts/decode_user_wav.py` の既定チェックポイントが `models/full/best.pt` だった一方、

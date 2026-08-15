@@ -7,7 +7,12 @@ import numpy as np
 import pytest
 import torch
 
-from scripts.export_onnx import OnnxDecoder, export_onnx, load_real_sample_wave
+from scripts.export_onnx import (
+    MEL_MAX_ABS_ERR,
+    OnnxDecoder,
+    export_onnx,
+    load_real_sample_wave,
+)
 from src.infer.engine import InferenceEngine, ctc_greedy_decode_with_frames
 from src.train.onnx_mel import ConvMelExtractor
 
@@ -69,7 +74,7 @@ def test_exported_onnx_matches_pytorch_engine(tmp_path: Path) -> None:
 
 @pytest.mark.skipif(not SAMPLE_WAV.exists(), reason="実音声サンプルが無い環境ではスキップ")
 def test_mel_matches_reference_on_real_audio() -> None:
-    """実音声で MelExtractor と ConvMelExtractor のメル出力が 1e-4 未満で一致すること.
+    """実音声で MelExtractor と ConvMelExtractor のメル出力が MEL_MAX_ABS_ERR 未満で一致すること.
 
     tests/test_onnx_mel.py は合成波形しか使っていない (Task 1)。ここでは実音声で
     設計書 §5 の「エクスポート時の検証 (必須)」が要求する許容誤差を検証する。
@@ -87,7 +92,7 @@ def test_mel_matches_reference_on_real_audio() -> None:
         conv_out = conv(wave_t)
 
     assert ref_out.shape == conv_out.shape
-    assert torch.max(torch.abs(conv_out - ref_out)).item() < 1e-4
+    assert torch.max(torch.abs(conv_out - ref_out)).item() < MEL_MAX_ABS_ERR
 
 
 def test_exported_onnx_accepts_variable_length(tmp_path: Path) -> None:

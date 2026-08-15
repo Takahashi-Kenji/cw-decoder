@@ -1,5 +1,5 @@
 mode: japanese
-estimated_duration_s: 19.6
+estimated_duration_s: 18.1
 wpm: 20
 ---
 メール ハ タロウ@ジヤール、ムセン@ヤマ

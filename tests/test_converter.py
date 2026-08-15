@@ -89,10 +89,10 @@ class TestDakutenComposition:
         assert result.fallback_log[0].kind == "TABLE_MISS"
 
     def test_dakuten_after_non_composable_kana_is_fallback(self) -> None:
-        # イ は濁音化対象外 → イ + ゛ は "イ?" になる
+        # イ は濁音化対象外 → イ + ゛ は「イ + 読めなかった印」になる
         conv = TokenConverter(mode="japanese")
         result = conv.convert(ids(["・-", "・・"]))
-        assert result.text == "イ?"
+        assert result.text == f"イ{FALLBACK_CHAR}"
         assert len(result.fallback_log) == 1
         assert result.fallback_log[0].kind == "TABLE_MISS"
 
@@ -129,7 +129,7 @@ class TestConfidence:
         conv = TokenConverter(mode="european", confidence_threshold=0.5)
         token_ids = ids(["・-", "-・・・", "-・-・"])
         result = conv.convert(token_ids, confidences=[0.3, 0.9, 0.9])
-        assert result.text == "?BC"
+        assert result.text == f"{FALLBACK_CHAR}BC"
         assert len(result.fallback_log) == 1
         assert result.fallback_log[0].kind == "LOW_CONFIDENCE"
         assert result.fallback_log[0].confidence == pytest.approx(0.3)
@@ -143,7 +143,7 @@ class TestConfidence:
         conv = TokenConverter(mode="european", confidence_threshold=0.7)
         token_ids = ids(["・-", "-・・・", "-・-・"])
         result = conv.convert(token_ids, confidences=[0.3, 0.4, 0.9])
-        assert result.text == "??C"
+        assert result.text == f"{FALLBACK_CHAR}{FALLBACK_CHAR}C"
         assert len(result.fallback_log) == 2
 
     def test_mismatched_confidence_length_raises(self) -> None:
@@ -198,7 +198,7 @@ class TestSharedCodeModeBranching:
         # 和文では単独の ・・ は濁点 → 直前カナ無しで TABLE_MISS
         conv = TokenConverter(mode="japanese")
         result = conv.convert(ids(["・・"]))
-        assert result.text == "?"
+        assert result.text == FALLBACK_CHAR
 
 
 # ============================================================

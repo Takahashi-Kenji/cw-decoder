@@ -164,7 +164,7 @@ _JAPANESE_WEAK_FOCUS: tuple[KeyingScript, ...] = (
     KeyingScript("ja_t41", "japanese", 20, "ドウゾ?、モウ イチド?、ワカリマセン?"),
     KeyingScript("ja_t42", "japanese", 24, "ガギグゲゴ、ザジズゼゾ、ダヂヅデド"),
     KeyingScript("ja_t43", "japanese", 24, "バビブベボ、パピプペポ、ヴ。"),
-    KeyingScript("ja_t44", "japanese", 20, "ナガノ、ニイガタ、トヤマ、イシカワ、フクイ"),
+    KeyingScript("ja_t44", "japanese", 20, "ギフ、ニイガタ、トヤマ、イシカワ、フクイ"),
     KeyingScript("ja_t45", "japanese", 20, "イチ、ニ、サン、ヨン、ゴ、ロク、ナナ"),
     KeyingScript("ja_t46", "japanese", 24, "ハチ、キユウ、ゼロ、1234567890。"),
     KeyingScript("ja_t47", "japanese", 20, "レポート ハ 599、599。"),

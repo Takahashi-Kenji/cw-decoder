@@ -32,7 +32,12 @@ DEFAULT_CONFIG_PATH = Path.home() / ".cw-decorder" / "settings.json"
 #      結線 (COM ポート・DTR/RTS の役割・極性・PTT) は**アプリに持たせない**。
 #      無線機に属する情報であり、打鍵は無線機 PC の CLI が行うため
 #      (docs/superpowers/specs/2026-08-10-lan-cw-transmit-design.md §8.1)
-CURRENT_SETTINGS_VERSION = 15
+# v16: word_correct_ja_enabled を追加 (和文の辞書補正を欧文と別に切替)
+# v17: low_confidence_extra_lag_s を追加 (読めなかった印になる文字の確定を遅らせる)
+# v18: 清書前の全体再デコードを追加
+#      (refine_capacity_s / two_stage_commit_enabled / refine_redecode_enabled)
+# v19: スペクトル表示の見え方 (spectrogram_floor_db / spectrogram_span_s)
+CURRENT_SETTINGS_VERSION = 19
 
 
 @dataclass
@@ -48,6 +53,15 @@ class AppSettings:
     recording_dir: str = "data/real"
     window_geometry: dict[str, int] = field(default_factory=dict)
     show_spectrogram: bool = True
+
+    # スペクトル表示の見え方。**スライダで見ながら合わせる** (運用者、2026-08-14)。
+    # 目的は「符号としてそれらしく見える」ことなので設定画面には置かない。
+    #
+    # 下限 dB。上げるほど弱い信号が切り捨てられ、強い信号だけがはっきり出る。
+    spectrogram_floor_db: float = -80.0
+    # 画面に映す時間 (秒)。遅い相手ほど広く映した方が読みやすい。
+    # **周波数分解能は変わらない** (決めるのは窓長であって送り幅ではない)。
+    spectrogram_span_s: float = 3.2
     # 未確定 (暫定) テキストをグレーで表示するか。
     # 既定は False。確定と暫定が混ざると読みにくいという運用上の指摘による
     # (2026-08-04)。暫定は文脈が増えると読みが変わるため、追いながら読むには邪魔になる。
@@ -111,6 +125,37 @@ class AppSettings:
     # 確定の主機構は midpoint > last_commit_end であり、これは脱落防止の主役ではない.
     commit_jitter_margin_s: float = 0.02
 
+    # 確信度が閾値未満のトークン (画面では ``_``) に与える余分な猶予 (秒)。
+    # 確定を遅らせ、右文脈が増えてから読み直した結果を確定する。
+    #
+    # held-out 21 件の掃引で 0.0 → 1.5 秒にすると TER 25.73% → 23.71% (-2.01pt)、
+    # **和文は 34.13% → 30.29% (-3.84pt)**。2.0 秒の方がわずかに良いが表示の
+    # 遅れが増えるため 1.5 秒を採る (運用者の判断、2026-08-14)。
+    #
+    # **2 段階確定が届く場面では効果が消える** (3 回目が上書きするため)。
+    # 効くのは 3 回目が諦める場面 = 長い送信や、音がリングから落ちたターン。
+    # 0 にすると従来の挙動 (確信度を見ずに確定)。
+    low_confidence_extra_lag_s: float = 1.5
+
+    # --- 清書 (LLM) 用の再デコード ---
+    # **交信しながら読む側とは分ける** という方針による (運用者、2026-08-14)。
+    # 短時間で読みたいのは交信のため、全体が欲しいのは LLM で正規化するため。
+    #
+    # 清書用に貯めておく音声の長さ (秒)。**デコード用リング (window_s) とは別**。
+    # リングを広げると 2 段階確定が長い区間を同期デコードして音声スレッドを
+    # 止める (300 秒で約 1.3 秒。hop 0.5 秒を大きく超える)。
+    # 5 分を超える交信はまずないという運用者の判断。メモリは約 9.6 MB。
+    refine_capacity_s: float = 300.0
+
+    # 2 段階確定 (ターン終了時に、そのターンを全文脈で読み直して置き換える)。
+    # held-out 21 件で TER 27.4% → 25.1%。ただし**ターンの音がリング (30 秒) に
+    # 残っている場合だけ**走る。長い送信では諦める。
+    two_stage_commit_enabled: bool = True
+
+    # 清書の直前に、清書用バッファを別スレッドで丸ごと読み直すか。
+    # **結果は画面の確定テキストを置き換えない。** 清書 (LLM) の入力にだけ使う。
+    refine_redecode_enabled: bool = True
+
     # --- LLM テキスト清書 ---
     # デコードを走らせるデバイス。``"cpu"`` / ``"cuda"`` / ``"auto"``。
     #
@@ -134,6 +179,12 @@ class AppSettings:
     # held-out 実録音の欧文で CER 19.25% → 17.15% (-2.09pt)。詳細は
     # src/infer/word_correct.py。既定 True。
     word_correct_enabled: bool = True
+
+    # 和文の辞書補正だけを切る。**欧文とは別**にしてあるのは、和文の補正が
+    # 曖昧一致つきの分割を伴い、欧文 (厳密一致の切り直し + 寄せ) より
+    # 踏み込んだ処理だからである (運用者の要望、2026-08-14)。
+    # ``word_correct_enabled`` が False なら和文も止まる (親子関係)。
+    word_correct_ja_enabled: bool = True
 
     llm_enabled: bool = False
     llm_provider: str = "ollama"          # "claude" | "openai" | "ollama"

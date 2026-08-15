@@ -1,5 +1,5 @@
 mode: japanese
-estimated_duration_s: 17.2
+estimated_duration_s: 18.4
 wpm: 16
 ---
 ワタシ ノ バシヨ ハ ヨコハマシ デス

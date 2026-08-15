@@ -1,5 +1,5 @@
 mode: japanese
-estimated_duration_s: 17.6
+estimated_duration_s: 17.3
 wpm: 20
 ---
-ナガノ、ニイガタ、トヤマ、イシカワ、フクイ
+ギフ、ニイガタ、トヤマ、イシカワ、フクイ

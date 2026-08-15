@@ -22,7 +22,17 @@ import {
   WORD_BREAK_TOKEN_ID,
 } from '../generated/tokens'
 
-export const FALLBACK_CHAR = '?'
+/**
+ * 読めなかった箇所を表す記号。
+ *
+ * **`?` を使ってはいけない。** `?` は符号表にある実在の文字 (`・・--・・`) で、
+ * 相手が本当に `?` を送ってくることがある (`QRZ?` `HW CPY?` `ドウゾ?`)。
+ * 同じ記号で両方を表すと、テキストだけを見て区別できない。
+ *
+ * `_` は欧文表・和文表のいずれにも存在しないので衝突しない。
+ * **Python 側 (`src/tokens/converter.py` の `FALLBACK_CHAR`) と必ず揃えること。**
+ */
+export const FALLBACK_CHAR = '_'
 
 export type Mode = 'european' | 'japanese'
 export type FallbackKind = 'TABLE_MISS' | 'LOW_CONFIDENCE'

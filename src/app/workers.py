@@ -9,8 +9,13 @@ from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
 from src.infer.audio import AudioCapture
 from src.infer.engine import InferenceEngine
 from src.infer.net_audio import NetworkAudioCapture, parse_endpoint
-from src.infer.sliding_window import DecodeView, SlidingWindowDecoder
+from src.infer.sliding_window import (
+    DEFAULT_LOW_CONFIDENCE_EXTRA_LAG_S,
+    DecodeView,
+    SlidingWindowDecoder,
+)
 from src.infer.line_break import DEFAULT_LINE_BREAK_GAP_S, render_committed
+from src.infer.refine_buffer import DEFAULT_REFINE_CAPACITY_S, RefineBuffer
 from src.infer.squelch import Squelch
 from src.infer.wpm import estimate_wpm
 from src.tokens.converter import TokenConverter
@@ -104,9 +109,20 @@ class AudioInferenceWorker(QObject):
         head_guard_s: float = 1.0,
         decode_left_context_s: float = 5.0,
         commit_jitter_margin_s: float = 0.02,
+        # 読めなかった印になる文字に与える余分な猶予
+        low_confidence_extra_lag_s: float = DEFAULT_LOW_CONFIDENCE_EXTRA_LAG_S,
+        # 清書用に貯めておく長さ (デコード用リングとは別)
+        refine_capacity_s: float = DEFAULT_REFINE_CAPACITY_S,
+        # 2 段階確定 (ターン終了時の置き換え) を行うか
+        two_stage_commit_enabled: bool = True,
     ) -> None:
         super().__init__()
         self.engine = engine
+        self.two_stage_commit_enabled = two_stage_commit_enabled
+        # **清書専用の長いバッファ。** 別スレッドの再デコードが読む
+        self.refine_buffer = RefineBuffer(
+            capacity_s=refine_capacity_s, sample_rate=sample_rate
+        )
         self.sample_rate = sample_rate
         self.mode: str = mode
         self.confidence_threshold = confidence_threshold
@@ -156,6 +172,11 @@ class AudioInferenceWorker(QObject):
             window_s=window_s, hop_s=hop_s, commit_lag_s=commit_lag_s,
             head_guard_s=head_guard_s, decode_left_context_s=decode_left_context_s,
             commit_jitter_margin_s=commit_jitter_margin_s, sample_rate=sample_rate,
+            # 読めなかった印になる文字は確定を遅らせて読み直す。閾値は表示側
+            # (TokenConverter) と同じものを渡すこと。ずれると「画面では ``_`` なのに
+            # 待たせていない」「読めているのに待たせている」が起きる
+            low_confidence_threshold=confidence_threshold,
+            low_confidence_extra_lag_s=low_confidence_extra_lag_s,
         )
         self._samples_since_redecode = 0
         self._hop_samples = int(hop_s * sample_rate)
@@ -320,6 +341,10 @@ class AudioInferenceWorker(QObject):
     def _feed_live_block(self, block: np.ndarray) -> None:
         """ライブ連続モード: ブロックを窓に投入し、hop ごとに再デコード."""
         self._sliding.push(block)
+        # **清書用には別に長く貯める。** デコード用リングを広げると
+        # refine_closed_turns が長い区間を同期デコードして音声スレッドを
+        # 止めるため (src/infer/refine_buffer.py の説明を参照)
+        self.refine_buffer.push(block)
         self._samples_since_redecode += block.size
         if self._samples_since_redecode < self._hop_samples:
             return
@@ -328,7 +353,11 @@ class AudioInferenceWorker(QObject):
         # gap でターンを定義する)。直したら無音中でも表示を作り直す。
         # 走るのはターンが閉じた直後の 1 回だけで、負荷は 30 秒ぶんの
         # デコード 1 回 (実測 112 ms) が上限。
-        refined = self._sliding.refine_closed_turns(self._line_break_gap_samples)
+        refined = (
+            self._sliding.refine_closed_turns(self._line_break_gap_samples)
+            if self.two_stage_commit_enabled
+            else False
+        )
         # CPU 節約: 直近 hop 区間が無音 かつ 未確定 (暫定) が残っていない場合のみ
         # 再デコードをスキップ. 暫定が残っているうちは送信終了後も redecode を
         # 続け、commit_lag 経過時に末尾を確定させる (レビュー #4: 無音突入で
@@ -418,8 +447,12 @@ class AudioInferenceWorker(QObject):
         if had_pending:
             self._sliding.finalize()
             self._has_pending_provisional = False
-        refined = self._sliding.refine_closed_turns(
-            self._line_break_gap_samples, all_turns=True
+        refined = (
+            self._sliding.refine_closed_turns(
+                self._line_break_gap_samples, all_turns=True
+            )
+            if self.two_stage_commit_enabled
+            else False
         )
         # **何も変わっていなければ emit しない。** 無条件に emit すると、
         # 何もデコードしていない状態の停止で空文字が流れ、画面が白紙になる

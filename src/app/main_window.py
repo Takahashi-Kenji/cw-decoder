@@ -8,7 +8,8 @@ from pathlib import Path
 import numpy as np
 import torch
 from PySide6.QtCore import Qt, QThread
-from PySide6.QtGui import QFont
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -30,9 +31,22 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Signal
 
 from src.app.llm_worker import LLMWorker
-from src.infer.word_correct import CorrectedSpan, correct_text
+from src.app.redecode_worker import RedecodeWorker
+from src.infer.word_correct import (
+    DEFAULT_JA_LEXICON_PATH,
+    CorrectedSpan,
+    UnresolvedWord,
+    correct_text,
+    load_user_lexicon,
+    user_target_words,
+)
 from src.app.recorder import Recorder
-from src.app.widgets import LevelMeterWithSquelch, SpectrogramView
+from src.app.settings_dialog import SettingsDialog
+from src.app.widgets import (
+    LevelMeterWithSquelch,
+    SpectrogramView,
+    SpectrogramWithControls,
+)
 from src.app.workers import AudioInferenceWorker
 from src.infer.audio import list_input_devices
 from src.infer.engine import InferenceEngine
@@ -67,6 +81,8 @@ class CWDecoderWindow(QMainWindow):
     request_clear_decode = Signal()
     request_llm_transform = Signal(str, str, str)   # (本文, モード, 参考)
     request_set_llm_provider = Signal(object)
+    # 清書前の全体再デコード (音声, 末尾の絶対位置, モード, 閾値, 辞書補正, 和文辞書)
+    request_redecode = Signal(object, int, str, float, bool, bool)
 
     # プロバイダ別の選択候補モデル (先頭が既定)。編集可能なので他の名前も入力できる。
     #
@@ -129,7 +145,8 @@ class CWDecoderWindow(QMainWindow):
         # * 確信度閾値のスライダ — 固定 140 px
         top = QHBoxLayout()
 
-        top.addWidget(QLabel("入力デバイス:"))
+        # **入力デバイスは設定画面ではなくここに残す。** 選ぶのは開始の直前で、
+        # 交信中に触る操作だからである。ただし幅は主張させない
         self.device_combo = QComboBox()
         self._populate_devices()
         if self._net_source:
@@ -160,14 +177,16 @@ class CWDecoderWindow(QMainWindow):
         self.mode_combo.setCurrentIndex(_mode_index.get(self._settings.mode, 0))
         top.addWidget(self.mode_combo)
 
-        top.addWidget(QLabel("確信度閾値:"))
+        # **確信度閾値は設定画面へ移した。** 交信中に動かすものではなく、
+        # 下げてはいけない値でもある (0.5 → 0.0 で CER が 3.9pt 悪化)。
+        # ウィジェットは画面に出さないが、既存の配線を壊さないよう残しておく
+        # (信号の往復はそのまま使える)
         self.threshold_slider = QSlider(Qt.Orientation.Horizontal)
         self.threshold_slider.setRange(0, 100)
         self.threshold_slider.setValue(int(self._settings.confidence_threshold * 100))
-        self.threshold_slider.setFixedWidth(70)      # 140 の半分 (運用者の指定)
-        top.addWidget(self.threshold_slider)
-        self.threshold_value_label = QLabel(f"{self._settings.confidence_threshold:.2f}")
-        top.addWidget(self.threshold_value_label)
+        self.threshold_slider.setVisible(False)
+        self.threshold_value_label = QLabel()
+        self.threshold_value_label.setVisible(False)
         top.addStretch(1)
 
         root.addLayout(top)
@@ -175,17 +194,27 @@ class CWDecoderWindow(QMainWindow):
         # ---- 2 段目: 操作ボタン + チェックポイント ----
         second = QHBoxLayout()
 
+        # **開始と停止は 1 つのボタンにまとめる** (運用者の要望)。
+        # 押すたびに切り替わり、いまどちらの状態かがラベルで分かる。
+        # 旧 start_btn / stop_btn は画面から外すが、**既存の配線を壊さないため
+        # オブジェクトは残す** (押下は run_btn から中継する)。
+        self.run_btn = QPushButton("● 開始")
+        self.run_btn.setCheckable(True)
+        self.run_btn.setToolTip("受信の開始と停止")
+        self.run_btn.toggled.connect(self._on_run_toggled)
+        second.addWidget(self.run_btn)
+
         self.start_btn = QPushButton("開始")
+        self.start_btn.setVisible(False)
         self.stop_btn = QPushButton("停止")
         self.stop_btn.setEnabled(False)
+        self.stop_btn.setVisible(False)
         self.decode_toggle_btn = QPushButton("● デコード開始")
         self.decode_toggle_btn.setCheckable(True)
         self.decode_toggle_btn.setEnabled(False)
         self.decode_toggle_btn.setToolTip("ライブデコードの ON/OFF を切替")
         self.clear_decode_btn = QPushButton("クリア")
         self.clear_decode_btn.setToolTip("デコード本文をクリアする (清書は別の「クリア」)")
-        second.addWidget(self.start_btn)
-        second.addWidget(self.stop_btn)
         second.addWidget(self.decode_toggle_btn)
         second.addWidget(self.clear_decode_btn)
 
@@ -197,6 +226,11 @@ class CWDecoderWindow(QMainWindow):
         self.tx_btn.setToolTip("無線機を繋いだ PC に打鍵させます")
         self.tx_btn.clicked.connect(self._open_tx_dialog)
         second.addWidget(self.tx_btn)
+
+        self.settings_btn = QPushButton("設定…")
+        self.settings_btn.setToolTip("入力・デコード・確定・補正・清書・表示の設定")
+        self.settings_btn.clicked.connect(self._open_settings_dialog)
+        second.addWidget(self.settings_btn)
 
         # **絶対パスに窓の幅を決めさせない。** ファイル名だけ出し、全体は
         # ツールチップで読めるようにする (パスがそのまま最小幅になっていた)
@@ -215,7 +249,7 @@ class CWDecoderWindow(QMainWindow):
         self.show_spectrogram_check = QCheckBox("スペクトル")
         self.show_spectrogram_check.setToolTip("下のスペクトログラムの表示を切り替えます")
         self.show_spectrogram_check.setChecked(self._settings.show_spectrogram)
-        third.addWidget(self.show_spectrogram_check)
+        self.show_spectrogram_check.setVisible(False)   # 設定画面へ移動
 
         self.show_provisional_check = QCheckBox("未確定")
         self.show_provisional_check.setChecked(self._settings.show_provisional)
@@ -223,7 +257,7 @@ class CWDecoderWindow(QMainWindow):
             "確定前の文字をグレーで表示する。"
             "文脈が増えると読みが変わるため、通常はオフのほうが読みやすい"
         )
-        third.addWidget(self.show_provisional_check)
+        self.show_provisional_check.setVisible(False)   # 設定画面へ移動
 
         self.word_correct_check = QCheckBox("辞書補正")
         self.word_correct_check.setChecked(self._settings.word_correct_enabled)
@@ -231,30 +265,55 @@ class CWDecoderWindow(QMainWindow):
             "CW 定型語彙で語を切り直し・寄せする (LLM 不要・即時)。"
             "補正した箇所は橙色で表示。コールサイン・RST・プロサインは触りません"
         )
-        third.addWidget(self.word_correct_check)
+        self.word_correct_check.setVisible(False)   # 設定画面へ移動
+
+        self.word_correct_ja_check = QCheckBox("和文辞書")
+        self.word_correct_ja_check.setChecked(self._settings.word_correct_ja_enabled)
+        self.word_correct_ja_check.setToolTip(
+            "和文の辞書補正 (「辞書補正」が有効なときだけ効きます)。\n"
+            "符号列の距離で語を直すので、1 文字が途中で切れて 2 文字になった誤り\n"
+            "(ロ+ム=テ 等) も戻せます。地名・人名や 2 文字語には寄せません。\n"
+            f"語彙を足すには {DEFAULT_JA_LEXICON_PATH} を編集してください"
+        )
+        self.word_correct_ja_check.setVisible(False)   # 設定画面へ移動
+
+        self.two_stage_check = QCheckBox("2段階確定")
+        self.two_stage_check.setChecked(self._settings.two_stage_commit_enabled)
+        self.two_stage_check.setToolTip(
+            "ターンが終わった瞬間に、そのターンを全文脈で読み直して置き換えます。\n"
+            "held-out で TER 27.4% → 25.1%。ただしターンの音がリング (30 秒) に\n"
+            "残っている場合だけ走るので、長い送信では諦めます。\n"
+            "**切り替えは次回の開始時に反映されます。**"
+        )
+        self.two_stage_check.setVisible(False)   # 設定画面へ移動
+
+        self.refine_redecode_check = QCheckBox("清書前に読み直す")
+        self.refine_redecode_check.setChecked(self._settings.refine_redecode_enabled)
+        self.refine_redecode_check.setToolTip(
+            "清書の直前に、清書用バッファ (最大 300 秒) を別スレッドで丸ごと\n"
+            "読み直してから LLM に渡します。**画面の確定テキストは変わりません。**\n"
+            "自動清書では未清書分だけ、まとめて清書では全体を読み直します。"
+        )
+        self.refine_redecode_check.setVisible(False)   # 設定画面へ移動
 
         self.bpf_check = QCheckBox("BPF")
         self.bpf_check.setChecked(self._settings.bpf_enabled)
         self.bpf_check.setToolTip(
             "帯域通過フィルタ — CW トーン以外のノイズを除去"
         )
-        third.addWidget(self.bpf_check)
-
-        third.addWidget(QLabel("中心"))
+        self.bpf_check.setVisible(False)   # 設定画面へ移動
         self.bpf_center_spin = QSpinBox()
         self.bpf_center_spin.setRange(300, 1200)
         self.bpf_center_spin.setSuffix(" Hz")
         self.bpf_center_spin.setValue(int(self._settings.bpf_center_hz))
         self.bpf_center_spin.setFixedWidth(78)
-        third.addWidget(self.bpf_center_spin)
-
-        third.addWidget(QLabel("帯域"))
+        self.bpf_center_spin.setVisible(False)   # 設定画面へ移動
         self.bpf_bw_spin = QSpinBox()
         self.bpf_bw_spin.setRange(100, 1000)
         self.bpf_bw_spin.setSuffix(" Hz")
         self.bpf_bw_spin.setValue(int(self._settings.bpf_bandwidth_hz))
         self.bpf_bw_spin.setFixedWidth(78)
-        third.addWidget(self.bpf_bw_spin)
+        self.bpf_bw_spin.setVisible(False)   # 設定画面へ移動
 
         third.addStretch(1)
         root.addLayout(third)
@@ -275,10 +334,17 @@ class CWDecoderWindow(QMainWindow):
 
         root.addLayout(body, 5)
 
-        # ---- スペクトログラム ----
+        # ---- スペクトログラム (見え方のスライダ付き) ----
+        # **見ながら合わせられることが要件。** 目的は「符号としてそれらしく
+        # 見える」ことなので、設定画面には隠さない (運用者、2026-08-14)
         self.spectrogram = SpectrogramView(sample_rate=self._settings.sample_rate)
-        self.spectrogram.setVisible(self._settings.show_spectrogram)
-        root.addWidget(self.spectrogram, 3)
+        self.spectrogram_panel = SpectrogramWithControls(
+            self.spectrogram,
+            initial_floor_db=self._settings.spectrogram_floor_db,
+            initial_span_s=self._settings.spectrogram_span_s,
+        )
+        self.spectrogram_panel.setVisible(self._settings.show_spectrogram)
+        root.addWidget(self.spectrogram_panel, 3)
 
         # ---- LLM 清書パネル ----
         self.llm_text_view = QTextEdit()
@@ -288,16 +354,13 @@ class CWDecoderWindow(QMainWindow):
         root.addWidget(self.llm_text_view, 3)
 
         llm_bar = QHBoxLayout()
-        llm_bar.addWidget(QLabel("LLM:"))
         self.llm_provider_combo = QComboBox()
         self.llm_provider_combo.addItems(["ollama", "openai", "claude"])
         _p_index = {"ollama": 0, "openai": 1, "claude": 2}
         self.llm_provider_combo.setCurrentIndex(
             _p_index.get(self._settings.llm_provider, 0)
         )
-        llm_bar.addWidget(self.llm_provider_combo)
-
-        llm_bar.addWidget(QLabel("モデル:"))
+        self.llm_provider_combo.setVisible(False)   # 設定画面へ移動
         self.llm_model_edit = QComboBox()
         self.llm_model_edit.setEditable(True)
         # **モデル名に窓の幅を決めさせない。** 編集可能なコンボは候補の
@@ -318,7 +381,7 @@ class CWDecoderWindow(QMainWindow):
         # 起動時: 保存プロバイダの候補で初期化し、保存モデルを現在値にする
         self.llm_model_edit.addItems(self._models_for(self._settings.llm_provider))
         self.llm_model_edit.setEditText(self._settings.llm_model)
-        llm_bar.addWidget(self.llm_model_edit, 1)
+        self.llm_model_edit.setVisible(False)   # 設定画面へ移動
 
         self.llm_refine_btn = QPushButton("まとめて清書")
         self.llm_refine_btn.setToolTip(
@@ -341,7 +404,7 @@ class CWDecoderWindow(QMainWindow):
             "確定した分だけを順に清書する (増分方式)。清書済みは送り直さないので"
             "ローカル LLM でも待ち時間が短い"
         )
-        llm_bar2.addWidget(self.llm_auto_check)
+        self.llm_auto_check.setVisible(False)   # 設定画面へ移動
 
         self.llm_compact_check = QCheckBox("短いプロンプト")
         self.llm_compact_check.setChecked(self._settings.llm_compact_prompt)
@@ -350,7 +413,7 @@ class CWDecoderWindow(QMainWindow):
             "重い指示だと 4B 前後のモデルは例文をそのまま返したり捏造したりする。"
             "クラウドの大きいモデルを使うときはオフにすると細かい指示が効く"
         )
-        llm_bar2.addWidget(self.llm_compact_check)
+        self.llm_compact_check.setVisible(False)   # 設定画面へ移動
 
         self.llm_highlight_check = QCheckBox("推測を赤で表示")
         self.llm_highlight_check.setChecked(self._settings.llm_highlight_guesses)
@@ -358,7 +421,7 @@ class CWDecoderWindow(QMainWindow):
             "LLM が推測・補正した箇所を赤くする。赤が多くて読みにくいときはオフに"
             "できる (オフでもマーカー記号は表示しない)"
         )
-        llm_bar2.addWidget(self.llm_highlight_check)
+        self.llm_highlight_check.setVisible(False)   # 設定画面へ移動
         llm_bar2.addStretch(1)
         root.addLayout(llm_bar2)
 
@@ -390,7 +453,7 @@ class CWDecoderWindow(QMainWindow):
         self.threshold_slider.valueChanged.connect(self._on_threshold_changed)
         self.load_ckpt_btn.clicked.connect(self._on_load_checkpoint)
         self.record_btn.toggled.connect(self._on_record_toggled)
-        self.show_spectrogram_check.toggled.connect(self.spectrogram.setVisible)
+        self.show_spectrogram_check.toggled.connect(self.spectrogram_panel.setVisible)
         self.show_provisional_check.toggled.connect(self._on_show_provisional_toggled)
         self.llm_refine_btn.clicked.connect(self._on_refine_clicked)
         self.llm_clear_btn.clicked.connect(self._on_llm_clear)
@@ -462,6 +525,9 @@ class CWDecoderWindow(QMainWindow):
             head_guard_s=self._settings.head_guard_s,
             decode_left_context_s=self._settings.decode_left_context_s,
             commit_jitter_margin_s=self._settings.commit_jitter_margin_s,
+            low_confidence_extra_lag_s=self._settings.low_confidence_extra_lag_s,
+            refine_capacity_s=self._settings.refine_capacity_s,
+            two_stage_commit_enabled=self.two_stage_check.isChecked(),
         )
         self._worker.set_device(device_index)
         try:
@@ -500,6 +566,7 @@ class CWDecoderWindow(QMainWindow):
 
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
+        self._sync_run_button(True)
         self.decode_toggle_btn.setEnabled(True)
         self.device_combo.setEnabled(False)
         self.statusBar().showMessage("音声受信中... デコードを開始するには「● デコード開始」を押してください")
@@ -518,6 +585,7 @@ class CWDecoderWindow(QMainWindow):
         self._worker_thread = None
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
+        self._sync_run_button(False)
         self.decode_toggle_btn.setChecked(False)
         self.decode_toggle_btn.setEnabled(False)
         self.device_combo.setEnabled(not self._net_source)
@@ -613,10 +681,21 @@ class CWDecoderWindow(QMainWindow):
         self._committed_text: str = ""
         # 辞書補正で触った範囲 (_committed_text 上の文字位置). 表示の色分けに使う.
         self._committed_spans: tuple[CorrectedSpan, ...] = ()
+        # 辞書で決めきれなかった語と符号距離の近い候補 (LLM へ渡す材料)
+        self._unresolved_words: tuple[UnresolvedWord, ...] = ()
+        # 利用者が足した和文語彙 (起動後に 1 回だけ読む). None は未読込み
+        self._ja_extra_words: frozenset[str] | None = None
         # 清書結果の積み上げ (増分方式). 手動ボタンのときは置き換える
         self._llm_refined_html: list[str] = []
         # どこまで送ったか (応答が返ったら refined_len に確定させる)
         self._llm_sent_len: int = 0
+        # 再デコード経由の清書: **どこまで清書したかを時間 (絶対サンプル位置) で
+        # 覚える。** 再デコードするとテキストが作り直されるので文字位置は使えない
+        self._refined_until_sample: int = 0
+        # 応答待ちの間だけ持つ (再デコード → LLM の往復をまたぐ)
+        self._pending_refine_mode: str | None = None
+        self._pending_refine_until: int | None = None
+        self._pending_refine_replace: bool = False
         self._provisional_text: str = ""
         self._auto_submode: str = "european"
         # 受信信号から測った速度 (WPM)。測れていないときは None。
@@ -635,14 +714,32 @@ class CWDecoderWindow(QMainWindow):
         常に同じ結果になる (作り直しても表示が揺れない)。
         """
         if self.word_correct_check.isChecked():
-            result = correct_text(text)
+            result = correct_text(
+                text,
+                japanese_enabled=self.word_correct_ja_check.isChecked(),
+                japanese_extra=self._japanese_extra_words(),
+            )
             self._committed_text = result.text
             self._committed_spans = result.spans
+            # 直せなかった語と候補は LLM 清書へ渡す材料 (第 2 段で配線する)
+            self._unresolved_words = result.unresolved
         else:
             self._committed_text = text
             self._committed_spans = ()
+            self._unresolved_words = ()
         self._refresh_decode_display()
         self._maybe_auto_refine()
+
+    def _japanese_extra_words(self) -> frozenset[str]:
+        """利用者が足した和文語彙のうち、寄せ先にしてよいもの.
+
+        ファイルは受信のたびには読まない (起動時に 1 回)。編集を反映するには
+        アプリを起動し直す。受信中に読み直すと、途中で辞書が変わって同じ
+        文字列が違う結果になりうる (補正は純粋関数であることが前提)。
+        """
+        if self._ja_extra_words is None:
+            self._ja_extra_words = user_target_words(load_user_lexicon())
+        return self._ja_extra_words
 
     def _on_provisional_text(self, text: str) -> None:
         """暫定テキストを受信して表示を更新する."""
@@ -768,6 +865,30 @@ class CWDecoderWindow(QMainWindow):
         self.request_set_llm_provider.connect(self._llm_worker.set_provider)
         self._llm_thread.start()
         self._refresh_llm_provider()
+        self._init_redecode_worker()
+
+    def _init_redecode_worker(self) -> None:
+        """清書前の全体再デコードを行うワーカーを**別スレッド**で起動する.
+
+        音声スレッドとは分ける。300 秒の一括デコードは約 1.3 秒かかり、
+        hop (0.5 秒) を大きく超えるため、音声スレッドで走らせると受信を落とす。
+        エンジンも共有しない (借りると結局そちらを止める)。
+        """
+        self._redecode_worker = RedecodeWorker(
+            checkpoint_path=self._settings.checkpoint_path or "",
+            device=self._settings.decode_device,
+        )
+        self._redecode_thread = QThread()
+        self._redecode_worker.moveToThread(self._redecode_thread)
+        self._redecode_worker.result_ready.connect(self._on_redecode_result)
+        self._redecode_worker.error.connect(self._on_redecode_error)
+        self.request_redecode.connect(self._redecode_worker.request_redecode)
+        self._redecode_thread.start()
+
+    def _on_redecode_error(self, message: str) -> None:
+        """再デコードの失敗は清書を諦めるだけ (受信は続く)."""
+        self._pending_refine_mode = None
+        self.statusBar().showMessage(message)
 
     def _refresh_llm_provider(self) -> None:
         """現在の設定からプロバイダを生成しワーカーへ渡す. 失敗はステータス表示."""
@@ -794,18 +915,84 @@ class CWDecoderWindow(QMainWindow):
         self._refresh_llm_provider()
 
     def _on_refine_clicked(self) -> None:
-        """**まとめて清書**: 未清書分を 1 回で全部送る.
+        """**まとめて清書**.
 
-        最初からやり直したいときは「クリア」を押してから押す
-        (クリアで ``refined_len`` が 0 に戻る)。
+        再デコードが有効なら、清書用バッファ (最大 300 秒) を**丸ごと**読み直し、
+        その全体を清書して**清書欄を置き換える**。「全体が欲しいのは LLM で
+        正規化したいため」という運用者の方針による。全体を送るので積み上げでは
+        なく置き換えにする (積み上げると同じ内容が二重に並ぶ)。
+
+        再デコードが無効なら従来どおり、確定テキストの未清書分を送る。
         """
         if self._llm_busy:
+            return
+        if self._start_redecode_refine(whole=True):
             return
         request = plan_refine_all(self._committed_text, self._auto_refine_state)
         if request is None:
             self.statusBar().showMessage("清書していない確定テキストがありません")
             return
         self._send_refine(request)
+
+    def _start_redecode_refine(self, *, whole: bool) -> bool:
+        """清書用バッファを別スレッドで読み直す要求を出す.
+
+        Args:
+            whole: ``True`` なら全体 (まとめて清書)、``False`` なら未清書分だけ
+                (自動清書)。自動清書で全体を送ると、同じところを何度も清書して
+                しまう (運用者: 「自動清書なら既に清書済みは不要」)。
+
+        Returns:
+            要求を出したら ``True``。再デコードが無効・音声が無いなら ``False``
+            (呼び出し側は従来の経路に落ちる)。
+        """
+        # **再デコード中は次を出さない。** 読み直しの往復の間は ``_llm_busy`` が
+        # まだ False なので、これが無いと要求が積み重なる
+        if self._pending_refine_mode is not None:
+            return True
+        if not self._settings.refine_redecode_enabled or self._worker is None:
+            return False
+        # **学習済みモデルが無ければ使わない。** 未学習エンジンで読み直しても
+        # 意味が無く、従来経路 (確定テキストをそのまま送る) の方がまし
+        ckpt = self._settings.checkpoint_path
+        if not ckpt or not Path(ckpt).exists():
+            return False
+        buffer = getattr(self._worker, "refine_buffer", None)
+        if buffer is None:
+            return False
+        audio, start = buffer.snapshot(None if whole else self._refined_until_sample)
+        if audio.size == 0:
+            self.statusBar().showMessage("清書する音声がありません")
+            return False
+        self._pending_refine_mode = "replace" if whole else "append"
+        self.statusBar().showMessage("清書のために全体を読み直しています…")
+        self.request_redecode.emit(
+            audio,
+            start + audio.size,
+            self._current_mode(),
+            self._settings.confidence_threshold,
+            self.word_correct_check.isChecked(),
+            self.word_correct_ja_check.isChecked(),
+        )
+        return True
+
+    def _on_redecode_result(self, text: str, end_sample: int) -> None:
+        """再デコードの結果を LLM へ渡す.
+
+        **画面の確定テキストは置き換えない。** 交信しながら読む側と、記録として
+        整える側を分けるという方針による (運用者、2026-08-14)。
+        """
+        mode = self._pending_refine_mode
+        self._pending_refine_mode = None
+        if mode is None:
+            return
+        if not text.strip():
+            self.statusBar().showMessage("読み直した結果が空でした")
+            return
+        self._pending_refine_until = end_sample
+        self._pending_refine_replace = mode == "replace"
+        self._auto_refine_state.last_time = time.monotonic()
+        self.request_llm_transform.emit(text, self._current_mode(), "")
 
     def _send_refine(self, request: RefineRequest) -> None:
         """清書要求をワーカーへ送る (2 つのモードの共通経路)."""
@@ -822,11 +1009,28 @@ class CWDecoderWindow(QMainWindow):
         最初からやり直したいときは「クリア」を押す。
         """
         cleaned = text.strip()
-        if cleaned:
+        if self._pending_refine_replace:
+            # まとめて清書 (全体を読み直した) の結果は**置き換える**。
+            # 積み上げると同じ内容が二重に並ぶ
+            self._llm_refined_html = [cleaned] if cleaned else []
+        elif cleaned:
             self._llm_refined_html.append(cleaned)
         self._refresh_llm_display()
-        # 送った分までを清書済みにする (楽観更新した値をここで確定させる)
-        self._auto_refine_state.refined_len = self._llm_sent_len
+        if self._pending_refine_until is not None:
+            # 再デコード経由: 清書済みの位置を**時間**で覚える。
+            # 再デコードするとテキストが作り直されるので文字位置は使えない
+            self._refined_until_sample = self._pending_refine_until
+            self._pending_refine_until = None
+            # **文字位置の方も進めること。** 送る契機の判定
+            # (``plan_auto_refine``) は「未清書分に区切り文字があるか」で見て
+            # おり、ここを止めると未清書分が常に全文のままになる。和文は
+            # ``、`` ``。`` を多く含むので毎回成立し、設定した間隔を無視して
+            # 連続で走る (2026-08-15 に運用者が「2 秒間隔で動く」と報告)。
+            self._auto_refine_state.refined_len = len(self._committed_text)
+        else:
+            # 従来経路: 送った分までを清書済みにする (楽観更新をここで確定)
+            self._auto_refine_state.refined_len = self._llm_sent_len
+        self._pending_refine_replace = False
         self._auto_refine_state.last_time = time.monotonic()
 
         # 改行で区切った場合、まだ未清書の行が残っていることがある
@@ -882,6 +1086,12 @@ class CWDecoderWindow(QMainWindow):
         )
         if request is None:
             return
+        # 再デコードが使えるなら、そちらで**未清書分だけ**読み直して送る
+        # (全体を読み直すと同じところを何度も清書することになる)。
+        # 送る契機は従来と同じで、判定は上の ``plan_auto_refine`` が行う。
+        # **使えなければ従来経路に落ちる** (モデル未読込・受信未開始など)。
+        if self._start_redecode_refine(whole=False):
+            return
         # busy_changed(True) が往復する前に確定テキストが再更新されても
         # 二重発火しないよう、``last_time`` は _send_refine で先行更新する.
         self._send_refine(request)
@@ -903,6 +1113,11 @@ class CWDecoderWindow(QMainWindow):
         self._settings.show_spectrogram = self.show_spectrogram_check.isChecked()
         self._settings.show_provisional = self.show_provisional_check.isChecked()
         self._settings.word_correct_enabled = self.word_correct_check.isChecked()
+        self._settings.word_correct_ja_enabled = self.word_correct_ja_check.isChecked()
+        self._settings.two_stage_commit_enabled = self.two_stage_check.isChecked()
+        self._settings.refine_redecode_enabled = self.refine_redecode_check.isChecked()
+        self._settings.spectrogram_floor_db = self.spectrogram_panel.floor_db()
+        self._settings.spectrogram_span_s = self.spectrogram_panel.span_s()
         self._settings.squelch_threshold_db = self.level_meter.threshold_db()
         self._settings.bpf_enabled = self.bpf_check.isChecked()
         self._settings.bpf_center_hz = float(self.bpf_center_spin.value())
@@ -984,6 +1199,131 @@ class CWDecoderWindow(QMainWindow):
         dialog.deleteLater()
         self._save_settings()          # ダイアログが tx_endpoint / tx_wpm を書き換えている
 
+    def _on_run_toggled(self, checked: bool) -> None:
+        """開始／停止の統合ボタン.
+
+        **実際の処理は従来の ``_on_start`` / ``_on_stop`` に任せる。**
+        ボタンをまとめただけで、開始・停止の中身は変えない。
+        """
+        if checked:
+            self.run_btn.setText("■ 停止")
+            self._on_start()
+        else:
+            self.run_btn.setText("● 開始")
+            self._on_stop()
+
+    def _sync_run_button(self, running: bool) -> None:
+        """外から開始・停止されたときにボタンの見た目を合わせる."""
+        if self.run_btn.isChecked() != running:
+            self.run_btn.blockSignals(True)
+            self.run_btn.setChecked(running)
+            self.run_btn.blockSignals(False)
+        self.run_btn.setText("■ 停止" if running else "● 開始")
+
+    def _apply_settings_to_widgets(self) -> None:
+        """設定画面で変えた値を、画面のウィジェットとワーカーへ反映する.
+
+        **非表示にしたウィジェットも必ず更新すること。**
+        ``_save_settings`` はそれらから値を読み戻すので、更新し忘れると
+        設定画面で変えた値がその場で古い値に巻き戻る (2026-08-15 に実際に
+        「チェックを外せない」「開き直すと戻っている」という形で表面化した)。
+
+        更新は**信号を出したまま**行う。チェックボックスに繋がっている既存の
+        配線が、そのままワーカーへの反映を担ってくれる (利用者が旧チェックを
+        押したときと同じ経路)。
+        """
+        s = self._settings
+        _mode_index = {"european": 0, "japanese": 1, "auto": 2}
+        self.mode_combo.setCurrentIndex(_mode_index.get(s.mode, 0))
+        self._set_ckpt_label(s.checkpoint_path)
+        self._recorder = Recorder(out_dir=Path(s.recording_dir))
+
+        # --- 非表示にしたウィジェット (ここが本体) ---
+        self.threshold_slider.setValue(int(round(s.confidence_threshold * 100)))
+        self.show_spectrogram_check.setChecked(s.show_spectrogram)
+        self.show_provisional_check.setChecked(s.show_provisional)
+        self.word_correct_check.setChecked(s.word_correct_enabled)
+        self.word_correct_ja_check.setChecked(s.word_correct_ja_enabled)
+        self.two_stage_check.setChecked(s.two_stage_commit_enabled)
+        self.refine_redecode_check.setChecked(s.refine_redecode_enabled)
+        self.bpf_check.setChecked(s.bpf_enabled)
+        self.bpf_center_spin.setValue(int(s.bpf_center_hz))
+        self.bpf_bw_spin.setValue(int(s.bpf_bandwidth_hz))
+        self.llm_auto_check.setChecked(s.llm_auto)
+        self.llm_compact_check.setChecked(s.llm_compact_prompt)
+        self.llm_highlight_check.setChecked(s.llm_highlight_guesses)
+        index = self.llm_provider_combo.findText(s.llm_provider)
+        if index >= 0:
+            self.llm_provider_combo.setCurrentIndex(index)
+        self.llm_model_edit.setEditText(s.llm_model)
+
+        # スペクトルの表示切替は非表示チェックの信号で伝わるが、念のため直接も
+        self.spectrogram_panel.setVisible(s.show_spectrogram)
+        self._refresh_decode_display()
+
+    def _open_settings_dialog(self) -> None:
+        """設定画面を開き、OK なら反映する.
+
+        **すぐ効くものと、次回の開始時に効くものがある。** 後者は
+        ``SlidingWindowDecoder`` を作るときに固まる値なので、受信中に変えても
+        効かない。効かなかったものは数えて知らせる (黙って効かないのが一番困る)。
+        """
+        self._save_settings()          # 画面側のウィジェットの値を先に取り込む
+        dialog = SettingsDialog(
+            self._settings, parent=self, lexicon_path=DEFAULT_JA_LEXICON_PATH
+        )
+        if hasattr(dialog, "open_lexicon_btn"):
+            dialog.open_lexicon_btn.clicked.connect(self._open_lexicon_folder)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        result = dialog.result_settings
+        if result is None:
+            return
+        deferred = self._deferred_setting_names(self._settings, result)
+        self._settings = result
+        self._apply_settings_to_widgets()
+        self._save_settings()
+        if deferred:
+            self.statusBar().showMessage(
+                f"設定を保存しました。{len(deferred)} 項目は次回の開始から反映されます "
+                f"({', '.join(deferred)})"
+            )
+        else:
+            self.statusBar().showMessage("設定を保存しました")
+
+    @staticmethod
+    def _deferred_setting_names(old: AppSettings, new: AppSettings) -> list[str]:
+        """変更されたもののうち、**次回の開始時にしか効かない**項目名を返す."""
+        labels = {
+            "sample_rate": "サンプルレート",
+            "checkpoint_path": "モデル",
+            "decode_device": "デコード装置",
+            "decode_threads": "スレッド数",
+            "hop_s": "デコード間隔",
+            "commit_lag_s": "確定までの待ち",
+            "window_s": "デコード用リング",
+            "decode_left_context_s": "左文脈",
+            "head_guard_s": "先頭で捨てる長さ",
+            "low_confidence_extra_lag_s": "読めない文字の猶予",
+            "line_break_gap_s": "改行する無音",
+            "two_stage_commit_enabled": "2 段階確定",
+            "refine_capacity_s": "清書用バッファ",
+        }
+        return [
+            label for name, label in labels.items()
+            if getattr(old, name) != getattr(new, name)
+        ]
+
+    def _open_lexicon_folder(self) -> None:
+        """和文語彙ファイルの置き場所を開く (無ければ作る)."""
+        path = Path(DEFAULT_JA_LEXICON_PATH)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            path.write_text(
+                '{\n  "地名・人名": []\n}\n', encoding="utf-8"
+            )
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.parent)))
+
     def closeEvent(self, event) -> None:  # noqa: N802
         # **送信ダイアログを置き去りにしない。** モードレスになったので、
         # メイン画面だけ閉じると打鍵の接続と 3 秒タイマが残る
@@ -996,6 +1336,11 @@ class CWDecoderWindow(QMainWindow):
             # 進行中の LLM リクエストは最大 llm_timeout_s 秒で必ず終了する。
             # それを超える猶予を持って待機し、実行中スレッドの破棄 (segfault) を防ぐ。
             self._llm_thread.wait(int(self._settings.llm_timeout_s * 1000) + 2000)
+        if getattr(self, "_redecode_thread", None) is not None:
+            self._redecode_thread.quit()
+            # 進行中の再デコードは最大 300 秒ぶん = 実測 1.3 秒。余裕を持って待つ
+            # (実行中スレッドを破棄すると落ちる)
+            self._redecode_thread.wait(10000)
         self._save_settings()
         super().closeEvent(event)
 

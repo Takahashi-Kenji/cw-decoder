@@ -1,5 +1,5 @@
 mode: japanese
-estimated_duration_s: 18.6
+estimated_duration_s: 19.2
 wpm: 16
 ---
 バシヨ ハ カナガワケン ヨコハマ デス

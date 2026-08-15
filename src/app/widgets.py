@@ -5,7 +5,14 @@ import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
-from PySide6.QtWidgets import QSlider, QVBoxLayout, QWidget, QLabel
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QSizePolicy,
+    QSlider,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class LevelMeter(QWidget):
@@ -124,6 +131,44 @@ class SpectrogramView(pg.GraphicsLayoutWidget):
         # 内部バッファ
         self._buffer = np.zeros(0, dtype=np.float32)
         self._window = np.hanning(fft_size).astype(np.float32)
+        self._floor_db = -80.0
+
+    # ---- 見え方の調整 (符号として読めることが目的) ----
+    def set_floor_db(self, floor_db: float) -> None:
+        """表示する下限 dB を変える (コントラスト).
+
+        上限は 0 dB 固定で、下限を上げるほど弱い信号が切り捨てられて
+        **強い信号だけがはっきり出る**。ノイズに埋もれて符号が読めないときに
+        上げる。既定の -80 dB は弱い信号まで拾うぶん全体に薄い。
+        """
+        self._floor_db = float(floor_db)
+        self._img.setLevels((self._floor_db, 0.0))
+
+    def floor_db(self) -> float:
+        return self._floor_db
+
+    def set_span_s(self, span_s: float) -> None:
+        """画面全体に映す時間 (秒) を変える (走査速度).
+
+        ``hop`` (1 列あたりのサンプル数) を計算し直す。**窓長 (``fft_size``) は
+        変えない。** docstring のとおり分解能を決めるのは窓長であって送り幅では
+        ないので、ここを変えても短点が潰れることはない。単に広く映るか、
+        拡大して映るかが変わる。
+
+        遅い相手ほど 1 文字が長いので、広めに映した方が読みやすい。
+        """
+        span_s = max(0.4, float(span_s))
+        hop = max(1, int(round(span_s * self.sample_rate / self.history_columns)))
+        if hop == self.hop:
+            return
+        self.hop = hop
+        self._img.setRect(
+            0, 0, self.history_columns * hop / self.sample_rate,
+            self.sample_rate / 2,
+        )
+
+    def span_s(self) -> float:
+        return self.history_columns * self.hop / self.sample_rate
 
     def _build_lut(self) -> np.ndarray:
         # シンプルな青→黄→赤 LUT
@@ -153,6 +198,129 @@ class SpectrogramView(pg.GraphicsLayoutWidget):
         self._spec.fill(-80.0)
         self._buffer = np.zeros(0, dtype=np.float32)
         self._img.setImage(self._spec.T, autoLevels=False)
+
+
+class SpectrogramWithControls(QWidget):
+    """スペクトログラム + 見え方のスライダ 2 本.
+
+    **見ながら合わせられることが要件。** 目的は「符号としてそれらしく見える」
+    ことなので、設定画面に隠さずスペクトルの隣に置く (運用者、2026-08-14)。
+
+    * **コントラスト** — 表示する下限 dB。上げるほど強い信号だけが残る
+    * **表示幅** — 画面に映す秒数。遅い相手ほど広く映した方が読みやすい
+    """
+
+    floor_changed = Signal(float)
+    span_changed = Signal(float)
+
+    # スライダは整数しか扱えないので、内部は 10 倍した整数で持つ
+    _SPAN_SCALE = 10
+
+    def __init__(
+        self,
+        spectrogram: SpectrogramView,
+        initial_floor_db: float = -80.0,
+        initial_span_s: float = 3.2,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.spectrogram = spectrogram
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+        layout.addWidget(spectrogram)
+
+        row = QHBoxLayout()
+        row.setContentsMargins(4, 0, 4, 0)
+        row.setSpacing(4)
+
+        row.addWidget(self._caption("濃さ"))
+        self.floor_slider = QSlider(Qt.Orientation.Horizontal)
+        # 下限 dB。-100 (薄い・弱い信号も見える) 〜 -20 (濃い・強い信号だけ)
+        self.floor_slider.setRange(-100, -20)
+        self.floor_slider.setValue(int(initial_floor_db))
+        self.floor_slider.setToolTip(
+            "表示する下限 dB。右に振るほど弱い信号が切り捨てられ、\n"
+            "強い信号だけがはっきり出ます。ノイズに埋もれて符号が\n"
+            "読めないときに右へ。"
+        )
+        self.floor_slider.valueChanged.connect(self._on_floor)
+        self._make_shrinkable(self.floor_slider)
+        row.addWidget(self.floor_slider, 1)
+        self.floor_label = self._readout()
+        row.addWidget(self.floor_label)
+
+        row.addSpacing(8)
+        row.addWidget(self._caption("幅"))
+        self.span_slider = QSlider(Qt.Orientation.Horizontal)
+        # 表示幅 (秒)。0.8 〜 12.8 秒
+        self.span_slider.setRange(
+            int(0.8 * self._SPAN_SCALE), int(12.8 * self._SPAN_SCALE)
+        )
+        self.span_slider.setValue(int(initial_span_s * self._SPAN_SCALE))
+        self.span_slider.setToolTip(
+            "画面に映す時間の長さ。左へ振ると拡大、右へ振ると広く映ります。\n"
+            "遅い相手ほど 1 文字が長いので、広めの方が読みやすくなります。\n"
+            "**周波数分解能は変わりません** (窓の長さは固定)。"
+        )
+        self.span_slider.valueChanged.connect(self._on_span)
+        self._make_shrinkable(self.span_slider)
+        row.addWidget(self.span_slider, 1)
+        self.span_label = self._readout()
+        row.addWidget(self.span_label)
+
+        layout.addLayout(row)
+        self._on_floor(self.floor_slider.value())
+        self._on_span(self.span_slider.value())
+
+    # ---- 窓の幅を拘束しないための細工 ----
+    #
+    # **Qt の最小幅は中身の sizeHint の合計で決まる。** 横に並べたぶんだけ
+    # 窓の下限が上がり、細くできなくなる (2026-08-12 に運用者が
+    # 「狭くならない」と報告し、入力デバイス欄・パス表示・スライダの 3 つで
+    # 同じ対処をしている)。ここで 2 本足すので、同じ轍を踏まないようにする。
+
+    @staticmethod
+    def _make_shrinkable(slider: QSlider) -> None:
+        """スライダに幅を主張させない (潰れてよい)."""
+        slider.setMinimumWidth(0)
+        slider.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+
+    @staticmethod
+    def _caption(text: str) -> QLabel:
+        """小さめの見出し。**さりげなく**支えるための控えめな表示."""
+        label = QLabel(text)
+        label.setStyleSheet("color: #888; font-size: 10px;")
+        return label
+
+    @staticmethod
+    def _readout() -> QLabel:
+        """現在値の表示。**幅を固定して、値が変わっても並びが動かないように**する.
+
+        桁数で幅が変わると、スライダを動かすたびに横のものが揺れて目障りになる。
+        """
+        label = QLabel()
+        label.setStyleSheet("color: #888; font-size: 10px;")
+        label.setFixedWidth(44)
+        label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        return label
+
+    def _on_floor(self, value: int) -> None:
+        self.spectrogram.set_floor_db(float(value))
+        self.floor_label.setText(f"{value} dB")
+        self.floor_changed.emit(float(value))
+
+    def _on_span(self, value: int) -> None:
+        span = value / self._SPAN_SCALE
+        self.spectrogram.set_span_s(span)
+        self.span_label.setText(f"{span:.1f} 秒")
+        self.span_changed.emit(span)
+
+    def floor_db(self) -> float:
+        return float(self.floor_slider.value())
+
+    def span_s(self) -> float:
+        return self.span_slider.value() / self._SPAN_SCALE
 
 
 class LevelMeterWithSquelch(QWidget):

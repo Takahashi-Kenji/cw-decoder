@@ -5,7 +5,8 @@
 """
 from __future__ import annotations
 
-from src.infer.word_correct import EUROPEAN_LEXICON
+from src.infer.word_correct import EUROPEAN_LEXICON, correct_text, with_candidates
+from src.tokens.converter import FALLBACK_CHAR as UNREADABLE
 from src.llm.markup import CLOSE_MARK, OPEN_MARK
 from src.tokens.morse_tokens import (
     DAKUTEN_CHAR,
@@ -32,11 +33,16 @@ def build_kana_to_european() -> dict[str, str]:
 
 
 # 共通ヘッダ + 誤り訂正 (全モード共通). 項目 2 (整形) はモード別に差し込む.
-_SYSTEM_HEADER = """あなたはアマチュア無線 CW (モールス信号) のデコード結果を校正する専門家です。
-入力は AI デコーダの生出力で、誤り・脱落 (?) が含まれます。次を行ってください。
+_SYSTEM_HEADER = f"""あなたはアマチュア無線 CW (モールス信号) のデコード結果を校正する専門家です。
+入力は AI デコーダの生出力で、誤りと読み取れなかった箇所が含まれます。
+
+**`{UNREADABLE}` は「読み取れなかった 1 文字」を表す印**です。文脈から推測して埋めてください。
+**`?` は本物の疑問符**であり、相手が実際に送った文字です。消したり変えたりしないこと。
+
+次を行ってください。
 
 1. デコード誤りの訂正: 文脈から D↔B, K↔T, Y↔A, 9→O, I→E 等の系統誤りや
-   ? (脱落) を推測して補正する。"""
+   `{UNREADABLE}` (読み取れなかった箇所) を推測して補正する。"""
 
 # 短縮数字 (cut numbers)。CW では数字を短い符号の文字で送る慣習がある。
 # **5NN = 599 が圧倒的に多い** (RST レポート)。デコーダはそのまま文字として出すので、
@@ -178,10 +184,64 @@ _COMPACT_JP = f"""カタカナで書かれた無線の電文を、漢字かな�
 
 規則:
 - 出力は直した日本語の文だけ。説明・前置き・絵文字は書かない。
+- `{UNREADABLE}` は読み取れなかった 1 文字。文脈から推測して埋める。
+- `?` は本物の疑問符。消したり変えたりしない。
 - 意味が取れない部分はカタカナのまま残す。
 - 内容を足さない。書かれていないことを書かない。
 - 推測して直した箇所は {OPEN_MARK} と {CLOSE_MARK} で囲む。確実な箇所は囲まない。
 - [ホレ] [ラタ] [SK] [KN] [SN] は運用記号。訳さずそのまま残す。"""
+
+# 和文 / auto モード用の笑いの説明。
+#
+# CW の笑いは欧文の ``HI HI``。和文表で読むと ``ヌヘヘ`` / ``ホヘヘ`` になる
+# (運用者、2026-08-14)。**同じ音を別の表で読んでいるだけ**なので、これを伝えないと
+# LLM は意味不明なカナとして扱うか、勝手に別の語へ読み替える。
+#
+# プロサインの説明と同じく**箇条書き 1 行**にする (段落で書くと効かず、
+# 1 行にすると効いたという実測がある)。
+_JP_LAUGHTER_RULE = """
+
+参考: ヌヘヘ / ホヘヘ / ヌヘ / アハハ / エヘヘ / ニコニコ は**笑い**を表す
+(欧文の HI HI と同じ)。文脈に合えば「(笑)」と訳してよい。"""
+
+# 候補として渡す語の上限。
+#
+# **重いプロンプトは小さいモデルに害になる** (このファイルの後段の実測を参照)。
+# 候補は語彙全体と違って短いが、際限なく増やすと同じ罠にはまる。
+MAX_CANDIDATE_HINTS = 8
+
+
+def build_candidate_hints(raw_text: str) -> str:
+    """辞書で決めきれなかった語に、符号距離の近い候補を添えたブロックを組む.
+
+    **語彙を丸ごとプロンプトに入れる代わりに、詰まった語ぶんだけ候補を渡す。**
+    プロンプトが小さいまま済み、LLM を「候補から選ぶ」役に限定できるので
+    捏造が減る。辞書は「2 位との差が無ければ寄せない」と決めており、そこで
+    黙って諦めた候補こそが、文脈を読める側に渡すべきものである。
+
+    引数を 4 層 (main_window → Qt Slot → provider → ここ) に通す代わりに、
+    **渡されたテキストから引き直す**。候補はテキストから決定論的に決まるので
+    結果は同じで、配線が増えない。
+
+    Returns:
+        プロンプトに足す文字列。渡すものが無ければ空文字列。
+    """
+    # 候補は重い (1 語 60 ms) ので ``correct_text`` は既定で埋めない。
+    # LLM を呼ぶこの場面でだけ埋める。
+    unresolved = with_candidates(correct_text(raw_text).unresolved)
+    if not unresolved:
+        return ""
+    lines = [
+        f"  {entry.word} → " + " / ".join(c.word for c in entry.candidates)
+        for entry in unresolved[:MAX_CANDIDATE_HINTS]
+    ]
+    return (
+        "\n\n参考: 次の語は AI デコーダが読み違えた可能性があり、**符号の距離が近い候補**を"
+        "添えます。\n文脈に合うものがあれば選び、合わなければ元のまま残してください。"
+        "\n**確定した読みではありません。**選んだ箇所は推測なので必ずマーカーで囲むこと。\n"
+        + "\n".join(lines)
+    )
+
 
 def _format_kana_table() -> str:
     """カナ→欧文対応表をスペース区切りの文字列に整形する."""
@@ -235,6 +295,8 @@ def build_messages(
         system += _JP_EXTRA.format(
             open=OPEN_MARK, close=CLOSE_MARK, table=_format_kana_table()
         )
+        system += _JP_LAUGHTER_RULE
+        system += build_candidate_hints(raw_text)
     lead = (lead_text or "").strip()
     if lead:
         system += _LEAD_RULE
@@ -256,7 +318,9 @@ def _compact_messages(
     raw_text: str, lead_text: str | None
 ) -> list[dict[str, str]]:
     """短いプロンプト版のメッセージを組む (和文専用)."""
-    system = _COMPACT_JP
+    # 笑いと候補は短いので、小さいモデル向けの版にも入れる。
+    # むしろ小さいモデルほど「選択肢を与える」形の方が効く。
+    system = _COMPACT_JP + _JP_LAUGHTER_RULE + build_candidate_hints(raw_text)
     lead = (lead_text or "").strip()
     if lead:
         system += _LEAD_RULE
@@ -274,4 +338,9 @@ def _compact_messages(
     ]
 
 
-__all__ = ["build_kana_to_european", "build_messages"]
+__all__ = [
+    "MAX_CANDIDATE_HINTS",
+    "build_candidate_hints",
+    "build_kana_to_european",
+    "build_messages",
+]

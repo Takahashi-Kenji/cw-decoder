@@ -11,17 +11,35 @@
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 import numpy as np
 
-from src.infer.engine import InferenceEngine
+from src.infer.engine import FrameToken, InferenceEngine
+from src.tokens.morse_tokens import (
+    DAKUTEN_CHAR,
+    HANDAKUTEN_CHAR,
+    JAPANESE_TABLE,
+    TOKEN_TO_ID,
+)
+
+# 濁点・半濁点のトークン ID。
+#
+# **符号定義は morse_tokens.py が唯一の真正ソース**なので、ここでは持たずに
+# 毎回引き当てる (アーキテクチャ原則 2)。欧文モードでも同じトークン ID が
+# 使われる (``・・`` は欧文の ``I``) が、待たされるのは 1 hop なので実害は無い。
+VOICING_MARK_TOKEN_IDS: frozenset[int] = frozenset(
+    TOKEN_TO_ID[code]
+    for code, char in JAPANESE_TABLE.items()
+    if char in (DAKUTEN_CHAR, HANDAKUTEN_CHAR) and code in TOKEN_TO_ID
+)
 
 # デコードの前に足す助走の無音 (秒)。
 #
 # **モデルは音の立ち上がりで幻覚を出す。** held-out 実録音 21 件の実測で、
-# 先頭に余計なトークンが出たのは 18/21 件。別実装のデコーダは同じ音で
-# 0/10 件だった。学習データの録音が常に符号で始まるため、
+# 先頭に余計なトークンが出たのは 18/21 件。別実装のデコーダは同じ音で 0/10 件だった
+# 。学習データの録音が常に符号で始まるため、
 # 「静かなところから符号が始まる」を知らないものと思われる。
 #
 # **0.3 秒の無音を足すだけで TER 24.21% → 22.32% (-1.9pt)**、先頭の誤りは
@@ -29,6 +47,32 @@ from src.infer.engine import InferenceEngine
 # 無音の中に出たトークンを捨てても数字は変わらない = モデルは無音では
 # 何も出さず、立ち上がりでだけ出す。
 DEFAULT_LEAD_IN_S = 0.3
+
+# 確信度が閾値未満のトークンに与える「余分な猶予」(秒)。
+#
+# 閾値未満のトークンは画面に読めなかった印 (``_``) として出る。そのまま確定して
+# しまうと、右文脈が増えたあとの読みを永久に取り逃がす。**確定を少し待たせれば、
+# より多くの右文脈で読み直した結果を確定できる** (運用者の要望、2026-08-14)。
+#
+# **無限には待たない。** 猶予を過ぎたら確信度が低いままでも確定する。待ち続けると
+# 画面が進まなくなり、「読めなかった」ことすら分からなくなる。
+#
+# held-out 21 件の掃引 (2026-08-14、2 段階確定なし)::
+#
+#     猶予 0.0 秒 (従来)  TER 25.73%   欧文 18.41% / 和文 34.13%
+#     猶予 0.5 秒         TER 25.50%   (-0.22pt)
+#     猶予 1.0 秒         TER 24.38%   (-1.34pt)
+#     猶予 1.5 秒         TER 23.71%   (-2.01pt)  ← 採用
+#     猶予 2.0 秒         TER 23.49%   (-2.24pt)
+#
+# 単調に改善し、**和文で -3.84pt** (34.13% → 30.29%) と効きが大きい。2.0 秒の方が
+# わずかに良いが、読めなかった文字の確定が最大 2 秒遅れる代償があるため、改善幅の
+# 大半を取れる 1.5 秒を採る (運用者の判断)。
+#
+# **2 段階確定が届く場面では効果が消える** (3 回目がターン全体を読み直して上書き
+# するため、猶予 0.0〜2.0 のどれでも TER 21.25% で同じ)。効くのは 3 回目が
+# 諦める場面 — 長い送信や、音がリングから落ちたターン — である。
+DEFAULT_LOW_CONFIDENCE_EXTRA_LAG_S = 1.5
 
 
 @dataclass(frozen=True)
@@ -66,6 +110,8 @@ class SlidingWindowDecoder:
         commit_jitter_margin_s: float = 0.02,
         sample_rate: int = 8000,
         lead_in_s: float = DEFAULT_LEAD_IN_S,
+        low_confidence_threshold: float = 0.5,
+        low_confidence_extra_lag_s: float = DEFAULT_LOW_CONFIDENCE_EXTRA_LAG_S,
     ) -> None:
         self.engine = engine
         self.sample_rate = sample_rate
@@ -77,6 +123,9 @@ class SlidingWindowDecoder:
         self.jitter_margin_samples = int(commit_jitter_margin_s * sample_rate)
         # 音の立ち上がりの幻覚よけ (:data:`DEFAULT_LEAD_IN_S`)
         self.lead_in_samples = int(lead_in_s * sample_rate)
+        # 読めなかった印になるトークンに与える余分な猶予
+        self.low_confidence_threshold = low_confidence_threshold
+        self.low_confidence_extra_lag = int(low_confidence_extra_lag_s * sample_rate)
         self._ring = np.zeros(0, dtype=np.float32)
         self._total_consumed = 0                 # 累積投入サンプル数 (= 現在時刻)
         self._committed: list[CommittedToken] = []
@@ -307,7 +356,7 @@ class SlidingWindowDecoder:
 
         newly: list[CommittedToken] = []
         provisional: list[CommittedToken] = []
-        for tok in frame_tokens:
+        for index, tok in enumerate(frame_tokens):
             abs_start = origin_abs + tok.frame_start * hop
             abs_end = origin_abs + tok.frame_end * hop
             if abs_start < decode_start_abs:          # 助走の無音の中 = 幻覚
@@ -322,6 +371,20 @@ class SlidingWindowDecoder:
             if abs_end >= commit_limit_abs:
                 provisional.append(ct)
                 continue
+            # **読めなかった印になる文字は、もう少し待って読み直す。**
+            #
+            # 確信度が閾値未満のトークンは画面に ``_`` として出る。そのまま
+            # 確定すると、右文脈が増えたあとの読みを永久に取り逃がす。
+            # 猶予を過ぎたら確信度が低いままでも確定する (待ち続けると画面が
+            # 進まない)。``finalize()`` は commit_limit を全部の先に置くので
+            # ここも通り抜ける。
+            if (
+                self.low_confidence_extra_lag > 0
+                and tok.confidence < self.low_confidence_threshold
+                and abs_end >= commit_limit_abs - self.low_confidence_extra_lag
+            ):
+                provisional.append(ct)
+                continue
             # 左文脈なし → 不採用
             if abs_start < head_cut_abs:
                 continue
@@ -330,6 +393,21 @@ class SlidingWindowDecoder:
             # 文字間ギャップが小さくても新規トークンは脱落しない.
             midpoint = (abs_start + abs_end) // 2
             if last_end is not None and midpoint <= last_end + self.jitter_margin_samples:
+                continue
+            # **濁点が付くカナは、濁点が確定できるまで確定させない。**
+            #
+            # 濁点・半濁点は基本カナとは別のトークンである。基本カナだけが先に
+            # 確定境界を越えると、画面には清音が出る (``デ`` が ``テ`` に見える)。
+            # 濁点が確定するのは 1〜3 hop 後で、そこで濁音に直る。運用者からは
+            # 「正しかった文字が誤りに変わり、しばらくして直る」ように見える
+            # (2026-08-14 の実受信 105 秒で 9 回)。
+            #
+            # **遅らせるだけで、確定済みは書き換えない** (原則は守られる)。
+            # 待つのは濁点が暫定圏にいる間だけなので、通常 1 hop で済む。
+            if _next_is_pending_voicing_mark(
+                frame_tokens, index, origin_abs, hop, commit_limit_abs
+            ):
+                provisional.append(ct)
                 continue
             self._committed.append(ct)
             newly.append(ct)
@@ -343,4 +421,30 @@ class SlidingWindowDecoder:
         )
 
 
-__all__ = ["CommittedToken", "DecodeView", "SlidingWindowDecoder"]
+def _next_is_pending_voicing_mark(
+    frame_tokens: Sequence[FrameToken],
+    index: int,
+    origin_abs: int,
+    hop: int,
+    commit_limit_abs: int,
+) -> bool:
+    """次のトークンが**まだ確定できない**濁点・半濁点か.
+
+    濁点が確定圏に入っていれば ``False`` (カナと濁点をまとめて確定してよい)。
+    終端の ``finalize()`` は ``commit_limit_abs`` を全部の先に置くので、
+    ここは常に ``False`` になり待たされない。
+    """
+    if index + 1 >= len(frame_tokens):
+        return False
+    nxt = frame_tokens[index + 1]
+    if nxt.token_id not in VOICING_MARK_TOKEN_IDS:
+        return False
+    return origin_abs + nxt.frame_end * hop >= commit_limit_abs
+
+
+__all__ = [
+    "VOICING_MARK_TOKEN_IDS",
+    "CommittedToken",
+    "DecodeView",
+    "SlidingWindowDecoder",
+]

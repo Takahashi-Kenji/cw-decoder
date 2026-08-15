@@ -47,6 +47,154 @@ def _patch_tokens(d: SlidingWindowDecoder, frame_tokens: list[FrameToken]) -> No
     d.engine.decode_chunk = lambda wave: list(frame_tokens)  # type: ignore[assignment]
 
 
+class TestLowConfidenceGetsASecondChance:
+    """**読めなかった印 (`_`) になる文字は、確定を遅らせて読み直す.**
+
+    確信度が閾値未満のトークンは画面に ``_`` として出る。そのまま確定すると
+    右文脈が増えたあとの読みを永久に取り逃がす。確定を少し待たせれば、
+    より多くの右文脈で読み直した結果を確定できる (運用者の要望、2026-08-14)。
+
+    **無限には待たない。** 余分な猶予を過ぎたら、確信度が低いままでも確定する
+    (待ち続けると画面が進まなくなる)。
+    """
+
+    def test_low_confidence_token_waits(self) -> None:
+        """閾値未満のトークンは、通常の確定圏に入っても確定しない."""
+        d = _decoder(window_s=30.0, commit_lag_s=2.5, head_guard_s=1.0,
+                     low_confidence_threshold=0.5, low_confidence_extra_lag_s=1.0)
+        d.push(np.zeros(80000, dtype=np.float32))       # 10 秒
+        # 7.4 秒で終わる = 通常の確定圏 (< 7.5 秒) だが、猶予圏 (< 6.5 秒) の外
+        _patch_tokens(d, [
+            FrameToken(token_id=5, confidence=0.3, frame_start=700, frame_end=740),
+        ])
+        view = d.redecode()
+        assert [t.token_id for t in view.committed] == []
+        assert [t.token_id for t in view.provisional] == [5]
+
+    def test_high_confidence_token_does_not_wait(self) -> None:
+        """閾値以上なら従来どおり確定する (待たせない)."""
+        d = _decoder(window_s=30.0, commit_lag_s=2.5, head_guard_s=1.0,
+                     low_confidence_threshold=0.5, low_confidence_extra_lag_s=1.0)
+        d.push(np.zeros(80000, dtype=np.float32))
+        _patch_tokens(d, [
+            FrameToken(token_id=5, confidence=0.9, frame_start=700, frame_end=740),
+        ])
+        assert [t.token_id for t in d.redecode().committed] == [5]
+
+    def test_low_confidence_commits_after_the_grace_period(self) -> None:
+        """**猶予を過ぎたら、確信度が低いままでも確定する.**
+
+        待ち続けると画面が進まなくなる。読めなかったことを ``_`` で示す方が、
+        何も出ないよりよい。
+        """
+        d = _decoder(window_s=30.0, commit_lag_s=2.5, head_guard_s=1.0,
+                     low_confidence_threshold=0.5, low_confidence_extra_lag_s=1.0)
+        d.push(np.zeros(80000, dtype=np.float32))
+        # 6.0 秒で終わる = 猶予圏 (< 6.5 秒) の内側
+        _patch_tokens(d, [
+            FrameToken(token_id=5, confidence=0.3, frame_start=560, frame_end=600),
+        ])
+        assert [t.token_id for t in d.redecode().committed] == [5]
+
+    def test_disabled_by_zero_extra_lag(self) -> None:
+        """猶予 0 なら従来の挙動 (確信度を見ない)."""
+        d = _decoder(window_s=30.0, commit_lag_s=2.5, head_guard_s=1.0,
+                     low_confidence_threshold=0.5, low_confidence_extra_lag_s=0.0)
+        d.push(np.zeros(80000, dtype=np.float32))
+        _patch_tokens(d, [
+            FrameToken(token_id=5, confidence=0.3, frame_start=700, frame_end=740),
+        ])
+        assert [t.token_id for t in d.redecode().committed] == [5]
+
+    def test_finalize_does_not_wait(self) -> None:
+        """終端では音がもう増えないので、待たずに確定させること."""
+        d = _decoder(window_s=30.0, commit_lag_s=2.5, head_guard_s=1.0,
+                     low_confidence_threshold=0.5, low_confidence_extra_lag_s=1.0)
+        d.push(np.zeros(80000, dtype=np.float32))
+        _patch_tokens(d, [
+            FrameToken(token_id=5, confidence=0.3, frame_start=700, frame_end=740),
+        ])
+        assert [t.token_id for t in d.finalize().committed] == [5]
+
+
+class TestVoicingMarkIsNotSplitByCommit:
+    """**濁点が付くカナは、濁点が確定できるまで確定させない.**
+
+    濁点・半濁点は基本カナとは別のトークンである。基本カナだけが先に確定境界を
+    越えると、画面には清音が出てしまう (``デ`` が ``テ`` に見える)。濁点が確定
+    するのは 1〜3 hop 後 (0.5〜1.5 秒後) で、そこで濁音に直る。
+
+    運用者から見れば「正しかった文字が誤りに変わり、しばらくして直る」現象で、
+    2026-08-14 の実受信 (105 秒) で **9 回**起きていた。
+
+    直し方は**遅らせるだけ**。確定済みを書き換えるわけではないので
+    「確定済みは不変」の原則は守られる。
+    """
+
+    @staticmethod
+    def _mark_token_id() -> int:
+        from src.tokens.morse_tokens import DAKUTEN_CHAR, JAPANESE_TABLE, TOKEN_TO_ID
+
+        code = next(c for c, ch in JAPANESE_TABLE.items() if ch == DAKUTEN_CHAR)
+        return TOKEN_TO_ID[code]
+
+    def test_kana_waits_for_its_pending_voicing_mark(self) -> None:
+        """濁点がまだ暫定圏なら、直前のカナも確定させない."""
+        mark = self._mark_token_id()
+        d = _decoder(window_s=30.0, commit_lag_s=2.5, head_guard_s=1.0)
+        d.push(np.zeros(80000, dtype=np.float32))       # 10 秒
+        # カナは確定圏 (< 7.5s)、濁点は暫定圏 (>= 7.5s) にまたがって置く
+        _patch_tokens(d, [
+            FrameToken(token_id=5, confidence=0.9, frame_start=700, frame_end=740),
+            FrameToken(token_id=mark, confidence=0.9, frame_start=745, frame_end=760),
+        ])
+        view = d.redecode()
+        assert [t.token_id for t in view.committed] == [], "濁点を待たずに確定した"
+        assert [t.token_id for t in view.provisional] == [5, mark]
+
+    def test_both_commit_once_the_mark_is_in_range(self) -> None:
+        """濁点が確定圏に入れば、カナと濁点がまとめて確定する."""
+        mark = self._mark_token_id()
+        d = _decoder(window_s=30.0, commit_lag_s=2.5, head_guard_s=1.0)
+        d.push(np.zeros(80000, dtype=np.float32))
+        _patch_tokens(d, [
+            FrameToken(token_id=5, confidence=0.9, frame_start=700, frame_end=710),
+            FrameToken(token_id=mark, confidence=0.9, frame_start=715, frame_end=720),
+        ])
+        view = d.redecode()
+        assert [t.token_id for t in view.committed] == [5, mark]
+
+    def test_plain_kana_is_unaffected(self) -> None:
+        """濁点が続かないカナは従来どおり確定する (待たせない).
+
+        (``token_id=6`` は濁点そのもの ``・・`` なので、ここでは使えない。
+        最初に書いたテストがこれを踏んで「実装が壊れた」ように見えた。)
+        """
+        from src.infer.sliding_window import VOICING_MARK_TOKEN_IDS
+
+        plain = next(i for i in range(5, 30) if i not in VOICING_MARK_TOKEN_IDS)
+        d = _decoder(window_s=30.0, commit_lag_s=2.5, head_guard_s=1.0)
+        d.push(np.zeros(80000, dtype=np.float32))
+        _patch_tokens(d, [
+            FrameToken(token_id=5, confidence=0.9, frame_start=700, frame_end=740),
+            FrameToken(token_id=plain, confidence=0.9, frame_start=745, frame_end=760),
+        ])
+        view = d.redecode()
+        assert [t.token_id for t in view.committed] == [5]
+
+    def test_finalize_does_not_hold_back(self) -> None:
+        """終端では音がもう増えないので、待たずに確定させること."""
+        mark = self._mark_token_id()
+        d = _decoder(window_s=30.0, commit_lag_s=2.5, head_guard_s=1.0)
+        d.push(np.zeros(80000, dtype=np.float32))
+        _patch_tokens(d, [
+            FrameToken(token_id=5, confidence=0.9, frame_start=700, frame_end=740),
+            FrameToken(token_id=mark, confidence=0.9, frame_start=745, frame_end=760),
+        ])
+        view = d.finalize()
+        assert [t.token_id for t in view.committed] == [5, mark]
+
+
 def test_commits_only_inside_commit_zone() -> None:
     # hop=80 samples/frame @8kHz → 1 frame = 0.01s. 100 frame = 1s.
     d = _decoder(window_s=30.0, commit_lag_s=2.5, head_guard_s=1.0)

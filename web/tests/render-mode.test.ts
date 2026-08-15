@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import { renderMode } from '../src/worker/render-mode'
-import { convert, type Mode } from '../src/tokens/converter'
+import { FALLBACK_CHAR, convert, type Mode } from '../src/tokens/converter'
 import type { CommittedToken, DecodeView } from '../src/decode/sliding-window'
 import { ID_TO_CODE, WORD_BREAK_TOKEN_ID } from '../src/generated/tokens'
 
@@ -173,7 +173,7 @@ describe('無音による改行', () => {
     expect(r.committedFallbacks.length).toBeGreaterThan(0)
     for (const ev of r.committedFallbacks) {
       // position は最終テキストの文字列インデックス。UI はここを直接添字参照する
-      expect(r.committed[ev.position]).toBe('?')
+      expect(r.committed[ev.position]).toBe(FALLBACK_CHAR)
     }
   })
 })

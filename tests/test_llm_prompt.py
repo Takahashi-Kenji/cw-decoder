@@ -158,6 +158,73 @@ def test_japanese_glossary_lists_closing_phrases():
         assert "よろしくお願いします" in system
 
 
+def test_candidate_hints_are_included_for_japanese():
+    """辞書で決めきれなかった語に、符号距離の近い候補が添えられる.
+
+    語彙を丸ごとプロンプトに入れる代わりに、**詰まった語ぶんだけ**候補を渡す。
+    プロンプトが小さいまま済み、LLM を「候補から選ぶ」役に限定できる。
+    """
+    system = build_messages("ムンキニクモリ", mode="japanese")[0]["content"]
+    assert "ムンキニクモリ" in system
+    assert "候補" in system
+
+
+def test_candidate_hints_state_they_are_not_confirmed():
+    """候補は符号が近いだけで、確定した読みではないと明示すること.
+
+    ここを曖昧にすると LLM が候補を正解として扱い、捏造が増える。
+    """
+    system = build_messages("ムンキニクモリ", mode="japanese")[0]["content"]
+    assert "確定した読みではありません" in system
+
+
+def test_candidate_hints_absent_when_nothing_unresolved():
+    """全部直せているなら候補ブロックは出さない (プロンプトを膨らませない)."""
+    system = build_messages("テンキ ハ ハレ", mode="japanese")[0]["content"]
+    assert "符号の距離が近い候補" not in system
+
+
+def test_candidate_hints_absent_in_european_mode():
+    """欧文は辞書補正が既に機械的な直しを済ませている."""
+    system = build_messages("CQ DE", mode="european")[0]["content"]
+    assert "符号の距離が近い候補" not in system
+
+
+def test_candidate_hints_are_capped():
+    """候補は打ち切る。**重いプロンプトは小さいモデルに害になる**."""
+    from src.llm.prompt import MAX_CANDIDATE_HINTS
+
+    garbled = " ".join(f"ヌヘムワ{i}" for i in range(30)).replace("0", "")
+    system = build_messages(garbled, mode="japanese")[0]["content"]
+    assert system.count(" → ") <= MAX_CANDIDATE_HINTS
+
+
+def test_compact_prompt_also_gets_candidates():
+    """短いプロンプト (小さいローカルモデル向け) にも候補は入れる.
+
+    候補は語彙全体と違って短いので、重くならない。むしろ小さいモデルほど
+    「選択肢を与える」形が効く。
+    """
+    system = build_messages("ムンキニクモリ", mode="japanese", compact=True)[0]["content"]
+    assert "ムンキニクモリ" in system
+
+
+def test_laughter_rule_present_in_japanese():
+    """CW の笑い (欧文の HI HI) は和文表で ヌヘヘ / ホヘヘ になる.
+
+    これを伝えないと LLM が意味不明なカナとして扱う (運用者、2026-08-14)。
+    """
+    for mode in ("japanese", "auto"):
+        system = build_messages("ヌヘヘ", mode=mode)[0]["content"]
+        assert "ヌヘヘ" in system
+        assert "笑" in system
+
+
+def test_laughter_rule_present_in_compact_prompt():
+    system = build_messages("ヌヘヘ", mode="japanese", compact=True)[0]["content"]
+    assert "ヌヘヘ" in system and "笑" in system
+
+
 def test_ollama_disables_thinking_and_caps_output():
     """清書は文字の変換であって推論ではない。考えさせても待ち時間が延びるだけ."""
     from src.llm.providers.ollama import OllamaProvider

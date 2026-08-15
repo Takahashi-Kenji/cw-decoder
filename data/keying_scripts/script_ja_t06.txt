@@ -1,5 +1,5 @@
 mode: japanese
-estimated_duration_s: 14.6
+estimated_duration_s: 11.8
 wpm: 20
 ---
 ナマエ ハ タロウ、タロウ デス

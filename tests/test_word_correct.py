@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import pytest
 
+from src.tokens.converter import FALLBACK_CHAR
 from src.infer.word_correct import (
     EUROPEAN_LEXICON,
     correct_text,
@@ -21,9 +22,17 @@ class TestSubstitutionCost:
     def test_same_char_is_free(self) -> None:
         assert substitution_cost("A", "A") == 0.0
 
-    def test_question_mark_is_cheap(self) -> None:
-        """`?` は「読めなかった」印なのでどの文字にも安く化ける."""
-        assert substitution_cost("?", "Q") == pytest.approx(0.3)
+    def test_unreadable_mark_is_cheap(self) -> None:
+        """`_` は「読めなかった」印なのでどの文字にも安く化ける.
+
+        **`?` ではない。** `?` は符号表にある実在の文字なので、安く化けさせて
+        しまうと本物の疑問符が飲み込まれる (2026-08-14 に記号を分けた)。
+        """
+        assert substitution_cost(FALLBACK_CHAR, "Q") == pytest.approx(0.3)
+
+    def test_real_question_mark_is_not_cheap(self) -> None:
+        """本物の `?` は普通の文字として扱うこと."""
+        assert substitution_cost("?", "Q") > 0.3
 
     def test_one_dot_apart_is_cheaper_than_unrelated(self) -> None:
         """D(-・・) と B(-・・・) は点 1 個差。T(-) と Q(--・-) より近い."""
@@ -57,7 +66,7 @@ class TestProtected:
     def test_prosigns_are_protected(self, word: str) -> None:
         assert is_protected(word) is True
 
-    @pytest.mark.parametrize("word", ["CQ", "NAM", "?RST"])
+    @pytest.mark.parametrize("word", ["CQ", "NAM", "_RST"])
     def test_plain_words_are_not_protected(self, word: str) -> None:
         assert is_protected(word) is False
 
