@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>送信する — cw-decoder 取扱説明書</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+
+<aside class="side">
+  <a class="brand" href="index.html">cw-decoder<small>取扱説明書</small></a>
+  <nav>
+    <ol>
+      <li><a href="index.html">はじめに</a></li>
+      <li><a href="screens.html">画面の説明</a></li>
+      <li><a href="receive.html">受信する</a></li>
+      <li><a href="correct.html">読み取りと補正</a></li>
+      <li><a href="refine.html">LLM 清書</a></li>
+      <li><a href="transmit.html" aria-current="page">送信する</a></li>
+      <li><a href="settings.html">設定項目一覧</a></li>
+      <li><a href="trouble.html">うまくいかないとき</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<h1>送信する</h1>
+<p class="lede">
+  無線機を繋いだ PC に、LAN 越しで電鍵と PTT を操作させます。
+  日本語で書いた文がカナに直り、モールスとして打たれます。
+</p>
+
+<pre><code>無線機 ── 電鍵/PTT ケーブル ── PC-A（打鍵側・cw_key_server.py）
+                              │  LAN（家庭内ネットワーク）
+                              ↓
+                          PC-B（cw-decoder 本体・[送信…] の画面）</code></pre>
+
+<p>
+  <a href="receive.html#lan">受信の LAN 接続</a>とは別の接続です。
+  音声を受け取る向きと、文字を送り出す向きが逆になります。
+</p>
+
+<h2 id="first">初めて繋ぐとき</h2>
+
+<div class="note danger">
+  <span class="label">必ずお読みください。電波が出ます</span>
+  <p>
+    <strong>無線機の電源を切るか、ダミーロードを付けてから始めてください。</strong>
+    多くの USB シリアル変換器は、<strong>ポートを開いた瞬間に DTR/RTS を H にします。</strong>
+    上がると、<strong>開いただけでキャリアが出ます。</strong>
+  </p>
+</div>
+
+<ol class="steps">
+  <li>
+    <p><strong>PC-A（打鍵側）で結線を確かめます。</strong>テスターか LED を当てて見てください。</p>
+    <pre><code>python scripts/cw_key_server.py --port COM3 --check-lines</code></pre>
+    <p>
+      電鍵線と PTT 線が 1 秒ずつ交互に ON/OFF します。
+      上がらない・逆に動くときは <code>--key-line</code> <code>--ptt-line</code>
+      （ともに <code>DTR</code>/<code>RTS</code>。PTT だけは <code>NONE</code> も選べます）と
+      <code>--key-invert</code> <code>--ptt-invert</code> で直してから、もう一度確かめます。
+    </p>
+  </li>
+  <li>
+    <p><strong>無線機の電源を入れないまま、<code>--dry-run</code> で通してみます。</strong></p>
+    <pre><code>python scripts/cw_key_server.py --dry-run</code></pre>
+    <p>
+      シリアルに一切触らないモードです。無線機やケーブルが無くても、
+      PC-B のアプリから「接続 → 文章を書く → 確認 → 送信」を一通り練習できます。
+    </p>
+  </li>
+  <li><p><strong>ここまで通ってから、初めて無線機を繋いでください。</strong></p></li>
+</ol>
+
+<div class="note">
+  <span class="label"><code>--check-lines</code> と <code>--dry-run</code> は同時に使えません</span>
+  <p>結線の確認には実際のポートが要るためです。組み合わせるとエラーで止まります。</p>
+</div>
+
+<h2 id="usual">ふだんの使い方</h2>
+
+<p><strong>PC-A（打鍵側）で打鍵サーバーを起動します。</strong></p>
+
+<pre><code>python scripts/cw_key_server.py --port COM3</code></pre>
+
+<p>起動すると、PC-B のアプリに入れる <code>host:port</code> が表示されます。</p>
+
+<pre><code>結線     : COM3  電鍵 DTR / PTT RTS
+待ち受け : 0.0.0.0:45679
+  アプリの設定に:  192.168.0.10:45679
+
+接続を待っています… (Ctrl+C で終了)</code></pre>
+
+<p><strong>PC-B（cw-decoder 本体）で送信の画面を使います。</strong></p>
+
+<figure>
+  <img src="images/tx-dialog.png" alt="送信の画面。打鍵側のアドレス、速度、相手の情報、型の選択、日本語の入力欄、送信される文字の欄が並ぶ">
+  <figcaption>
+    送信の画面。上から接続と速度、相手の情報、返信の型、日本語の入力、送信される文字。
+    <strong>この画面は開いたまま主画面を操作できます</strong>（相手を聞きながら返信を組み立てられます）。
+    <strong>打鍵側のアドレスと本文は個人情報のためぼかしてあります。</strong>
+    下の欄には、上に書いた日本語をカナに直したものが自動で出ます。
+  </figcaption>
+</figure>
+
+<ol class="steps">
+  <li><p>主画面の <span class="ui">送信…</span> を押します。</p></li>
+  <li>
+    <p><span class="ui">打鍵側:</span> に PC-A の <code>host:port</code> を入れて <span class="ui">接続</span> を押します。</p>
+    <pre><code>接続しました — COM3  電鍵 DTR / PTT RTS</code></pre>
+  </li>
+  <li>
+    <p><span class="ui">日本語 (漢字かな交じりで可):</span> に文章を書きます。
+       下の <span class="ui">送信される文字:</span> に、打鍵側へ渡す形（カタカナ、必要なら符号）が自動で出ます。</p>
+  </li>
+  <li>
+    <p>内容を確かめて <span class="ui">確認</span> を押します。<strong>まだ打鍵しません。</strong>
+       文字数・要素数・所要秒数が出ます。</p>
+    <pre><code>確認しました — 7 文字 / 63 要素 / 6.3 秒</code></pre>
+    <p>
+      <strong>文字数はホレ・ラタをそれぞれ 1 文字と数えます</strong>（<code>{HORE}</code> の 6 文字ではありません）。
+      速度を変えると秒数も変わるので、<strong>速度を変えたら確認からやり直し</strong>です。
+    </p>
+  </li>
+  <li><p><strong>確認が通って初めて <span class="ui">送信</span> が押せます。</strong>押すと実際に打鍵が始まります。</p></li>
+  <li><p>途中で止めたいときは <span class="ui">中止</span> です。</p></li>
+</ol>
+
+<div class="note warn">
+  <span class="label">確認を通さないと送れません</span>
+  <p>
+    <strong>編集すると確認は無効に戻ります。</strong>
+    直前に確認した文字列と、いま画面にある文字列が一致しているときしか送れません。
+    ただし<strong>その文字列・速度で一度最後まで送り終えていれば、確認なしで送り直せます</strong>
+    （同じ内容の再送は日常的に起きるためです）。
+  </p>
+</div>
+
+<h2 id="wpm">相手の速度に合わせる</h2>
+
+<p>
+  速度は <span class="ui">速度:</span> 欄で指定します（5〜40 WPM、初期値 20 WPM）。
+  ここで選んだ値は保存され、次に開いたときも同じになります。
+</p>
+
+<p>
+  <span class="ui">受信に合わせる</span> を押すと、
+  <strong>主画面の右下に出ている受信 WPM</strong> がそのまま入ります。
+  実受信 90 件で測った誤差の中央値は +1.6% です。
+</p>
+
+<h2 id="hore">和文をホレ／ラタで囲む</h2>
+
+<p>
+  <span class="ui">和文をホレ/ラタで囲む</span> にチェックを入れると、
+  和文の前後にホレ（和文開始）とラタ（和文終了）が自動で付きます。
+</p>
+
+<div class="note">
+  <span class="label">欧文はホレの外に置いてください</span>
+  <p>
+    コールサインや RST など欧文で打つものは、ホレとラタの<strong>外側</strong>に置きます。
+    和文の中でどうしても欧文を打ちたいときは、<code>「…」</code> で囲んでください
+    （和文の中の欧文区間として扱われます）。
+  </p>
+</div>
+
+<h2 id="template">返信の型</h2>
+
+<figure>
+  <img src="images/template-dialog.png" alt="返信の型の編集画面。左に型の一覧、右に名前・モード・本文と、経歴を差し込んだ下書きのプレビュー">
+  <figcaption>
+    返信の型の編集画面。右上の本文が型そのもので、<code>{相手コール}</code> のような
+    <strong>差し込み欄</strong>を書いておきます。下の枠には<strong>いまの経歴を差し込んだ下書き</strong>が出ます
+    （2 行目以降は個人情報のためぼかしてあります）。
+  </figcaption>
+</figure>
+
+<p>
+  送信の画面の <span class="ui">型:</span> から選んで <span class="ui">型を使う</span> を押すと、
+  その場で本文に入ります。<span class="ui">元に戻す</span> で戻せます。
+  型の追加・複製・削除・並べ替えは <span class="ui">型の編集…</span> から行います。
+</p>
+
+<h3>差し込める欄</h3>
+
+<p>
+  本文に <code>{名前}</code> のように書いておくと、
+  <a href="#profile">経歴</a>や画面上部の入力欄から値が入ります。
+</p>
+
+<pre><code>{QTH} {RST} {アンテナ} {リグ} {出力} {名前}
+{天気} {気温} {相手コール} {相手名前} {自局コール}</code></pre>
+
+<div class="note warn">
+  <span class="label">相手コール・相手名前は自動で拾えないことがあります</span>
+  <p>
+    受信文から取り出しているため、<strong>読み取りが崩れていると入りません。</strong>
+    空欄のままだと <code>?</code> が打たれるので、送る前に <span class="ui">送信される文字:</span> を確かめてください。
+  </p>
+</div>
+
+<h2 id="profile">経歴</h2>
+
+<figure>
+  <img src="images/profile-dialog.png" alt="経歴の編集画面。自局コールと、名前・QTH・リグ・アンテナ・出力を欧文用と和文用の2列で入力する">
+  <figcaption>
+    経歴の編集画面。<strong>欧文用と和文用は別の値</strong>として持ちます。
+    <strong>名前と QTH は個人情報のためぼかしてあります。</strong>
+  </figcaption>
+</figure>
+
+<p>
+  自局の情報を書いておく場所です。送信の画面の <span class="ui">経歴…</span> から開きます。
+  保存先は <code>~/.cw-decorder/operator.json</code> です。
+</p>
+
+<div class="note">
+  <span class="label">なぜ欧文用と和文用に分けるのか</span>
+  <p>
+    以前は 1 つの値と「読み」の組で持っていました。すると
+    <strong>欧文の本文に書いた <code>TARO</code> が読みの <code>タロウ</code> に置き換わり、
+    カタカナが混ざってモードが和文に倒れ、文中の欧文がまるごと打てなくなる</strong>という
+    不具合が起きていました。2 つに分けたことで、この問題は構造的に消えています。
+  </p>
+</div>
+
+<p>
+  <strong>読み辞書</strong>には、機械変換が外しやすい固有名詞を「語 → 読み（カタカナ）」で登録できます。
+  長い語から先に当てるので、<code>神奈川県</code> が <code>神奈川</code> + <code>県</code> に割れることはありません。
+</p>
+
+<h2 id="chars">送れる文字</h2>
+
+<p>
+  漢字かな交じりで書けます。送信の直前にカナへ直され、
+  <span class="ui">送信される文字:</span> にその結果が出ます。
+  <strong>打てない文字があるときは、送る前に理由が画面に出ます。</strong>
+</p>
+
+<div class="note">
+  <span class="label"><code>」</code> は段落として打たれます</span>
+  <p>
+    符号 <code>・-・-・・</code> は<strong>段落（<code>。</code>）</strong>です。
+    見た目が似ているため <code>」</code> と書かれることがあるので、別名として通しています。
+  </p>
+</div>
+
+<h2 id="oneshot">アプリを使わずに 1 回だけ送る</h2>
+
+<pre><code>python scripts/cw_key_server.py --port COM3 --text "CQ CQ DE JH0ILL K" --wpm 20</code></pre>
+
+<div class="note warn">
+  <span class="label">LAN が切れたら</span>
+  <p>
+    打鍵の途中で接続が切れたときは、<strong>打鍵側が電鍵と PTT を必ず落とします。</strong>
+    送信しっぱなしにはなりません。画面には切れた旨が出るので、繋ぎ直してください。
+  </p>
+</div>
+
+<div class="pager">
+  <a href="refine.html">← 前: LLM 清書</a>
+  <span class="spacer"></span>
+  <a href="settings.html">次: 設定項目一覧 →</a>
+</div>
+
+</main>
+</div>
+</body>
+</html>

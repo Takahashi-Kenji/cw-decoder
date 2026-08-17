@@ -16,7 +16,11 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from src.infer.engine import FrameToken, InferenceEngine
+# **engine (PyTorch 版) を直接 import しない。** ここを繋ぐと
+# 配布物に torch (2.8 GB) が入る。必要なのは「decode_chunk を持つもの」
+# という約束だけなので Protocol を受ける (tests/test_no_torch_import.py)。
+from src.infer.backend import DecodeEngine
+from src.infer.ctc import FrameToken
 from src.tokens.morse_tokens import (
     DAKUTEN_CHAR,
     HANDAKUTEN_CHAR,
@@ -38,8 +42,8 @@ VOICING_MARK_TOKEN_IDS: frozenset[int] = frozenset(
 # デコードの前に足す助走の無音 (秒)。
 #
 # **モデルは音の立ち上がりで幻覚を出す。** held-out 実録音 21 件の実測で、
-# 先頭に余計なトークンが出たのは 18/21 件。別実装のデコーダは同じ音で 0/10 件だった
-# 。学習データの録音が常に符号で始まるため、
+# 先頭に余計なトークンが出たのは 18/21 件。別実装のデコーダは同じ音で 0/10 件だった。
+# 学習データの録音が常に符号で始まるため、
 # 「静かなところから符号が始まる」を知らないものと思われる。
 #
 # **0.3 秒の無音を足すだけで TER 24.21% → 22.32% (-1.9pt)**、先頭の誤りは
@@ -97,7 +101,7 @@ class DecodeView:
 class SlidingWindowDecoder:
     def __init__(
         self,
-        engine: InferenceEngine,
+        engine: DecodeEngine,
         window_s: float = 30.0,
         # AppSettings / ブラウザ版と揃えること。効くのは単独値ではなく
         # `commit_lag_s + hop_s / 2` (= 実効右文脈) で、目標は 2.25 秒

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>読み取りと補正 — cw-decoder 取扱説明書</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+
+<aside class="side">
+  <a class="brand" href="index.html">cw-decoder<small>取扱説明書</small></a>
+  <nav>
+    <ol>
+      <li><a href="index.html">はじめに</a></li>
+      <li><a href="screens.html">画面の説明</a></li>
+      <li><a href="receive.html">受信する</a></li>
+      <li><a href="correct.html" aria-current="page">読み取りと補正</a></li>
+      <li><a href="refine.html">LLM 清書</a></li>
+      <li><a href="transmit.html">送信する</a></li>
+      <li><a href="settings.html">設定項目一覧</a></li>
+      <li><a href="trouble.html">うまくいかないとき</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<h1>読み取りと補正</h1>
+<p class="lede">
+  画面に出た文字がどういう性質のものかを説明します。
+  ここを知っておくと、<strong>どこまで信じてよいか</strong>が分かります。
+</p>
+
+<h2 id="underscore"><code>_</code> と <code>?</code> の違い</h2>
+
+<div class="note danger">
+  <span class="label">この 2 つは別物です</span>
+  <p>
+    <strong><code>?</code> はモールス符号表に実在する文字です</strong>（<code>・・--・・</code>）。
+    <code>QSL?</code> のように、相手が本当に打った疑問符です。<br>
+    <strong><code>_</code> は「読めなかった」という印です。</strong>符号としては存在しません。
+  </p>
+</div>
+
+<p>
+  以前はどちらも <code>?</code> で出していたため、区別がつきませんでした。
+  読めなかった方を <code>_</code> に分けてあります。
+</p>
+
+<h3>読めなかった箇所を消してはいけません</h3>
+
+<p>
+  「<code>_</code> が邪魔だから確信度の閾値を下げて消す」ことはできますが、<strong>やらないでください。</strong>
+  実測では、閾値を 0.5 から 0.0 に下げると誤り率が 19.74% から 23.64% へ<strong>3.9 ポイント悪化</strong>しました。
+  <code>_</code> の裏に正解が隠れているのではなく、<strong>ほとんど間違った文字が出てくるだけ</strong>だったのです。
+</p>
+
+<p>
+  画面から減らしたいときは、設定の<a href="settings.html#display">表示</a>タブで
+  <span class="ui">未確定の文字を表示する</span> を調整してください。
+  こちらは確定した文章そのものを変えないので、精度は悪くなりません。
+</p>
+
+<h2 id="commit">確定の仕組み</h2>
+
+<p>
+  文字は、出た瞬間に決まるのではありません。
+  <strong>もう後から変わらないと言える位置まで音が進んでから</strong>確定します。
+</p>
+
+<h3>なぜ待つのか</h3>
+
+<p>
+  モデルは前後の音を見て符号を判断します。ある符号の直後だけを見て決めると、
+  その先の音が入ってきたときに判断が変わってしまいます。
+  そこで<strong>どれだけ先の音まで見てから確定するか</strong>を決めておきます。これを<strong>実効右文脈</strong>と呼びます。
+</p>
+
+<figure>
+  <img src="images/settings-commit.png" alt="設定画面「確定」タブ。デコード間隔と確定までの待ちから、実効右文脈が計算されて表示されている">
+  <figcaption>
+    設定の「確定」タブ。上 2 つの値から<strong>実効右文脈</strong>が計算され、
+    目標値からどれだけ離れているかが出ます。
+  </figcaption>
+</figure>
+
+<div class="note">
+  <span class="label">実効右文脈 = 確定までの待ち + デコード間隔 ÷ 2</span>
+  <p>
+    <strong>目標は 2.25 秒</strong>です。実受信 21 件で測って、この値が最も良い結果でした。
+    <strong>3.0 秒より速く、しかも精度も良い</strong>という結果です。
+  </p>
+</div>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>実効右文脈</th><th>誤り率の変化</th></tr></thead>
+  <tbody>
+    <tr><td><strong>2.25 秒（初期値）</strong></td><td>基準</td></tr>
+    <tr><td>1.5 秒</td><td>+1.8 ポイント悪化</td></tr>
+    <tr><td>1.0 秒</td><td>+5.7 ポイント悪化</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <span class="label">片方だけ動かさないでください</span>
+  <p>
+    <strong>デコード間隔（hop）と確定までの待ち（lag）は、和で効きます。</strong>
+    間隔だけを縮めると、右文脈が静かに失われて精度が落ちます。
+    どちらかを変えるときは、<strong>実効右文脈の表示が 2.25 秒のままになるように</strong>もう片方も動かしてください。
+    設定画面がその値を出しているのは、このためです。
+  </p>
+</div>
+
+<h3>読めない文字は少し待ちます</h3>
+
+<p>
+  確信度の低い文字は、確定を <strong>1.5 秒だけ先送り</strong>してもう一度読み直します
+  （設定の<span class="ui">読めない文字の猶予</span>）。
+  実測でこれにより誤り率が 2.01 ポイント（和文では 3.84 ポイント）下がりました。
+</p>
+
+<p>
+  濁点・半濁点は独立した符号なので、<strong>前のカナと組にして確定させます。</strong>
+  カナだけ先に確定させると、濁点が後から取り残されて別の場所に付いてしまいます。
+</p>
+
+<h3>ターンの終わりに読み直します</h3>
+
+<p>
+  設定の <span class="ui">2 段階確定を行う</span>（初期値 ON）が入っていると、
+  相手の送信が終わった時点で<strong>そのターン全体を、前後の文脈をすべて使って読み直し</strong>、
+  画面の文字を置き換えます。実測で誤り率が 27.4% から 25.1% に下がりました。
+</p>
+
+<div class="note">
+  <span class="label">長い送信では働かないことがあります</span>
+  <p>
+    読み直しに使える音声は初期値で 30 秒ぶんです（<span class="ui">デコード用リング</span>）。
+    これを超える長い送信では、読み直しが走りません。
+    そのため<strong>ふだん目にしているのは、読み直し前の文字</strong>だとお考えください。
+    <a href="refine.html">LLM 清書</a>の前には、もっと長い 300 秒ぶんで全体を読み直す仕掛けが別にあります。
+  </p>
+</div>
+
+<h2 id="dict">辞書補正</h2>
+
+<p>
+  確定した文章を、CW の定型語彙に照らして直します。
+  <strong>計算はマイクロ秒で終わる</strong>ので、受信しながら効きます。LLM は使いません。
+  設定の<a href="settings.html#correct">補正</a>タブで切れます（初期値 ON）。
+</p>
+
+<h3>何を直すのか</h3>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>種類</th><th>例</th></tr></thead>
+  <tbody>
+    <tr><td><strong>語の切れ目</strong>（こちらが多数）</td><td><code>CQDE</code> → <code>CQ DE</code>、<code>CQCQDE</code> → <code>CQ CQ DE</code></td></tr>
+    <tr><td>文字の誤り</td><td><code>CQRT</code> → <code>QRT</code>、<code>TNZ</code> → <code>TNX</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note">
+  <span class="label">寄せ先は「符号の近さ」で選びます</span>
+  <p>
+    ふつうの文字の編集距離ではなく、<strong>モールス符号（・-）としての距離</strong>で測ります。
+    CW の誤りは D（<code>-・・</code>）と B（<code>-・・・</code>）のように<strong>点 1 個の差</strong>で起きるからです。
+    文字だけを見ていると、この構造が消えてしまいます。<br>
+    和文ではもっと極端で、<strong>ロ + ム を繋ぐと テ になります</strong>（符号としては同じ並び）。
+    実際に <code>ヒンヤリ ?ロムマス</code> が <code>ヒンヤリ シテマス</code> と読めた例があります。
+  </p>
+</div>
+
+<p>
+  補正した箇所は<strong>橙色</strong>で表示され、マウスを乗せると元の姿が出ます。
+</p>
+
+<h3>効き目</h3>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th></th><th>補正前</th><th>補正後</th></tr></thead>
+  <tbody>
+    <tr><td>欧文</td><td>19.25%</td><td><strong>17.15%</strong>（−2.09pt）</td></tr>
+    <tr><td>和文</td><td colspan="2">別の語彙（405 語・9 カテゴリ）で対応</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 id="guard">触らないものがあります</h3>
+
+<ul>
+  <li><strong>数字を含む語</strong>（コールサイン <code>JH0ILL</code>、RST <code>599</code>）</li>
+  <li><strong>プロサイン</strong>（<code>[SK]</code> など）</li>
+  <li><strong>候補が僅差のとき</strong>は「分からない」として元のまま残します</li>
+</ul>
+
+<div class="note warn">
+  <span class="label">なぜ歯止めが要るのか</span>
+  <p>
+    存在しない局を自信ありげに作るのは、<code>_</code> より悪いためです。
+    実測で <code>?UR</code> のいちばん近い語は<strong>誤りである <code>CUL</code></strong> でした。
+    差が小さいときに寄せない決まりが無ければ、誤答を自信ありげに出していたことになります。
+  </p>
+</div>
+
+<h2 id="lexicon">語彙を増やす</h2>
+
+<p>
+  設定の<a href="settings.html#correct">補正</a>タブにある
+  <span class="ui">語彙ファイルの場所を開く</span> を押すと、語を足すためのファイルの場所が開きます。
+  地名や人名など、お住まいの地域でよく出る語を足しておくと当たりやすくなります。
+</p>
+
+<div class="note danger">
+  <span class="label">増やしすぎると、正しい語が砕けます</span>
+  <p>
+    語彙が増えると「寄せ先」の候補も増えるため、
+    <strong>これまで無傷だった正しい語が、別の語の組み合わせに分解されるようになります。</strong>
+    実際に <code>カイマシタ</code> が <code>カ イマ シタ</code> に割れる、
+    <code>モロムマス</code> が <code>モ テマス</code> になる、といった壊れ方が見つかっています。
+    足したあとは、<strong>ふだん正しく読めていた語が変わっていないか</strong>を確かめてください。
+  </p>
+</div>
+
+<div class="pager">
+  <a href="receive.html">← 前: 受信する</a>
+  <span class="spacer"></span>
+  <a href="refine.html">次: LLM 清書 →</a>
+</div>
+
+</main>
+</div>
+</body>
+</html>

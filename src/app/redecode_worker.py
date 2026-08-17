@@ -18,10 +18,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import torch
 from PySide6.QtCore import QObject, Signal, Slot
 
-from src.infer.engine import InferenceEngine
+from src.infer.backend import DecodeEngine, load_engine
 from src.infer.word_correct import correct_text
 from src.tokens.converter import TokenConverter
 from src.tokens.morse_tokens import Mode
@@ -39,15 +38,17 @@ class RedecodeWorker(QObject):
         super().__init__()
         self._checkpoint_path = Path(checkpoint_path)
         self._device = device
-        self._engine: InferenceEngine | None = None
+        self._engine: DecodeEngine | None = None
 
-    def _ensure_engine(self) -> InferenceEngine:
+    def _ensure_engine(self) -> DecodeEngine:
         """**最初に使うときに読み込む。** 清書を使わない運用で 17 MB を
-        無駄に確保しないため。"""
+        無駄に確保しないため。
+
+        経路 (ONNX / PyTorch) は拡張子で決まる。主画面と同じ判断に揃えるため、
+        自分で分岐せず ``load_engine`` に任せる。
+        """
         if self._engine is None:
-            self._engine = InferenceEngine.from_checkpoint(
-                self._checkpoint_path, device=torch.device(self._device)
-            )
+            self._engine = load_engine(self._checkpoint_path, device=self._device)
         return self._engine
 
     @Slot(object, int, str, float, bool, bool)

@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM 清書 — cw-decoder 取扱説明書</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+
+<aside class="side">
+  <a class="brand" href="index.html">cw-decoder<small>取扱説明書</small></a>
+  <nav>
+    <ol>
+      <li><a href="index.html">はじめに</a></li>
+      <li><a href="screens.html">画面の説明</a></li>
+      <li><a href="receive.html">受信する</a></li>
+      <li><a href="correct.html">読み取りと補正</a></li>
+      <li><a href="refine.html" aria-current="page">LLM 清書</a></li>
+      <li><a href="transmit.html">送信する</a></li>
+      <li><a href="settings.html">設定項目一覧</a></li>
+      <li><a href="trouble.html">うまくいかないとき</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<h1>LLM 清書</h1>
+<p class="lede">
+  デコード結果を AI に渡し、<strong>誤りの訂正・略語の展開・読みやすい日本語への書き直し</strong>を
+  1 回の操作で行います。結果は主画面の下のパネルに出ます。
+</p>
+
+<figure>
+  <img src="images/main-refined.png" alt="LLM 清書の結果が下のパネルに出ている主画面">
+  <figcaption>
+    清書の結果は主画面いちばん下のパネルに積み上がります。
+    <strong>本文は個人情報を含むためぼかしてあります。</strong>
+  </figcaption>
+</figure>
+
+<h2 id="colors">色の意味</h2>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>色</th><th>意味</th></tr></thead>
+  <tbody>
+    <tr><td><strong>黒</strong></td><td>AI が「確実に読めた」と判断した箇所（原文どおり）</td></tr>
+    <tr><td><strong>赤</strong></td><td>AI が<strong>推測・補正した</strong>箇所</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <span class="label">赤は鵜呑みにしないでください</span>
+  <p>
+    赤い部分は AI の推測です。大事な内容は、上のデコード本文と照らし合わせて確かめてください。
+    赤が多くて読みにくいときは、設定の<a href="settings.html#refine">清書</a>タブで
+    <span class="ui">推測した箇所を赤で表示する</span> を切れます（本文はそのまま出ます）。
+  </p>
+</div>
+
+<h2 id="modes">2 つの動かし方</h2>
+
+<p>
+  清書は<strong>増分方式</strong>です。<strong>一度清書した分は二度と送りません。</strong>
+  そのため結果は消えずに積み上がり、読んでいる途中で書き換わることもありません。
+</p>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>やり方</th><th>いつ動くか</th><th>向く場面</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><span class="ui">まとめて清書</span>（ボタン）</td>
+      <td>押したとき。未清書分を 1 回で全部</td>
+      <td>腰を据えて読み返すとき</td>
+    </tr>
+    <tr>
+      <td><span class="ui">自動で清書する</span>（設定）</td>
+      <td>文の区切りが来たとき、そこまでを短く</td>
+      <td>受信しながら追うとき</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>自動清書が「区切り」とみなすもの</h3>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>区切り</th><th>備考</th></tr></thead>
+  <tbody>
+    <tr><td><strong>改行</strong>（3 秒以上の無音）</td><td>送信のターンの切れ目</td></tr>
+    <tr><td><strong><code>、</code></strong>（和文の区切点）</td><td>改行は滅多に起きないため、句読点でも区切ります</td></tr>
+    <tr><td><strong><code>。</code></strong>（和文の段落＝文の終わり）</td><td>同上</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  どれも<strong>文として完結した位置</strong>なので、途中で切るより自然な日本語になります。
+  直前の分は「参考」として一緒に渡されるので、話が繋がります。
+  区切りが来ない長い送信のために、間隔（初期値 20 秒）でも動く保険があります。
+</p>
+
+<div class="note">
+  <span class="label"><code>?</code> は区切りにしていません</span>
+  <p>
+    符号表に <code>?</code> はありますが、<a href="correct.html#underscore">読めなかった印としても出うる</a>ため、
+    区切りにすると読めない文字が出るたびに清書が走ってしまいます。
+  </p>
+</div>
+
+<p>
+  最初からやり直したいときは、<span class="ui">クリア</span> を押してから
+  <span class="ui">まとめて清書</span> を押してください（クリアで進捗が 0 に戻ります）。
+</p>
+
+<h2 id="what">AI が行うこと</h2>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>処理</th><th>内容</th></tr></thead>
+  <tbody>
+    <tr><td>誤りの訂正</td><td>受信の欠落や化けを、文脈から補います（欧文・和文とも）</td></tr>
+    <tr><td>略語の展開</td><td>CQ・RST・QTH・OM・TNX・73 などを分かりやすい日本語に開きます</td></tr>
+    <tr><td>日本語の清書</td><td>カタカナ交じりの文を、漢字かな交じりの読みやすい文に整えます</td></tr>
+    <tr><td>欧文化（和文モードのみ）</td><td>コールサイン・RST・数字など、欧文として意味が通る部分を欧文に直します</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>欧文モードと自動モードでは、欧文化は行いません。</p>
+
+<h2 id="redecode">清書の前に全体を読み直す</h2>
+
+<p>
+  設定の<a href="settings.html#refine">清書</a>タブにある
+  <span class="ui">清書の前に全体を読み直す</span>（初期値 ON）を入れておくと、
+  清書のタイミングで<strong>直近 300 秒ぶんの音を、別のスレッドで丸ごとデコードし直して</strong>から AI に渡します。
+</p>
+
+<div class="note ok">
+  <span class="label">受信の応答は落ちません</span>
+  <p>
+    読み直しは<strong>受信とは別のスレッド</strong>で走り、音声用とは別のバッファを使います。
+    そのため、読み直している間もリアルタイムの表示は止まりません。
+    <strong>短時間で読みたい交信中の表示</strong>と<strong>全体が欲しい清書</strong>とを、
+    別の仕組みで賄うようにしてあります。
+  </p>
+</div>
+
+<h2 id="ollama">Ollama を使う（ローカル・無料）</h2>
+
+<p>
+  ご自分のパソコンの中で動くので、<strong>API キーが不要</strong>で、インターネットに繋がっていなくても使えます。
+  Ollama 本体のインストールが別途必要です。
+</p>
+
+<ol class="steps">
+  <li><p><a href="https://ollama.com">ollama.com</a> から Windows 版をインストールします。</p></li>
+  <li>
+    <p>モデルを取ります。</p>
+    <pre><code>ollama pull gemma4:e4b</code></pre>
+  </li>
+  <li>
+    <p>Ollama を起動します（ふだんは自動で起動しています）。</p>
+    <pre><code>ollama serve</code></pre>
+  </li>
+  <li>
+    <p>設定の<a href="settings.html#refine">清書</a>タブでプロバイダを <code>ollama</code> にし、
+       モデル名を入れて <span class="ui">まとめて清書</span> を押します。</p>
+  </li>
+</ol>
+
+<h3>どのモデルを使うか</h3>
+
+<div class="note danger">
+  <span class="label">大きさは質を保証しません</span>
+  <p>実測（held-out の和文）の結果です。<strong>12B より 4B の方が良い</strong>という逆転が起きています。</p>
+</div>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>モデル</th><th>速さ</th><th>結果</th></tr></thead>
+  <tbody>
+    <tr><td><strong>gemma4:e4b</strong></td><td><strong>0.8 秒</strong></td><td><strong>ローカルでは最良。</strong>「天気は晴れです。暑いです」</td></tr>
+    <tr><td>gemma3:4b</td><td>0.9 秒</td><td>不可。<code>テンキ ハ ハレ</code>（晴れ）を「天気が悪い」と<strong>逆に取る</strong></td></tr>
+    <tr><td>qwen3.5:2b</td><td>1.6 秒</td><td>破綻。絵文字の羅列と繰り返し</td></tr>
+    <tr><td>gemma3:12b</td><td>11.8 秒</td><td>大きいのに悪い。記号の暴走と謝罪文</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note danger">
+  <span class="label">翻訳特化のモデルは向きません</span>
+  <p>
+    <code>translategemma</code> は <code>オハヨウ、アツイ デス、シカタ ナイ</code> を
+    「こんにちは。お元気ですか？今日はいい天気ですね」と<strong>流暢に捏造</strong>しました。
+    翻訳モデルは「流暢な訳文を作る」訓練を受けています。
+    こちらが欲しいのは<strong>「壊れた入力に忠実な変換」</strong>で、目的が逆を向いています。
+  </p>
+</div>
+
+<h2 id="compact">「短いプロンプトを使う」とは</h2>
+
+<p>
+  AI への指示を 207 文字に絞ります（通常版は 1403 文字）。<strong>和文にだけ効きます。</strong>
+  初期値は ON です。
+</p>
+
+<p>
+  小さいローカルモデルには、重い指示が害になります。実測では、
+  <strong>2B のモデルが入力を無視して指示の例文をそのまま返し</strong>、
+  4B のモデルが「チューリップ」を捏造して「おはよう」を落としました。
+  短い版ではどちらも直りました。
+</p>
+
+<p>
+  欧文は通常版のままです。欧文に要るのは<strong>「触らない規律」</strong>で、
+  それは通常版に書いてある捏造禁止・確実さ優先の指示です
+  （コールサインや RST を作られると実害が出ます）。
+</p>
+
+<div class="pager">
+  <a href="correct.html">← 前: 読み取りと補正</a>
+  <span class="spacer"></span>
+  <a href="transmit.html">次: 送信する →</a>
+</div>
+
+</main>
+</div>
+</body>
+</html>

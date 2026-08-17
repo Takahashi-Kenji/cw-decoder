@@ -195,3 +195,90 @@ class TestSettingsRoundTrip:
     def test_no_change_means_nothing_deferred(self, window) -> None:
         s = window._settings
         assert window._deferred_setting_names(s, s) == []
+
+    def test_two_stage_commit_is_deferred(self, window) -> None:
+        """2 段階確定は ``SlidingWindowDecoder`` を作るときに固まる.
+
+        受信中に変えても効かないので、通知にも設定画面の印にも出す
+        (印の側は ``tests/test_settings_dialog.py`` が見ている)。
+        """
+        before = window._settings
+        after = type(before)(
+            **{**vars(before), "two_stage_commit_enabled": False}
+        )
+        assert "2 段階確定" in window._deferred_setting_names(before, after)
+
+
+class TestDecodeTextCanBeCopied:
+    """**受信中に本文を選べること** (運用者、2026-08-17「コピーできません」).
+
+    表示は hop (0.5 秒) ごとに ``setHtml`` で文書を作り直していた。作り直すと
+    選択もスクロール位置も消えるので、選んだ傍から解除されてコピーできない。
+    """
+
+    @staticmethod
+    def _select(window, start: int, end: int) -> None:
+        from PySide6.QtGui import QTextCursor
+
+        cursor = window.text_view.textCursor()
+        cursor.setPosition(start)
+        cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
+        window.text_view.setTextCursor(cursor)
+
+    def test_selection_survives_a_refresh(self, window) -> None:
+        """**内容が変わらない更新で選択を消さない.**
+
+        無音の間も hop ごとに呼ばれるので、ここが本体。
+        """
+        window._committed_text = "CQ CQ DE JH0ILL"
+        window._refresh_decode_display()
+        self._select(window, 0, 5)
+        window._refresh_decode_display()
+        assert window.text_view.textCursor().selectedText() == "CQ CQ"
+
+    def test_selection_survives_new_text(self, window) -> None:
+        """**続きが届いても、選んだ範囲は選ばれたまま.**"""
+        window._committed_text = "CQ CQ DE JH0ILL"
+        window._refresh_decode_display()
+        self._select(window, 0, 5)
+        window._committed_text = "CQ CQ DE JH0ILL K"
+        window._refresh_decode_display()
+        assert window.text_view.textCursor().selectedText() == "CQ CQ"
+
+    def test_text_is_selectable_by_mouse(self, window) -> None:
+        """読み取り専用でも、マウスで選べる状態であること."""
+        from PySide6.QtCore import Qt
+
+        flags = window.text_view.textInteractionFlags()
+        assert flags & Qt.TextInteractionFlag.TextSelectableByMouse
+
+    def test_clearing_does_not_crash(self, window) -> None:
+        """**選択したまま本文が消えても落ちないこと** (位置が文書外になる)."""
+        window._committed_text = "CQ CQ DE JH0ILL"
+        window._refresh_decode_display()
+        self._select(window, 0, 15)
+        window._committed_text = ""
+        window._refresh_decode_display()
+        assert window.text_view.toPlainText() == ""
+
+
+class TestStatusBarDiagnostics:
+    """ステータスバーの診断表示.
+
+    **小数を切り捨てないこと.** hop の既定は 0.5 秒なのに ``hop=0s`` と出ていた。
+    取扱説明書で「実効右文脈 = lag + hop ÷ 2」を説明するので、0 に見えると
+    計算が合わなくなる (2026-08-16 発見)。
+    """
+
+    DIAG = {"window": 30.0, "hop": 0.5, "lag": 2.0, "decode_ms": 112.0}
+
+    def test_hop_keeps_its_decimal(self, window) -> None:
+        window._on_stream_diag(dict(self.DIAG))
+        assert "hop=0.5s" in window.statusBar().currentMessage()
+
+    def test_the_other_values_are_still_shown(self, window) -> None:
+        window._on_stream_diag(dict(self.DIAG))
+        message = window.statusBar().currentMessage()
+        assert "window=30s" in message
+        assert "lag=2.0s" in message
+        assert "decode=112ms" in message

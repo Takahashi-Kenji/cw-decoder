@@ -6,10 +6,8 @@ import time
 from pathlib import Path
 
 import numpy as np
-import torch
-from PySide6.QtCore import Qt, QThread
-from PySide6.QtCore import QUrl
-from PySide6.QtGui import QDesktopServices, QFont
+from PySide6.QtCore import Qt, QThread, QUrl, Signal
+from PySide6.QtGui import QDesktopServices, QFont, QTextCursor
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -28,10 +26,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from PySide6.QtCore import Signal
-
 from src.app.llm_worker import LLMWorker
+from src.app.recorder import Recorder
 from src.app.redecode_worker import RedecodeWorker
+from src.app.resources import default_model_path, resolve_model_path
+from src.app.settings_dialog import DEFERRED_SETTING_LABELS, SettingsDialog
+from src.app.widgets import (
+    LevelMeterWithSquelch,
+    SpectrogramView,
+    SpectrogramWithControls,
+)
+from src.app.workers import AudioInferenceWorker
+from src.infer.audio import list_input_devices
+from src.infer.backend import DecodeEngine, describe_engine, load_engine, resolve_torch_device
+from src.infer.settings import AppSettings, load_settings, save_settings
 from src.infer.word_correct import (
     DEFAULT_JA_LEXICON_PATH,
     CorrectedSpan,
@@ -40,18 +48,6 @@ from src.infer.word_correct import (
     load_user_lexicon,
     user_target_words,
 )
-from src.app.recorder import Recorder
-from src.app.settings_dialog import SettingsDialog
-from src.app.widgets import (
-    LevelMeterWithSquelch,
-    SpectrogramView,
-    SpectrogramWithControls,
-)
-from src.app.workers import AudioInferenceWorker
-from src.infer.audio import list_input_devices
-from src.infer.engine import InferenceEngine
-from src.infer.settings import AppSettings, load_settings, save_settings
-from src.tokens.morse_tokens import DisplayMode
 from src.llm import markup
 from src.llm.auto import (
     AutoRefineState,
@@ -65,6 +61,7 @@ from src.llm.config import (
     create_provider,
     list_ollama_models,
 )
+from src.tokens.morse_tokens import DisplayMode
 
 
 class CWDecoderWindow(QMainWindow):
@@ -99,7 +96,7 @@ class CWDecoderWindow(QMainWindow):
 
     def __init__(
         self,
-        engine: InferenceEngine,
+        engine: DecodeEngine,
         settings: AppSettings | None = None,
         net_source: str | None = None,
         config_path: Path | None = None,
@@ -616,16 +613,20 @@ class CWDecoderWindow(QMainWindow):
             self.request_set_threshold.emit(threshold)
 
     def _on_load_checkpoint(self) -> None:
+        # ONNX も選べるようにする。**配布版は ONNX しか同梱しない**ので、
+        # ここが .pt 限定のままだと利用者はモデルを差し替えられない。
         path_str, _ = QFileDialog.getOpenFileName(
-            self, "チェックポイント選択", "models", "Checkpoint (*.pt)"
+            self, "モデルの選択", "models", "モデル (*.onnx *.pt)"
         )
         if not path_str:
             return
         try:
-            new_engine = InferenceEngine.from_checkpoint(
-                path_str, device=self._engine.device
+            new_engine = load_engine(
+                path_str,
+                device=getattr(self._engine, "device", "cpu"),
+                threads=self._settings.decode_threads,
             )
-        except (RuntimeError, OSError, KeyError) as exc:
+        except (RuntimeError, OSError, KeyError, FileNotFoundError) as exc:
             self.statusBar().showMessage(f"読込失敗: {exc!r}")
             return
         was_running = self._worker is not None
@@ -681,6 +682,9 @@ class CWDecoderWindow(QMainWindow):
         self._committed_text: str = ""
         # 辞書補正で触った範囲 (_committed_text 上の文字位置). 表示の色分けに使う.
         self._committed_spans: tuple[CorrectedSpan, ...] = ()
+        # いま text_view に流し込んである HTML. **同じなら書き直さない**ため
+        # (書き直すと選択が消える。_refresh_decode_display 参照)
+        self._displayed_html: str = ""
         # 辞書で決めきれなかった語と符号距離の近い候補 (LLM へ渡す材料)
         self._unresolved_words: tuple[UnresolvedWord, ...] = ()
         # 利用者が足した和文語彙 (起動後に 1 回だけ読む). None は未読込み
@@ -747,10 +751,15 @@ class CWDecoderWindow(QMainWindow):
         self._refresh_decode_display()
 
     def _on_stream_diag(self, diag: dict) -> None:
-        """ストリーミング診断情報をステータスバーに表示する (auto モードでは現在モードも)."""
+        """ストリーミング診断情報をステータスバーに表示する (auto モードでは現在モードも).
+
+        **hop を整数で出さないこと。** 既定は 0.5 秒で、切り捨てると ``hop=0s`` と
+        出る。実効右文脈 (= lag + hop ÷ 2、目標 2.25 秒) をこの表示から確かめられ
+        なくなる (2026-08-16 修正)。
+        """
         msg = (
             f"window={diag['window']:.0f}s "
-            f"hop={diag['hop']:.0f}s "
+            f"hop={diag['hop']:.1f}s "
             f"lag={diag['lag']:.1f}s "
             f"decode={diag['decode_ms']:.0f}ms"
         )
@@ -825,11 +834,40 @@ class CWDecoderWindow(QMainWindow):
         return "".join(parts)
 
     def _refresh_decode_display(self) -> None:
-        """text_view を確定/暫定 HTML で更新し、末尾までスクロールする."""
-        self.text_view.setHtml(self._current_display_html())
-        # setHtml は先頭に戻すので、毎回末尾へ送る。受信中は常に最新行を見たい。
+        """text_view を確定/暫定 HTML で更新する.
+
+        **本文を選んでコピーできること**が要件 (運用者、2026-08-17)。
+        ``setHtml`` は文書を作り直すので、選択もスクロール位置も消える。
+        この関数は hop (0.5 秒) ごとに呼ばれるため、素直に書き直すと
+        選んだ傍から解除されてコピーできない。3 つで守る:
+
+        * **同じ内容なら書き直さない** — 無音の間は何も起きない
+        * 書き直すときは**選択範囲を復元する** — 続きが届いても選んだままにする
+        * **末尾を追っているときだけ末尾へ送る** — 遡って読んでいる間は動かさない
+        """
+        html_text = self._current_display_html()
+        if html_text == self._displayed_html:
+            return
+        self._displayed_html = html_text
+
         scroll = self.text_view.verticalScrollBar()
-        scroll.setValue(scroll.maximum())
+        # 末尾から数ピクセル以内なら「追っている」とみなす (端数で外さないため)
+        following = scroll.value() >= scroll.maximum() - 4
+        offset = scroll.value()
+        cursor = self.text_view.textCursor()
+        anchor, position = cursor.anchor(), cursor.position()
+
+        self.text_view.setHtml(html_text)
+
+        if anchor != position:
+            # **文書外を指さないように詰める。** クリアで本文が短くなりうる
+            last = self.text_view.document().characterCount() - 1
+            restored = self.text_view.textCursor()
+            restored.setPosition(min(anchor, last))
+            restored.setPosition(min(position, last), QTextCursor.MoveMode.KeepAnchor)
+            self.text_view.setTextCursor(restored)
+        # 選択の復元でカーソルが見える位置へ動くので、スクロールは最後に決める
+        scroll.setValue(scroll.maximum() if following else offset)
 
     def _on_show_provisional_toggled(self, checked: bool) -> None:
         """未確定テキストの表示切替 (即座に反映する)."""
@@ -1293,24 +1331,13 @@ class CWDecoderWindow(QMainWindow):
 
     @staticmethod
     def _deferred_setting_names(old: AppSettings, new: AppSettings) -> list[str]:
-        """変更されたもののうち、**次回の開始時にしか効かない**項目名を返す."""
-        labels = {
-            "sample_rate": "サンプルレート",
-            "checkpoint_path": "モデル",
-            "decode_device": "デコード装置",
-            "decode_threads": "スレッド数",
-            "hop_s": "デコード間隔",
-            "commit_lag_s": "確定までの待ち",
-            "window_s": "デコード用リング",
-            "decode_left_context_s": "左文脈",
-            "head_guard_s": "先頭で捨てる長さ",
-            "low_confidence_extra_lag_s": "読めない文字の猶予",
-            "line_break_gap_s": "改行する無音",
-            "two_stage_commit_enabled": "2 段階確定",
-            "refine_capacity_s": "清書用バッファ",
-        }
+        """変更されたもののうち、**次回の開始時にしか効かない**項目名を返す.
+
+        一覧は設定画面が持つ (``DEFERRED_SETTING_LABELS``)。**ここに写さないこと** —
+        画面の印 ⟳ とこの通知がずれると「印が無いのに効かない」項目ができる。
+        """
         return [
-            label for name, label in labels.items()
+            label for name, label in DEFERRED_SETTING_LABELS.items()
             if getattr(old, name) != getattr(new, name)
         ]
 
@@ -1345,18 +1372,64 @@ class CWDecoderWindow(QMainWindow):
         super().closeEvent(event)
 
 
-def resolve_device(preference: str) -> torch.device:
-    """設定値からデコード用デバイスを決める.
+def resolve_device(preference: str):  # -> torch.device
+    """設定値からデコード用デバイスを決める (**PyTorch 経路専用**).
 
     ``"auto"`` のときだけ CUDA を使う。**既定は cpu** で、GPU はローカル LLM に
     空けておく (デコーダは小さく CPU で hop に間に合う)。
     CUDA が無いのに ``"cuda"`` を指定された場合は cpu に落とす。
+
+    実体は ``src.infer.backend`` にある。ここは後方互換のための別名で、
+    **呼ぶと torch が読み込まれる**。ONNX 経路では呼ばれない。
     """
-    if preference == "auto":
-        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if preference == "cuda" and not torch.cuda.is_available():
-        return torch.device("cpu")
-    return torch.device(preference)
+    return resolve_torch_device(preference)
+
+
+def _build_engine(settings: AppSettings):
+    """設定からデコードエンジンを作る.
+
+    ``.onnx`` を指していれば ONNX 経路 (torch を読み込まない)、
+    ``.pt`` なら PyTorch 経路。**判断は拡張子だけで行う** (利用者が意識せずに
+    済むように)。モデルが無いときだけ、UI の動作確認用に未学習モデルを使う。
+
+    設定にパスが無い・保存されたパスが消えている場合は**同梱モデルへ戻す**。
+    配布版の利用者は ``--ckpt`` を打たないので、ここが効かないと
+    未学習モデルでそれらしいゴミを表示し続けることになる。
+    """
+    path = resolve_model_path(settings.checkpoint_path)
+    bundled = default_model_path()
+
+    # 設定が指すモデル → 同梱モデル の順に試す。
+    #
+    # **設定に残った古いパスで起動できないのは最悪である。** 実際に踏んだ:
+    # 開発機の設定に `.pt` が残っており、PyTorch を同梱しない配布物が
+    # それを読もうとして起動できなかった (2026-08-16)。利用者の環境でも
+    # 「前は PyTorch 版だった」「モデルを移した」で同じことが起きる。
+    #
+    # 失敗の種類では分けない。読めなければ次を試す、それだけでよい。
+    for candidate in _dedup([path, bundled]):
+        try:
+            return load_engine(candidate, device=settings.decode_device,
+                               threads=settings.decode_threads)
+        except Exception as exc:      # noqa: BLE001 - 起動を止めないことが目的
+            print(f"[decode] {candidate} を読めませんでした: {exc!r}")
+
+    # どれも読めない。**ONNX 経路には未学習モデルという逃げ道が無い**
+    # (グラフは学習済みの重みごと書き出すため) ので、ここは PyTorch に頼る。
+    # 配布版には PyTorch が無いので、ここまで来たら起動しない可能性が高い。
+    from src.infer.engine import InferenceEngine
+
+    print("[decode] モデルが見つかりません。未学習モデルで起動します (UI 確認用)")
+    return InferenceEngine.untrained(device=resolve_torch_device(settings.decode_device))
+
+
+def _dedup(paths: list[Path | None]) -> list[Path]:
+    """None と重複を落とす (同じモデルを二度読みにいかないため)."""
+    seen: list[Path] = []
+    for p in paths:
+        if p is not None and p not in seen:
+            seen.append(p)
+    return seen
 
 
 def main(
@@ -1365,29 +1438,20 @@ def main(
     device: str | None = None,
 ) -> int:
     """エントリポイント."""
-    from PySide6.QtWidgets import QApplication
     import sys
+
+    from PySide6.QtWidgets import QApplication
 
     settings = load_settings()
     if checkpoint_path:
         settings.checkpoint_path = checkpoint_path
-
     if device:
         settings.decode_device = device
-    torch_device = resolve_device(settings.decode_device)
-    if torch_device.type == "cpu" and settings.decode_threads > 0:
-        torch.set_num_threads(settings.decode_threads)
-    print(
-        f"[decode] device={torch_device} threads={torch.get_num_threads()}"
-        if torch_device.type == "cpu" else f"[decode] device={torch_device}"
-    )
 
-    if settings.checkpoint_path and Path(settings.checkpoint_path).exists():
-        engine = InferenceEngine.from_checkpoint(
-            settings.checkpoint_path, device=torch_device
-        )
-    else:
-        engine = InferenceEngine.untrained(device=torch_device)
+    engine = _build_engine(settings)
+    # **どちらの経路で動いているかを必ず残す。** 配布物から torch を外した後に
+    # 「なぜか起動が遅い/重い」となったとき、まずここを見れば分かる。
+    print(describe_engine(engine))
 
     app = QApplication.instance() or QApplication(sys.argv)
     window = CWDecoderWindow(engine, settings, net_source=net_source)

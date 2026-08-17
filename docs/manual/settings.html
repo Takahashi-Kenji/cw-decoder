@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>設定項目一覧 — cw-decoder 取扱説明書</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+
+<aside class="side">
+  <a class="brand" href="index.html">cw-decoder<small>取扱説明書</small></a>
+  <nav>
+    <ol>
+      <li><a href="index.html">はじめに</a></li>
+      <li><a href="screens.html">画面の説明</a></li>
+      <li><a href="receive.html">受信する</a></li>
+      <li><a href="correct.html">読み取りと補正</a></li>
+      <li><a href="refine.html">LLM 清書</a></li>
+      <li><a href="transmit.html">送信する</a></li>
+      <li><a href="settings.html" aria-current="page">設定項目一覧</a></li>
+      <li><a href="trouble.html">うまくいかないとき</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<h1>設定項目一覧</h1>
+<p class="lede">
+  <span class="ui">設定…</span> で開く 6 タブの全項目です。初期値のままでも動きます。
+</p>
+
+<h2 id="later">⟳ が付いた項目</h2>
+
+<div class="note warn">
+  <span class="label">OK を押しただけでは効きません</span>
+  <p>
+    ラベルの後ろに <strong>⟳</strong> が付いた項目は、
+    次に <span class="ui">● 開始</span> を押したときから反映されます。
+    受信中に読み取りの土台を作り替えると、音が途切れてしまうためです。
+    OK を押したとき、どれが持ち越されたかがステータスバーに出ます。
+  </p>
+</div>
+
+<h2 id="input">入力タブ</h2>
+
+<figure>
+  <img src="images/settings-input.png" alt="設定画面「入力」タブ">
+</figure>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>項目</th><th>初期値</th><th>説明</th></tr></thead>
+  <tbody>
+    <tr><td>サンプルレート ⟳</td><td>8000 Hz</td><td>取り込みの標本化周波数。8000〜48000、8000 刻み。<strong>ふだん変えません</strong></td></tr>
+    <tr><td>帯域通過フィルタを使う</td><td>ON</td><td><a href="receive.html#bpf">BPF</a>。LAN 経由で音を受けるときは<strong>必ず ON</strong></td></tr>
+    <tr><td>中心周波数</td><td>600 Hz</td><td>受信している CW トーンの高さに合わせます（200〜2000）</td></tr>
+    <tr><td>帯域幅</td><td>400 Hz</td><td>狭いほどノイズに強く、合わせ込みはシビアに（50〜2000）</td></tr>
+    <tr><td>スケルチ保持時間</td><td>1.0 秒</td><td>信号が切れてから無音とみなすまでの猶予（0〜10）</td></tr>
+    <tr><td>受信を自動で録音する</td><td>OFF</td><td>開始と同時に録音を始めます</td></tr>
+    <tr><td>録音の保存先</td><td><code>data/real</code></td><td>WAV とデコード結果の置き場所</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>スケルチのしきい値そのものは、<strong>主画面のレベルメータ横の縦スライダ</strong>で決めます。</p>
+
+<h2 id="decode">デコードタブ</h2>
+
+<figure>
+  <img src="images/settings-decode.png" alt="設定画面「デコード」タブ">
+</figure>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>項目</th><th>初期値</th><th>説明</th></tr></thead>
+  <tbody>
+    <tr><td>モデル ⟳</td><td>—</td><td>チェックポイントのファイル。空なら起動時の <code>--ckpt</code> の値</td></tr>
+    <tr>
+      <td>デコードに使う装置 ⟳</td><td><code>cpu</code></td>
+      <td><code>cpu</code> / <code>cuda</code> / <code>auto</code>。
+          <strong>このモデルは小さいので GPU にしても速くなりません</strong>（レイヤごとの起動費用の方が勝ちます）</td>
+    </tr>
+    <tr><td>CPU スレッド数 ⟳</td><td>4</td><td>0 で自動（0〜32）</td></tr>
+    <tr>
+      <td>確信度の閾値</td><td>0.50</td>
+      <td>これを下回った文字は <code>_</code> になります。
+          <strong>下げて <code>_</code> を消さないでください</strong>（<a href="correct.html#underscore">理由</a>）</td>
+    </tr>
+    <tr><td>プロサインの閾値</td><td>0.35</td><td><code>[SK]</code> などのプロサインだけに使う、少し緩めのしきい値</td></tr>
+    <tr>
+      <td>和文にしかない符号でもモードを切り替える</td><td>ON</td>
+      <td>自動モードで、<strong>ホレを取り逃したときの逃げ道</strong>です（<a href="receive.html#mode">モードの選び方</a>）</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="commit">確定タブ</h2>
+
+<figure>
+  <img src="images/settings-commit.png" alt="設定画面「確定」タブ">
+</figure>
+
+<div class="note danger">
+  <span class="label">ここは読み取りの精度に直結します</span>
+  <p>
+    <strong>デコード間隔と確定までの待ちは、和で効きます。</strong>
+    片方だけ動かすと右文脈が静かに失われます。
+    <strong>実効右文脈の表示が 2.25 秒のままになるように</strong>合わせてください。
+    詳しくは<a href="correct.html#commit">確定の仕組み</a>をご覧ください。
+  </p>
+</div>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>項目</th><th>初期値</th><th>説明</th></tr></thead>
+  <tbody>
+    <tr><td>デコード間隔 (hop) ⟳</td><td>0.50 秒</td><td>何秒ごとに読み直すか（0.1〜2.0）</td></tr>
+    <tr><td>確定までの待ち (lag) ⟳</td><td>2.00 秒</td><td>どれだけ先の音まで見てから確定するか（0.5〜5.0）</td></tr>
+    <tr><td><strong>実効右文脈</strong></td><td>2.25 秒</td><td><strong>読み取り専用の表示。</strong>上 2 つから <code>lag + hop ÷ 2</code> で計算されます</td></tr>
+    <tr><td>デコード用リング ⟳</td><td>30.0 秒</td><td>読み直しに使える音声の長さ（5〜120）。<strong>広げると音声スレッドが止まります</strong></td></tr>
+    <tr><td>左文脈 ⟳</td><td>5.0 秒</td><td>各回のデコードで、どれだけ前から読み始めるか（1〜30）</td></tr>
+    <tr><td>先頭で捨てる長さ ⟳</td><td>1.0 秒</td><td>フィルタが落ち着くまでの過渡を捨てます（0〜5）</td></tr>
+    <tr><td>読めない文字の猶予 ⟳</td><td>1.5 秒</td><td>確信度の低い文字だけ、確定を先送りして読み直します（0〜5）</td></tr>
+    <tr><td>改行する無音の長さ ⟳</td><td>3.0 秒</td><td>これ以上の無音でターンの切れ目とみなし、改行します（0〜10）</td></tr>
+    <tr><td>2 段階確定を行う ⟳</td><td>ON</td><td>ターン終了時に、そのターンを全体で読み直して置き換えます</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="correct">補正タブ</h2>
+
+<figure>
+  <img src="images/settings-correct.png" alt="設定画面「補正」タブ">
+</figure>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>項目</th><th>初期値</th><th>説明</th></tr></thead>
+  <tbody>
+    <tr><td>辞書補正（3 択）</td><td>欧文と和文の両方に使う</td><td>
+      <a href="correct.html#dict">辞書補正</a>をどこまで使うかを選びます。
+      <strong>「和文だけ」はありません</strong>（和文の補正は欧文の補正の上に載るためです）
+    </td></tr>
+    <tr><td>　└ 使わない</td><td>—</td><td>読み取った結果をそのまま出します</td></tr>
+    <tr><td>　└ 欧文だけに使う</td><td>—</td><td>欧文の語彙だけで直します。カナには触りません</td></tr>
+    <tr><td>　└ 欧文と和文の両方に使う</td><td>●</td><td>
+      和文の語彙（405 語・9 カテゴリ）でも直します。
+      <strong>日常で使わないカナの置き換え（ヱ → イマ）もこれを選んだときだけ働きます</strong>
+    </td></tr>
+    <tr><td><span class="ui">語彙ファイルの場所を開く</span></td><td>—</td><td>語を足すためのファイルがある場所を開きます</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="refine">清書タブ</h2>
+
+<figure>
+  <img src="images/settings-refine.png" alt="設定画面「清書」タブ">
+</figure>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>項目</th><th>初期値</th><th>説明</th></tr></thead>
+  <tbody>
+    <tr><td>プロバイダ</td><td><code>ollama</code></td><td><code>ollama</code> / <code>openai</code> / <code>claude</code></td></tr>
+    <tr><td>モデル</td><td><code>llama3.1</code></td><td>実測では <code>gemma4:e4b</code> が良好（<a href="refine.html#ollama">比較</a>）</td></tr>
+    <tr><td>Ollama の宛先</td><td><code>http://localhost:11434</code></td><td>別の PC で動かしているときはここを変えます</td></tr>
+    <tr><td>自動で清書する</td><td>OFF</td><td>文の区切りごとに短く清書します</td></tr>
+    <tr><td>自動清書の間隔</td><td>20 秒</td><td>区切りが来ない長い送信のための保険（5〜300）</td></tr>
+    <tr><td>応答待ちの上限</td><td>120 秒</td><td>これを超えたら諦めます（10〜600）</td></tr>
+    <tr><td>短いプロンプトを使う</td><td>ON</td><td><strong>和文にだけ効きます。</strong>小さいモデルには短い指示の方が良い（<a href="refine.html#compact">理由</a>）</td></tr>
+    <tr><td>推測した箇所を赤で表示する</td><td>ON</td><td>切っても本文はそのまま出ます</td></tr>
+    <tr><td>清書の前に全体を読み直す</td><td>ON</td><td><a href="refine.html#redecode">別スレッドで全体をデコードし直します</a></td></tr>
+    <tr><td>清書用バッファ ⟳</td><td>300 秒</td><td>読み直しに使う音声の長さ（30〜900）。デコード用リングとは<strong>別のバッファ</strong>です</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="display">表示タブ</h2>
+
+<figure>
+  <img src="images/settings-display.png" alt="設定画面「表示」タブ">
+</figure>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>項目</th><th>初期値</th><th>説明</th></tr></thead>
+  <tbody>
+    <tr><td>スペクトルを表示する</td><td>ON</td><td>切ると主画面が縦に短くなります</td></tr>
+    <tr><td>未確定の文字を表示する</td><td>OFF</td><td>確定前の文字を薄く出します。<strong>確定した文章そのものは変わりません</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  スペクトルの<strong>濃さと幅は主画面のスライダ</strong>で、見ながら合わせてください。
+</p>
+
+<h2 id="storage">設定の保存場所とリセット</h2>
+
+<p>
+  設定（ウィンドウの位置なども含みます）はアプリの終了時に自動で保存され、次回に復元されます。
+  おかしくなったときは設定ファイルを削除してから起動し直してください。次回起動時に初期値で作り直されます。
+</p>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>内容</th><th>場所</th></tr></thead>
+  <tbody>
+    <tr><td>アプリの設定</td><td><code>~/.cw-decorder/</code></td></tr>
+    <tr><td>経歴</td><td><code>~/.cw-decorder/operator.json</code></td></tr>
+    <tr><td>和文の語彙</td><td><code>~/.cw-decorder/lexicon_ja.json</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="pager">
+  <a href="transmit.html">← 前: 送信する</a>
+  <span class="spacer"></span>
+  <a href="trouble.html">次: うまくいかないとき →</a>
+</div>
+
+</main>
+</div>
+</body>
+</html>

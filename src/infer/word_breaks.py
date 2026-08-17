@@ -18,7 +18,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from src.infer.engine import FrameToken
+from src.infer.ctc import FrameToken   # engine 経由だと torch が付いてくる
 
 
 def compute_envelope(

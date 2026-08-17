@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>画面の説明 — cw-decoder 取扱説明書</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+
+<aside class="side">
+  <a class="brand" href="index.html">cw-decoder<small>取扱説明書</small></a>
+  <nav>
+    <ol>
+      <li><a href="index.html">はじめに</a></li>
+      <li><a href="screens.html" aria-current="page">画面の説明</a></li>
+      <li><a href="receive.html">受信する</a></li>
+      <li><a href="correct.html">読み取りと補正</a></li>
+      <li><a href="refine.html">LLM 清書</a></li>
+      <li><a href="transmit.html">送信する</a></li>
+      <li><a href="settings.html">設定項目一覧</a></li>
+      <li><a href="trouble.html">うまくいかないとき</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<h1>画面の説明</h1>
+<p class="lede">
+  主画面には<strong>交信中に触るものだけ</strong>を置いています。
+  それ以外は <span class="ui">設定…</span> の中に移してあります。
+</p>
+
+<h2 id="main">主画面</h2>
+
+<figure>
+  <img src="images/main-decoding.png" alt="受信中の主画面。上から操作バー 2 段、デコード本文とレベルメータ、スペクトル、LLM 清書パネル">
+  <figcaption>
+    受信＋デコード中の主画面。上から操作バー 2 段、デコード本文とレベルメータ、スペクトル、LLM 清書パネル。
+    <strong>本文は個人情報を含むためぼかしてあります。</strong>
+  </figcaption>
+</figure>
+
+<p>止まっているときは、こうなります。</p>
+
+<figure>
+  <img src="images/main-idle.png" alt="起動直後の主画面。本文は空で、デコード開始ボタンが灰色になっている">
+  <figcaption>
+    起動直後。<span class="ui">● デコード開始</span> が<strong>灰色で押せません</strong>。
+    先に <span class="ui">● 開始</span> で音の取り込みを始める必要があります。
+  </figcaption>
+</figure>
+
+<h3>1 段目 — 入力とモード</h3>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>部品</th><th>はたらき</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>入力デバイスのコンボ</td>
+      <td>
+        音の入り口を選びます。先頭は <span class="ui">(システムデフォルト)</span> で、
+        以降は <code>[番号] 名前</code> の形で実際の装置が並びます。<br>
+        LAN 経由で音を受け取っているとき（<code>--net-source</code> 付きで起動したとき）は
+        <strong>灰色になって選べません</strong>。音の出どころが LAN に固定されているためです。
+      </td>
+    </tr>
+    <tr>
+      <td><span class="ui">モード:</span></td>
+      <td><span class="ui">欧文</span> <span class="ui">和文</span> <span class="ui">自動</span> の 3 つ。
+          選び方は<a href="receive.html#mode">「モードの選び方」</a>をご覧ください。</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>2 段目 — 操作</h3>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>ボタン</th><th>はたらき</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><span class="ui">● 開始</span> / <span class="ui">■ 停止</span></td>
+      <td><strong>音の取り込み</strong>を始める／止めます。押すたびに切り替わる 1 つのボタンです。
+          止まっている間は下の <span class="ui">● デコード開始</span> が押せません。</td>
+    </tr>
+    <tr>
+      <td><span class="ui">● デコード開始</span> / <span class="ui">■ デコード停止</span></td>
+      <td><strong>文字にする処理</strong>を始める／止めます。
+          取り込みと分けてあるのは、<strong>先にレベルとスケルチを合わせてから</strong>読み始められるようにするためです。</td>
+    </tr>
+    <tr>
+      <td><span class="ui">クリア</span></td>
+      <td>デコード本文を消します。清書パネルは消えません。</td>
+    </tr>
+    <tr>
+      <td><span class="ui">● 録音開始</span> / <span class="ui">■ 録音停止</span></td>
+      <td>受信音を WAV で保存します。保存先は設定の<strong>入力</strong>タブで決めます。</td>
+    </tr>
+    <tr>
+      <td><span class="ui">送信…</span></td>
+      <td><a href="transmit.html">送信の画面</a>を開きます。開いたまま主画面を操作できます。</td>
+    </tr>
+    <tr>
+      <td><span class="ui">設定…</span></td>
+      <td><a href="#settings">設定画面</a>（6 タブ）を開きます。</td>
+    </tr>
+    <tr>
+      <td>チェックポイント名（灰色の文字）</td>
+      <td>いま読み込んでいるモデルのファイル名です。読み込んでいなければ <span class="ui">(未読込)</span> と出ます。</td>
+    </tr>
+    <tr>
+      <td><span class="ui">読込…</span></td>
+      <td>モデルのファイル（<code>.pt</code>）を選び直します。ふだんは触りません。</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>本文とレベルメータ</h3>
+
+<p>
+  中央の広い欄が<strong>デコード本文</strong>です。等幅フォントで表示しています。
+  右端に細い<strong>レベルメータ</strong>が縦に付いていて、その中に<strong>スケルチのつまみ</strong>（縦スライダ）と、
+  いまのしきい値が橙色の数字で出ます。合わせ方は<a href="receive.html#squelch">「スケルチ」</a>をご覧ください。
+</p>
+
+<p>
+  <strong>本文は受信中でもマウスで選んでコピーできます</strong>（Ctrl+C）。
+  選んでいる間は、続きが届いても選択は外れません。
+  上へ遡って読んでいる間は自動で末尾へ飛びません。いちばん下まで戻すと、また最新行を追いかけます。
+</p>
+
+<h3 id="spectrogram">スペクトル表示</h3>
+
+<figure>
+  <img src="images/spectrogram-sliders.png" alt="スペクトル表示と、その下に並ぶ「濃さ」「幅」のスライダ">
+  <figcaption>スペクトルの下に、濃さと表示幅のスライダが並びます。</figcaption>
+</figure>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>つまみ</th><th>はたらき</th><th>範囲</th><th>初期値</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><span class="ui">濃さ</span></td>
+      <td>何 dB より弱い音を「背景」として黒く落とすかを決めます。
+          <strong>右へ動かすほど強い音だけが残り、符号がくっきりします。</strong>
+          雑音で画面が白っぽいときに使ってください。</td>
+      <td>−100 〜 −20 dB</td>
+      <td>−80 dB</td>
+    </tr>
+    <tr>
+      <td><span class="ui">幅</span></td>
+      <td>横軸に何秒ぶん映すかです。<strong>狭くすると符号が横に伸びて、点と線の区別が見やすくなります。</strong>
+          広くすると流れ全体をつかめます。</td>
+      <td>0.8 〜 12.8 秒</td>
+      <td>3.2 秒</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note">
+  <span class="label">読み取りには影響しません</span>
+  <p>
+    この 2 つは<strong>見た目だけ</strong>を変えます。デコード結果は変わりません。
+    符号がそれらしく見えるように、遠慮なく動かしてください。値は次回起動時にも残ります。
+  </p>
+</div>
+
+<h3>LLM 清書パネル</h3>
+
+<p>
+  スペクトルの下が清書の結果です。何も無いときは
+  <span class="ui">LLM 清書結果 (確定=黒 / 推測=赤)</span> と薄く出ています。
+  下に <span class="ui">まとめて清書</span> と <span class="ui">クリア</span> のボタンがあります。
+  詳しくは <a href="refine.html">LLM 清書</a> をご覧ください。
+</p>
+
+<h3>いちばん下の帯（ステータスバー）</h3>
+
+<p>
+  左側にいまの状態が出ます（<span class="ui">待機中</span>、<span class="ui">停止しました</span>、
+  <span class="ui">設定を保存しました</span> など）。
+  <strong>右端には受信中の速度が <span class="ui">受信 20 WPM</span> の形で常に出ています。</strong>
+  相手の速度に合わせて返す<a href="transmit.html#wpm">送信側の機能</a>は、この値を使います。
+</p>
+
+<p>
+  受信中は、左側が読み取りの様子に入れ替わります。
+  <span class="ui">window=30s hop=0.5s lag=2.0s decode=112ms</span> のような形で、
+  <a href="settings.html#commit">確定タブ</a>の設定と、1 回の読み取りにかかった時間が出ます。
+  <strong><span class="ui">hop</span> と <span class="ui">lag</span> を足して確かめられます</strong>
+  （<a href="correct.html#commit">実効右文脈</a> = lag + hop ÷ 2、目標 2.25 秒）。
+  <span class="ui">decode</span> が <span class="ui">hop</span> に近づいたら読み取りが追いついていません。
+</p>
+
+<h2 id="settings">設定画面</h2>
+
+<p>
+  <span class="ui">設定…</span> で開きます。6 つのタブに分かれています。
+  <strong>この画面を開いている間、主画面は操作できません。</strong>
+  <span class="ui">OK</span> で反映、<span class="ui">Cancel</span> で捨てます。
+</p>
+
+<div class="note warn">
+  <span class="label">⟳ が付いた項目</span>
+  <p>
+    ラベルの後ろに <strong>⟳</strong> が付いている項目は、<strong>OK を押しただけでは効きません。</strong>
+    次に <span class="ui">● 開始</span> を押したときから反映されます。
+    受信中に読み取りの土台を作り替えると音が途切れるためです。
+    どれが該当するかは <a href="settings.html#later">設定項目一覧</a>にまとめてあります。
+  </p>
+</div>
+
+<h3>入力タブ</h3>
+
+<figure>
+  <img src="images/settings-input.png" alt="設定画面「入力」タブ">
+  <figcaption>設定画面「入力」タブ</figcaption>
+</figure>
+
+<p>
+  音の入り口まわりです。サンプルレート、帯域通過フィルタ（使う・中心周波数・帯域幅）、
+  スケルチの保持時間、自動録音の有無と保存先。
+</p>
+
+<h3>デコードタブ</h3>
+
+<figure>
+  <img src="images/settings-decode.png" alt="設定画面「デコード」タブ">
+  <figcaption>設定画面「デコード」タブ</figcaption>
+</figure>
+
+<p>
+  モデルのファイル、計算に使う装置（<code>cpu</code> / <code>cuda</code> / <code>auto</code>）、CPU スレッド数、
+  確信度の閾値、プロサインの閾値、和文専用符号でモードを切り替えるかどうか。
+</p>
+
+<h3>確定タブ</h3>
+
+<figure>
+  <img src="images/settings-commit.png" alt="設定画面「確定」タブ">
+  <figcaption>設定画面「確定」タブ</figcaption>
+</figure>
+
+<p>
+  「いつ文字を確定させるか」を決めます。<strong>ここは読み取りの精度に直結します。</strong>
+  真ん中に<strong>実効右文脈</strong>という読み取り専用の表示があり、
+  いまの設定が目標値からどれだけ離れているかが出ます。
+  意味は<a href="correct.html#commit">「確定の仕組み」</a>をご覧ください。
+</p>
+
+<h3>補正タブ</h3>
+
+<figure>
+  <img src="images/settings-correct.png" alt="設定画面「補正」タブ">
+  <figcaption>設定画面「補正」タブ</figcaption>
+</figure>
+
+<p>
+  辞書補正をどこまで使うかを 3 択で選びます
+  （<span class="ui">使わない</span> / <span class="ui">欧文だけに使う</span> /
+  <span class="ui">欧文と和文の両方に使う</span>）。
+  <span class="ui">語彙ファイルの場所を開く</span> で、語を足すためのファイルがある場所を開けます。
+</p>
+
+<h3>清書タブ</h3>
+
+<figure>
+  <img src="images/settings-refine.png" alt="設定画面「清書」タブ">
+  <figcaption>設定画面「清書」タブ</figcaption>
+</figure>
+
+<p>
+  LLM の種類とモデル名、Ollama の宛先、自動清書の有無と間隔、応答待ちの上限、
+  短いプロンプトを使うか、推測を赤で出すか、清書の前に全体を読み直すか。
+</p>
+
+<h3>表示タブ</h3>
+
+<figure>
+  <img src="images/settings-display.png" alt="設定画面「表示」タブ">
+  <figcaption>設定画面「表示」タブ</figcaption>
+</figure>
+
+<p>
+  スペクトルを出すかどうかと、未確定の文字を出すかどうかの 2 つだけです。
+  スペクトルの<strong>濃さと幅は主画面のスライダ</strong>で、見ながら合わせてください。
+</p>
+
+<h2 id="dialogs">別ウィンドウで開く画面</h2>
+
+<h3>送信</h3>
+
+<figure>
+  <img src="images/tx-dialog.png" alt="送信画面（例文を入れて「確認」を押した後）">
+  <figcaption>送信画面（例文を入れて「確認」を押した後）</figcaption>
+</figure>
+
+<p>
+  無線機を繋いだ別の PC に、LAN 越しで打鍵させる画面です。
+  <strong>この画面は開いたまま主画面を操作できます。</strong>相手を聞きながら返信を組み立てられるようにするためです。
+  詳しくは <a href="transmit.html">送信する</a> をご覧ください。
+</p>
+
+<h3>経歴</h3>
+
+<figure>
+  <img src="images/profile-dialog.png" alt="経歴の編集画面（値が入った状態）">
+  <figcaption>経歴の編集画面（値が入った状態）</figcaption>
+</figure>
+
+<p>
+  自局の情報を書いておく場所です。名前・QTH・リグ・アンテナ・出力を、
+  <strong>欧文用と和文用の 2 つに分けて</strong>持ちます。
+  返信の型に <code>{名前}</code> のように書いておくと、ここの値が差し込まれます。
+  送信画面の <span class="ui">経歴…</span> から開きます。
+</p>
+
+<h3>返信の型</h3>
+
+<figure>
+  <img src="images/template-dialog.png" alt="返信の型の編集画面">
+  <figcaption>返信の型の編集画面</figcaption>
+</figure>
+
+<p>
+  よく使う返信を登録しておく場所です。名前・モード・本文を編集でき、
+  <strong>いまの経歴を差し込んだ下書き</strong>をその場で確認できます。
+  送信画面の <span class="ui">型の編集…</span> から開きます。
+</p>
+
+<div class="pager">
+  <a href="index.html">← 前: はじめに</a>
+  <span class="spacer"></span>
+  <a href="receive.html">次: 受信する →</a>
+</div>
+
+</main>
+</div>
+</body>
+</html>

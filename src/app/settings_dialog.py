@@ -36,10 +36,12 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
+    QRadioButton,
     QSpinBox,
     QTabWidget,
     QVBoxLayout,
@@ -51,6 +53,29 @@ from src.infer.settings import AppSettings
 # 次回の開始時にしか効かない項目に付ける印。
 _LATER = "  ⟳"
 _LATER_NOTE = "⟳ … 次回の「開始」から反映されます"
+
+# 次回の開始時にしか効かない項目と、通知に出す短い名前。
+#
+# **ここが唯一の一覧。** 主画面 (``_deferred_setting_names``) はこれを読んで
+# 「何項目が持ち越されたか」を知らせる。画面の印 (``_LATER``) と一覧がずれると
+# 「印が無いのに黙って効かない」項目ができる。2026-08-16 に ``2 段階確定`` が
+# まさにそれになっているのが見つかった (印 12 個・通知 13 項目)。
+# 両者の一致は ``tests/test_settings_dialog.py`` の ``TestDeferredMarks`` が見る。
+DEFERRED_SETTING_LABELS: dict[str, str] = {
+    "sample_rate": "サンプルレート",
+    "checkpoint_path": "モデル",
+    "decode_device": "デコード装置",
+    "decode_threads": "スレッド数",
+    "hop_s": "デコード間隔",
+    "commit_lag_s": "確定までの待ち",
+    "window_s": "デコード用リング",
+    "decode_left_context_s": "左文脈",
+    "head_guard_s": "先頭で捨てる長さ",
+    "low_confidence_extra_lag_s": "読めない文字の猶予",
+    "line_break_gap_s": "改行する無音",
+    "two_stage_commit_enabled": "2 段階確定",
+    "refine_capacity_s": "清書用バッファ",
+}
 
 
 def _note(text: str) -> QLabel:
@@ -263,8 +288,10 @@ class SettingsDialog(QDialog):
         )
         form.addRow("改行する無音の長さ" + _LATER, self.line_break_gap_s)
 
+        # **印はチェックボックス自身の文字に付ける** (この行にはラベルが無い)。
+        # 切替は ``SlidingWindowDecoder`` を作るときに固まるので、受信中は効かない。
         self.two_stage_commit_enabled = QCheckBox(
-            "2 段階確定を行う (ターン終了時に読み直して置き換える)"
+            "2 段階確定を行う (ターン終了時に読み直して置き換える)" + _LATER
         )
         self.two_stage_commit_enabled.setChecked(s.two_stage_commit_enabled)
         self.two_stage_commit_enabled.setToolTip(
@@ -286,22 +313,42 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(page)
         s = self._settings
 
-        self.word_correct_enabled = QCheckBox("辞書補正を使う")
-        self.word_correct_enabled.setChecked(s.word_correct_enabled)
-        self.word_correct_enabled.setToolTip(
+        # **3 択で見せる** (運用者、2026-08-17)。
+        #
+        # 内部は 2 つの真偽値だが、**取りうる状態は 3 つしかない**。和文の補正は
+        # 欧文の補正の上に載るので「和文だけ」は選べない。チェックボックス 2 つだと
+        # 選べない組み合わせが画面に残るうえ、「和文にも使う」が何に対する
+        # 「にも」なのか読めない、という指摘を受けた。
+        group = QGroupBox("辞書補正")
+        choices = QVBoxLayout(group)
+        self.correct_off = QRadioButton("使わない")
+        self.correct_european = QRadioButton("欧文だけに使う")
+        self.correct_both = QRadioButton("欧文と和文の両方に使う")
+        self.correct_european.setToolTip(
             "CW の定型語彙で語を切り直し・寄せします (LLM 不要・即時)。\n"
             "寄せ先は符号 (・-) の距離で選ぶので、点 1 個の差という\n"
             "CW の誤りの構造が保たれます。"
         )
-        layout.addWidget(self.word_correct_enabled)
-
-        self.word_correct_ja_enabled = QCheckBox("和文にも使う")
-        self.word_correct_ja_enabled.setChecked(s.word_correct_ja_enabled)
-        self.word_correct_ja_enabled.setToolTip(
+        self.correct_both.setToolTip(
             "和文の補正は曖昧一致つきの分割を伴い、欧文より踏み込んだ処理です。\n"
-            "1 文字が要素の途中で切れて 2 文字になった誤り (ロ+ム=テ) も戻せます。"
+            "1 文字が要素の途中で切れて 2 文字になった誤り (ロ+ム=テ) も戻せます。\n"
+            "日常で使わないカナ (ヱ→イマ) の置き換えもここに含まれます。"
         )
-        layout.addWidget(self.word_correct_ja_enabled)
+        for button in (self.correct_off, self.correct_european, self.correct_both):
+            choices.addWidget(button)
+        # **親の真偽値が切れていれば「使わない」。** 子の値は覚えたままにする
+        # (「使わない」を選んだだけで和文の選択を捨てない)
+        if not s.word_correct_enabled:
+            self.correct_off.setChecked(True)
+        elif s.word_correct_ja_enabled:
+            self.correct_both.setChecked(True)
+        else:
+            self.correct_european.setChecked(True)
+        choices.addWidget(_note(
+            "和文はカナの切り直しを伴うので、欧文より踏み込んだ処理です。"
+            "日常で使わないカナの置き換え (ヱ → イマ) も、和文を選んだときだけ働きます。"
+        ))
+        layout.addWidget(group)
 
         if self._lexicon_path is not None:
             layout.addSpacing(8)
@@ -425,8 +472,14 @@ class SettingsDialog(QDialog):
             low_confidence_extra_lag_s=self.low_confidence_extra_lag_s.value(),
             line_break_gap_s=self.line_break_gap_s.value(),
             two_stage_commit_enabled=self.two_stage_commit_enabled.isChecked(),
-            word_correct_enabled=self.word_correct_enabled.isChecked(),
-            word_correct_ja_enabled=self.word_correct_ja_enabled.isChecked(),
+            word_correct_enabled=not self.correct_off.isChecked(),
+            # 「使わない」のときは**元の値を保つ**。3 択に畳んだ都合で子の値が
+            # 見えなくなるだけなので、開いて OK を押しただけで捨ててはいけない
+            word_correct_ja_enabled=(
+                self._settings.word_correct_ja_enabled
+                if self.correct_off.isChecked()
+                else self.correct_both.isChecked()
+            ),
             llm_provider=self.llm_provider.currentText(),
             llm_model=self.llm_model.text().strip(),
             ollama_endpoint=self.ollama_endpoint.text().strip(),

@@ -8,34 +8,14 @@
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-import torch
 import torchaudio
 from torch import Tensor, nn
 
-
-@dataclass(frozen=True)
-class MelConfig:
-    """メルスペクトログラム設定."""
-
-    sample_rate: int = 8000
-    n_mels: int = 64
-    win_ms: float = 25.0
-    hop_ms: float = 10.0
-    n_fft: int = 256          # 2^n で win_length (=200) を覆う最小値
-    f_min: float = 50.0
-    f_max: float = 4000.0     # Nyquist 直前
-    top_db: float = 80.0
-    normalize: bool = True
-
-    @property
-    def win_length(self) -> int:
-        return int(self.sample_rate * self.win_ms / 1000.0)
-
-    @property
-    def hop_length(self) -> int:
-        return int(self.sample_rate * self.hop_ms / 1000.0)
+# **設定値の真正ソースは src/infer/mel_params.py にある。**
+# ONNX 推論の経路が torch を読み込まずに hop 長を知る必要があるため、
+# 値だけを torch 非依存のモジュールへ移した。ここでは再輸出するだけで、
+# 二重に定義しない (片方だけ直すとフレーム位置が静かにずれる)。
+from src.infer.mel_params import MelConfig
 
 
 class MelExtractor(nn.Module):

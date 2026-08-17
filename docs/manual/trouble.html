@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>うまくいかないとき — cw-decoder 取扱説明書</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+
+<aside class="side">
+  <a class="brand" href="index.html">cw-decoder<small>取扱説明書</small></a>
+  <nav>
+    <ol>
+      <li><a href="index.html">はじめに</a></li>
+      <li><a href="screens.html">画面の説明</a></li>
+      <li><a href="receive.html">受信する</a></li>
+      <li><a href="correct.html">読み取りと補正</a></li>
+      <li><a href="refine.html">LLM 清書</a></li>
+      <li><a href="transmit.html">送信する</a></li>
+      <li><a href="settings.html">設定項目一覧</a></li>
+      <li><a href="trouble.html" aria-current="page">うまくいかないとき</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<h1>うまくいかないとき</h1>
+<p class="lede">
+  症状から探せるようにしてあります。<strong>まず疑うのはレベルとスケルチ</strong>です。
+</p>
+
+<h2 id="nothing">文字がまったく出ない</h2>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>確かめること</th><th>対処</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><span class="ui">● デコード開始</span> を押しましたか</td>
+      <td><strong>いちばん多い原因です。</strong><span class="ui">● 開始</span> だけでは音を取り込むだけで、文字は出ません</td>
+    </tr>
+    <tr>
+      <td>レベルメータは振れていますか</td>
+      <td>振れていなければ入力デバイスの選択か、受信機側の音量を見直します</td>
+    </tr>
+    <tr>
+      <td>スケルチが高すぎませんか</td>
+      <td>橙色の破線が信号より上にあると、<strong>信号ごと落ちます</strong>。スライダを下げてください</td>
+    </tr>
+    <tr>
+      <td>モデルは読み込まれていますか</td>
+      <td>2 段目の灰色の文字が <span class="ui">(未読込)</span> なら、起動時に <code>--ckpt</code> を付けたか確認します</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="noise">無音なのに文字が出続ける</h2>
+
+<div class="note danger">
+  <span class="label">スケルチが効いていません</span>
+  <p>
+    メル特徴抽出は音量の情報を捨てるため、<strong>ノイズでも増幅されて文字になります。</strong>
+    30 秒の無信号で 38 個のトークンが出た実測があり、しかも<strong>確信度は 0.6〜0.7 と高い</strong>ので、
+    確信度の閾値では防げません。<strong>スケルチを上げてください。</strong>
+  </p>
+</div>
+
+<h2 id="garbled">文字は出るが、化けが多い</h2>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>確かめること</th><th>対処</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>BPF は ON ですか。中心周波数は合っていますか</td>
+      <td>スペクトルを見て、<strong>CW の横線が通過帯に収まっているか</strong>を確かめます。
+          混信が多ければ帯域幅を 250 Hz 程度まで狭くします</td>
+    </tr>
+    <tr>
+      <td>LAN 経由で音を受けていて、BPF を切っていませんか</td>
+      <td><strong>誤り率 97% まで崩壊します。</strong>送り出し側は生の音を流すので、受け側の BPF が要ります</td>
+    </tr>
+    <tr>
+      <td>入力が振り切っていませんか</td>
+      <td>歪みます。受信機側の音量を下げます</td>
+    </tr>
+    <tr>
+      <td>モードは合っていますか</td>
+      <td>和文を欧文モードで読むと、<strong>変換表に無い符号がすべて外れます</strong></td>
+    </tr>
+    <tr>
+      <td>起動直後の数秒だけ乱れていませんか</td>
+      <td>フィルタが落ち着くまでの過渡です。<strong>最初の数秒は割り引いて</strong>ご覧ください</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="underscore"><code>_</code> が多い</h2>
+
+<p>
+  読めなかった印です。<strong>確信度の閾値を下げて消さないでください。</strong>
+  実測で閾値を 0.5 から 0.0 にすると、誤り率が 19.74% から 23.64% へ<strong>悪化</strong>しました。
+  <code>_</code> の裏に正解が隠れているのではなく、間違った文字が出てくるだけです。
+</p>
+
+<p>
+  まずは<strong>信号の質を上げる方（レベル・BPF・スケルチ）</strong>を見直してください。
+  それでも多いときは、その信号がその程度だということです。
+  <a href="refine.html">LLM 清書</a>が意味を補ってくれることがあります。
+</p>
+
+<h2 id="mode">自動モードが和文に切り替わらない</h2>
+
+<p>
+  ホレ（和文開始）をモデルが取り逃していると、切り替わりません。
+  実測で、<strong>純粋な和文なら検出率 100%、実運用の形（欧文の前置きに続くホレ）では 0%</strong> でした。
+</p>
+
+<p>
+  そのため<strong>和文にしかない符号を見たら切り替える</strong>という別の道が用意してあります
+  （設定の<a href="settings.html#decode">デコード</a>タブ）。
+  これが働くので和文自体は読めますが、<strong>ホレの文字は画面に出ません。</strong>
+  うまくいかないときは、モードを <span class="ui">和文</span> に手で切り替えてください。
+</p>
+
+<h2 id="slow">動きが重い・固まる</h2>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>症状</th><th>対処</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>受信中に表示が途切れる</td>
+      <td>設定の<a href="settings.html#commit">確定</a>タブで<strong>デコード用リングを広げていませんか</strong>。
+          広げると音声スレッドが止まります。初期値 30 秒に戻してください</td>
+    </tr>
+    <tr>
+      <td>清書のときだけ待たされる</td>
+      <td>正常です。全体の読み直しと LLM の応答待ちが入ります。
+          <span class="ui">応答待ちの上限</span> で諦めるまでの時間を決められます</td>
+    </tr>
+    <tr>
+      <td>GPU にしたのに速くならない</td>
+      <td>このモデルは小さいので、<strong>レイヤごとの起動費用の方が勝ちます。</strong>
+          <code>cpu</code> のままで構いません</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="llm">LLM 清書が動かない</h2>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>メッセージ・症状</th><th>対処</th></tr></thead>
+  <tbody>
+    <tr><td><code>Ollama に接続できません</code></td><td>Ollama が起動していません。<code>ollama serve</code> を実行します</td></tr>
+    <tr><td>結果が絵文字や繰り返しになる</td><td>モデルが小さすぎます。<code>gemma4:e4b</code> をお試しください</td></tr>
+    <tr>
+      <td>流暢だが内容が原文と違う</td>
+      <td><strong>翻訳特化のモデルを使っていませんか。</strong>
+          流暢な訳文を作る訓練を受けているため、<strong>壊れた入力を捏造で埋めます</strong></td>
+    </tr>
+    <tr><td>意味が逆になる</td><td>小さいモデルで起きます。<code>テンキ ハ ハレ</code> を「天気が悪い」と取った実例があります</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="tx">送信できない</h2>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>症状</th><th>対処</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><span class="ui">送信</span> が押せない</td>
+      <td><strong><span class="ui">確認</span> を通していません。</strong>
+          本文を編集すると確認は無効に戻ります</td>
+    </tr>
+    <tr>
+      <td>接続できない</td>
+      <td>打鍵側で <code>cw_key_server.py</code> が動いているか、アドレスとポートが合っているかを確かめます</td>
+    </tr>
+    <tr>
+      <td>電鍵が動かない・逆に動く</td>
+      <td><code>--check-lines</code> で結線を確かめ、<code>--key-line</code> / <code>--key-invert</code> で直します</td>
+    </tr>
+    <tr>
+      <td>ポートを開いただけで電波が出る</td>
+      <td>USB シリアル変換器が DTR/RTS を H にするためです。
+          <strong>ダミーロードを付けてから</strong>確かめてください</td>
+    </tr>
+    <tr>
+      <td>本文に <code>?</code> が入る</td>
+      <td>差し込み欄が空です。相手コール・相手名前は<strong>受信文から拾うので、読み取りが崩れていると入りません</strong></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="reset">設定をやり直したい</h2>
+
+<p>
+  <code>~/.cw-decorder/</code> の設定ファイルを削除してから起動し直してください。
+  次回起動時に初期値で作り直されます。
+  経歴（<code>operator.json</code>）と語彙（<code>lexicon_ja.json</code>）は別ファイルなので、
+  <strong>残したいときはそれらを避けて</strong>削除してください。
+</p>
+
+<h2 id="expect">そもそも、どこまで読めるものか</h2>
+
+<p>
+  実受信で測った平常値です。<strong>完璧には読めません。</strong>
+</p>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th></th><th>文字の誤り率</th></tr></thead>
+  <tbody>
+    <tr><td>欧文</td><td>およそ 16%</td></tr>
+    <tr><td>和文</td><td>およそ 32%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note">
+  <span class="label">人と比べると</span>
+  <p>
+    状態の悪い信号で、<strong>熟練者が耳で読んで 28.6% 間違えた録音を、モデルは 34.9%</strong> で読みました。
+    <strong>足りないのは符号の読み取り精度ではなく、語の推測です。</strong>
+    <a href="correct.html#dict">辞書補正</a>と <a href="refine.html">LLM 清書</a>は、そこを埋めるための仕掛けです。
+  </p>
+</div>
+
+<div class="pager">
+  <a href="settings.html">← 前: 設定項目一覧</a>
+  <span class="spacer"></span>
+  <a href="index.html">はじめに →</a>
+</div>
+
+</main>
+</div>
+</body>
+</html>

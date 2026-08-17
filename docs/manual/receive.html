@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>受信する — cw-decoder 取扱説明書</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+
+<aside class="side">
+  <a class="brand" href="index.html">cw-decoder<small>取扱説明書</small></a>
+  <nav>
+    <ol>
+      <li><a href="index.html">はじめに</a></li>
+      <li><a href="screens.html">画面の説明</a></li>
+      <li><a href="receive.html" aria-current="page">受信する</a></li>
+      <li><a href="correct.html">読み取りと補正</a></li>
+      <li><a href="refine.html">LLM 清書</a></li>
+      <li><a href="transmit.html">送信する</a></li>
+      <li><a href="settings.html">設定項目一覧</a></li>
+      <li><a href="trouble.html">うまくいかないとき</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<h1>受信する</h1>
+<p class="lede">
+  きれいに読ませる鍵は 2 つだけです。<strong>入力レベルを合わせること</strong>と、
+  <strong>ノイズをデコーダの手前で止めること</strong>。
+</p>
+
+<h2 id="mode">モードの選び方</h2>
+
+<p>
+  CW は同じ符号でも、欧文と和文で表す文字が違います。受信する内容に合わせて選びます。
+  <strong>受信中でも切り替えられます。</strong>
+</p>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>モード</th><th>使う場面</th></tr></thead>
+  <tbody>
+    <tr><td><span class="ui">欧文</span></td><td>英数字・記号の通信（DX、コンテストなど）</td></tr>
+    <tr><td><span class="ui">和文</span></td><td>カナの和文通信</td></tr>
+    <tr>
+      <td><span class="ui">自動</span></td>
+      <td>欧文と和文が混ざる交信。<strong>ホレ</strong>（和文開始）を受けると和文へ、
+          <strong>ラタ</strong>（和文終了）を受けると欧文へ切り替わります</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  いま自動がどちらで動いているかは、画面いちばん下の帯に
+  <span class="ui">自動(現在:欧文)</span> の形で出ています。
+</p>
+
+<div class="note warn">
+  <span class="label">自動はホレだけに頼っていません</span>
+  <p>
+    実際の交信では、欧文の前置き（<code>JA1ABC DE JH0ILL …</code>）に続くホレを
+    モデルが取り逃すことがあります。そのため
+    <strong>和文にしかない符号を見たら切り替える</strong>という別の道も用意してあります
+    （設定の<a href="settings.html#decode">デコード</a>タブで切れます）。
+    ホレを取り逃しても和文は読めますが、<strong>ホレの文字自体は画面に出ません。</strong>
+  </p>
+</div>
+
+<h2 id="level">入力レベル</h2>
+
+<p>
+  右端の縦のレベルメータを見ながら、受信機やパソコンの音量を合わせます。
+  <strong>信号が来たときに中ほどまで振れる</strong>くらいが目安です。
+  小さすぎると拾えず、振り切ると歪みます。
+</p>
+
+<p>
+  細かいばらつきは気にしなくて構いません。内部の特徴量抽出が自動で正規化します。
+</p>
+
+<h2 id="squelch">スケルチ</h2>
+
+<p>
+  レベルメータの<strong>橙色の破線</strong>がスケルチのラインです。
+  入力がこの線より下のときは「無音」とみなし、デコーダには無音を流します。
+  メータ横の縦スライダで動かせます（−60〜0 dB、下端の −60 で実質無効）。
+  いまの値はスライダの下に橙色の数字で出ます。
+</p>
+
+<div class="note danger">
+  <span class="label">スケルチは必ず入れてください</span>
+  <p>
+    メル特徴抽出は音量の情報を捨てるため、<strong>無信号のノイズでも増幅されて文字になります。</strong>
+    30 秒の無信号で 38 個ものトークンが出た実測があり、しかも
+    <strong>確信度は 0.6〜0.7 と高い</strong>ので、確信度の閾値では防げません。
+    <strong>デコーダの手前で止めるしかありません。</strong>
+  </p>
+</div>
+
+<p>
+  初期値は <strong>−25 dBFS</strong> です。判定は <strong>BPF を通した後</strong>のレベルで行います。
+  生の入力では、無信号時 −28 dBFS・信号時 −40〜−10 dBFS と範囲が重なって分けられませんが、
+  ノイズの大半は帯域の外にあるので、BPF の後なら差が開きます。
+</p>
+
+<p>
+  ノイズは状況で変わるので、受信しながら動かして構いません。
+  <strong>下げすぎるとノイズを拾い、上げすぎると弱い信号が丸ごと落ちます。</strong>
+</p>
+
+<h2 id="bpf">帯域通過フィルタ（BPF）</h2>
+
+<p>
+  CW のトーン付近だけを通し、それ以外を落とします。混信やノイズが多いときに効きます。
+  設定の<a href="settings.html#input">入力</a>タブにあります（初期値は ON）。
+</p>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>設定</th><th>目安</th></tr></thead>
+  <tbody>
+    <tr><td>中心周波数</td><td>受信している CW トーンの高さに合わせます（初期値 600 Hz）</td></tr>
+    <tr>
+      <td>帯域幅</td>
+      <td>狭いほどノイズに強い反面、合わせ込みがシビアになります。
+          初期値 400 Hz。混信が多ければ 250 Hz 程度まで狭くします</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  スペクトルを見ながら、<strong>CW の横線が通過帯（中心 ± 帯域の半分）に収まっているか</strong>を
+  確かめると合わせやすくなります。
+</p>
+
+<div class="note danger">
+  <span class="label">LAN 経由で音を受け取るときは必ず ON に</span>
+  <p>
+    受信機が別の PC にあるとき、送り出し側は<strong>生の音をそのまま流します</strong>
+    （こちら側の BPF 設定がそのまま効くようにするため）。
+    受け取る側で BPF を切ると、<strong>読み取りが崩壊します</strong>（誤り率 97% の実測があります）。
+  </p>
+</div>
+
+<h2 id="spectrogram">スペクトルの見方</h2>
+
+<figure>
+  <img src="images/spectrogram-sliders.png" alt="スペクトル表示と、その下に並ぶ「濃さ」「幅」のスライダ">
+  <figcaption>
+    横軸が時間、縦軸が周波数です。CW のトーンが横一本の線として流れます。
+    下のスライダは<strong>見た目だけ</strong>を変えるもので、デコード結果には影響しません。
+  </figcaption>
+</figure>
+
+<p>
+  <span class="ui">濃さ</span> を右へ動かすほど弱い音が黒く落ち、符号がくっきりします。
+  <span class="ui">幅</span> を狭くすると符号が横に伸びて、点と線の区別が見やすくなります。
+  <strong>符号がそれらしく見えるところに合わせてください。</strong>値は次回起動時にも残ります。
+</p>
+
+<h2 id="record">録音する</h2>
+
+<ol class="steps">
+  <li><p>受信中（<span class="ui">■ 停止</span> と表示されている状態）に <span class="ui">● 録音開始</span> を押します。</p></li>
+  <li><p>もう一度押す（<span class="ui">■ 録音停止</span>）と保存されます。</p></li>
+  <li><p>保存先は設定の<a href="settings.html#input">入力</a>タブで決めます（初期値は <code>data/real</code>）。
+         デコード結果のテキストとモード情報も一緒に残ります。</p></li>
+</ol>
+
+<p>
+  受信を始めたら自動で録り始める設定もあります（<span class="ui">受信を自動で録音する</span>、初期値は OFF）。
+</p>
+
+<h2 id="offline">WAV をあとから読ませる</h2>
+
+<p>
+  録音済みの WAV や手元のファイルは、アプリを使わずコマンドで読めます。
+  <strong>こちらの方が精度は高めです。</strong>その場で返す必要がないぶん、前後の文脈を広く使えるためです。
+</p>
+
+<pre><code>python scripts/decode_user_wav.py --ckpt models/full/best_infer.pt --wav european:data/real/your_file.wav</code></pre>
+
+<ul>
+  <li><code>--wav</code> は <strong><code>モード:ファイルパス</code></strong> の形で書きます
+      （<code>european:</code> または <code>japanese:</code>）。</li>
+  <li><code>--wav</code> を繰り返せば、複数のファイルをまとめて処理できます。</li>
+  <li>結果は画面に出るほか、<code>decode_result.txt</code>（UTF-8）にも書き出されます。</li>
+</ul>
+
+<div class="note">
+  <span class="label">モードは 2 つだけ</span>
+  <p>
+    オフラインでは <code>european</code> と <code>japanese</code> しか指定できません。
+    <code>auto</code> はアプリで受信しているときだけの機能です。
+  </p>
+</div>
+
+<h2 id="lan">受信機が別の PC にあるとき</h2>
+
+<p>
+  受信機を繋いだ PC から、16 kHz モノラルの音を LAN 越しにそのまま流せます。
+  リモートデスクトップの音声転送は<strong>使わないでください。</strong>
+  狭帯域の圧縮がかかり、エネルギーの 99% が 1000 Hz 以下に潰れる実測があります。
+</p>
+
+<p><strong>受信機側の PC で:</strong></p>
+<pre><code>python scripts/audio_send.py --list          # 入力デバイス一覧
+python scripts/audio_send.py --device 13     # 送信開始 (Ctrl+C で終了)</code></pre>
+
+<p><strong>読み取る側の PC で:</strong></p>
+<pre><code>python scripts/run_app.py --ckpt models/full/best_infer.pt --net-source 192.168.0.10</code></pre>
+
+<p>
+  この起動をすると、主画面の入力デバイスのコンボは<strong>灰色になって選べなくなります</strong>。
+  音の出どころが LAN に固定されるためです。
+</p>
+
+<div class="note warn">
+  <span class="label">家庭内 LAN でだけ使ってください</span>
+  <p>
+    音声は暗号化せずに流します。外部へ公開するポートには割り当てないでください。
+    <code>--bind</code> で待ち受けるアドレスを絞れます。
+  </p>
+</div>
+
+<div class="pager">
+  <a href="screens.html">← 前: 画面の説明</a>
+  <span class="spacer"></span>
+  <a href="correct.html">次: 読み取りと補正 →</a>
+</div>
+
+</main>
+</div>
+</body>
+</html>

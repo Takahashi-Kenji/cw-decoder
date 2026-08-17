@@ -7,7 +7,7 @@ import numpy as np
 from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
 
 from src.infer.audio import AudioCapture
-from src.infer.engine import InferenceEngine
+from src.infer.backend import DecodeEngine
 from src.infer.net_audio import NetworkAudioCapture, parse_endpoint
 from src.infer.sliding_window import (
     DEFAULT_LOW_CONFIDENCE_EXTRA_LAG_S,
@@ -87,7 +87,7 @@ class AudioInferenceWorker(QObject):
 
     def __init__(
         self,
-        engine: InferenceEngine,
+        engine: DecodeEngine,
         sample_rate: int = 8000,
         mode: str = "european",
         confidence_threshold: float = 0.5,

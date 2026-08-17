@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cw-decoder 取扱説明書</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+
+<aside class="side">
+  <a class="brand" href="index.html">cw-decoder<small>取扱説明書</small></a>
+  <nav>
+    <ol>
+      <li><a href="index.html" aria-current="page">はじめに</a></li>
+      <li><a href="screens.html">画面の説明</a></li>
+      <li><a href="receive.html">受信する</a></li>
+      <li><a href="correct.html">読み取りと補正</a></li>
+      <li><a href="refine.html">LLM 清書</a></li>
+      <li><a href="transmit.html">送信する</a></li>
+      <li><a href="settings.html">設定項目一覧</a></li>
+      <li><a href="trouble.html">うまくいかないとき</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<h1>cw-decoder 取扱説明書</h1>
+<p class="lede">
+  モールス信号を耳で追わずに、画面で読むためのソフトです。
+  受信した音を文字にして、必要なら日本語として整え、返信を打つところまでを 1 つの画面で行います。
+</p>
+
+<h2>このソフトができること</h2>
+
+<p>
+  マイクやライン入力から入った CW の音を、深層学習のモデルが<strong>符号の列</strong>として読み取り、
+  それを欧文表・和文表で文字に直して画面に出します。
+  読み取りは受信しながら進むので、交信の途中でも読めます。
+</p>
+
+<ul>
+  <li><strong>欧文・和文の両方</strong>を読みます。どちらの符号が来ているかを自動で判断させることもできます。</li>
+  <li><strong>読めなかった文字を隠しません。</strong> 自信がなかった箇所は <code>_</code> で残します
+      （<a href="correct.html#underscore">なぜ隠さないのか</a>）。</li>
+  <li><strong>語彙で崩れを直します。</strong> 符号の乱れで崩れた語を、モールス符号としての近さを見て直します
+      （<a href="correct.html#dict">辞書補正</a>）。</li>
+  <li><strong>LLM で日本語に清書できます。</strong> ローカルの Ollama でも、クラウドの API でも使えます
+      （<a href="refine.html">LLM 清書</a>）。</li>
+  <li><strong>返信を打てます。</strong> 無線機を繋いだ別の PC に LAN 越しで打鍵させます
+      （<a href="transmit.html">送信する</a>）。</li>
+</ul>
+
+<div class="note">
+  <span class="label">読み取りの精度について</span>
+  <p>
+    完璧には読めません。実際の受信音で測ると、欧文でおよそ 16%、和文でおよそ 32% の文字が間違います。
+    ただしこれは<strong>熟練者が耳で読んだときと大きくは変わらない</strong>水準です
+    （状態の悪い信号で、人が 28.6%、モデルが 34.9% という実測があります）。
+    <strong>「1 文字も間違えずに読む道具」ではなく「意味を取るための道具」</strong>だとお考えください。
+    辞書補正と LLM 清書は、まさにその「意味を取る」ための仕掛けです。
+  </p>
+</div>
+
+<h2>まず動かしてみる</h2>
+
+<ol class="steps">
+  <li>
+    <p>アプリを起動します。導入がまだなら <a href="../INSTALL.md">INSTALL.md</a> を先にご覧ください。</p>
+  </li>
+  <li>
+    <p>画面いちばん上のコンボボックスで、<strong>音の入り口</strong>（マイク／ライン入力）を選びます。</p>
+  </li>
+  <li>
+    <p>右隣の <span class="ui">モード:</span> で <span class="ui">欧文</span> <span class="ui">和文</span> <span class="ui">自動</span> から選びます。
+       迷ったら <span class="ui">自動</span> で構いません。</p>
+  </li>
+  <li>
+    <p><span class="ui">● 開始</span> を押します。音の取り込みが始まり、レベルメータが振れ、スペクトルが流れ出します。</p>
+  </li>
+  <li>
+    <p><span class="ui">● デコード開始</span> を押します。ここから文字が出ます。</p>
+    <p class="lede" style="font-size:.92rem;margin:0">
+      取り込みと読み取りが別のボタンに分かれているのは、<strong>先にレベルとスケルチを合わせてから</strong>
+      読み始められるようにするためです。
+    </p>
+  </li>
+</ol>
+
+<p>
+  止めるときは <span class="ui">■ 停止</span> です。本文を消したいときは <span class="ui">クリア</span> を押します。
+</p>
+
+<h2>全体の流れ</h2>
+
+<p>
+  音が文字になるまでに、いくつかの段を通ります。どこで何が起きているかを知っておくと、
+  結果がおかしいときに<strong>どこを疑えばよいか</strong>が分かります。
+</p>
+
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr><th>段</th><th>すること</th><th>調整する場所</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1. 取り込み</td>
+      <td>音声デバイスから音を受け取り、帯域通過フィルタで目的の音だけ残す</td>
+      <td>主画面のレベルメータ／設定の<strong>入力</strong>タブ</td>
+    </tr>
+    <tr>
+      <td>2. 読み取り</td>
+      <td>モデルが符号のトークン列を出す</td>
+      <td>設定の<strong>デコード</strong>タブ</td>
+    </tr>
+    <tr>
+      <td>3. 確定</td>
+      <td>後から変わらない位置まで来た文字を確定させる</td>
+      <td>設定の<strong>確定</strong>タブ</td>
+    </tr>
+    <tr>
+      <td>4. 文字化</td>
+      <td>符号を欧文表・和文表で文字に直す。自信のない箇所は <code>_</code> にする</td>
+      <td>設定の<strong>デコード</strong>タブ（確信度の閾値）</td>
+    </tr>
+    <tr>
+      <td>5. 辞書補正</td>
+      <td>崩れた語を語彙に寄せて直す</td>
+      <td>設定の<strong>補正</strong>タブ</td>
+    </tr>
+    <tr>
+      <td>6. LLM 清書</td>
+      <td>全体を読み直したうえで、日本語として整える</td>
+      <td>設定の<strong>清書</strong>タブ</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  1〜5 は<strong>受信しながら</strong>進みます。6 だけは <span class="ui">まとめて清書</span> を押したとき
+  （または自動清書の間隔がきたとき）に走ります。
+</p>
+
+<h2>どこから読むか</h2>
+
+<ul class="cards">
+  <li><a href="screens.html">
+    <span class="t">画面の説明</span>
+    <span class="d">主画面のボタン、設定画面の 6 つのタブ、別ウィンドウで開く画面。</span>
+  </a></li>
+  <li><a href="receive.html">
+    <span class="t">受信する</span>
+    <span class="d">モードの選び方、レベルとスケルチ、帯域通過フィルタ、録音、WAV の後読み。</span>
+  </a></li>
+  <li><a href="correct.html">
+    <span class="t">読み取りと補正</span>
+    <span class="d"><code>_</code> と <code>?</code> の違い、確定の仕組み、辞書補正、語彙の増やし方。</span>
+  </a></li>
+  <li><a href="refine.html">
+    <span class="t">LLM 清書</span>
+    <span class="d">Ollama とクラウド API の設定、自動清書、赤字の意味。</span>
+  </a></li>
+  <li><a href="transmit.html">
+    <span class="t">送信する</span>
+    <span class="d">打鍵側 PC への接続、返信の型、経歴、送れる文字。</span>
+  </a></li>
+  <li><a href="settings.html">
+    <span class="t">設定項目一覧</span>
+    <span class="d">6 タブすべての項目、既定値、変えたときの効き方。</span>
+  </a></li>
+  <li><a href="trouble.html">
+    <span class="t">うまくいかないとき</span>
+    <span class="d">文字が出ない、化ける、遅い、繋がらない。</span>
+  </a></li>
+</ul>
+
+<h2>安全のためのお願い</h2>
+
+<div class="note danger">
+  <span class="label">電波が出ます</span>
+  <p>
+    <a href="transmit.html">送信</a>の機能は、LAN の先にある PC を通じて<strong>実際に無線機の電鍵を押します</strong>。
+    初めて繋ぐときは、必ず<strong>アンテナの代わりにダミーロードを付けた状態</strong>で確かめてください。
+    手順は<a href="transmit.html#first">「初めて繋ぐとき」</a>に書いてあります。
+  </p>
+</div>
+
+<div class="pager">
+  <span class="spacer"></span>
+  <a href="screens.html">次: 画面の説明 →</a>
+</div>
+
+</main>
+</div>
+</body>
+</html>
