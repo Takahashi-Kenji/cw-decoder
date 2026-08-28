@@ -18,6 +18,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable
+from functools import reduce
 from pathlib import Path
 from typing import Any
 
@@ -39,11 +41,55 @@ from src.train.model import CWModel, ModelConfig                             # n
 from src.train.preprocessing import MelExtractor                            # noqa: E402
 
 
+# 旧 ``--keyed-dir`` で渡されたセットの名前。JSON のキー ``keyed_val`` と揃える
+# (``src/eval/compare.py`` がこのキーで比較するため変えない)。
+LEGACY_SET_NAME = "keyed_val"
+
+
+def parse_keyed_sets(
+    keyed_dir: "Path | None",
+    keyed_set: "list[str] | None",
+) -> "dict[str, Path]":
+    """``--keyed-dir`` と ``--keyed-set NAME=PATH`` を名前付きセットにまとめる.
+
+    **held-out は複数セットを名前付きで報告できないといけない。**
+    旧 21 件は凍結して連続性を保ち、新しく録った分を別セットとして足すため
+    (片方だけ良くなる/悪くなるが見えないと、データを足した効果が測れない)。
+
+    名前の重複は**黙って上書きせずエラー**にする。測られなかったセットに
+    気づかないまま採否を決めてしまうのが一番まずい。
+    """
+    sets: dict[str, Path] = {}
+    if keyed_dir is not None:
+        sets[LEGACY_SET_NAME] = keyed_dir
+    for spec in keyed_set or []:
+        name, sep, path = spec.partition("=")
+        if not sep or not name or not path:
+            raise SystemExit(f"--keyed-set は NAME=PATH の形で渡してください: {spec!r}")
+        if name in sets:
+            raise SystemExit(f"--keyed-set の名前が重複しています: {name!r}")
+        sets[name] = Path(path)
+    return sets
+
+
+def _report_skips(label: str) -> "Callable[[Path, str], None]":
+    """`discover_real_samples` が捨てた WAV をその場で印字するコールバックを作る.
+
+    **黙って捨てられると「学習に入っているつもりが入っていない」に気づけない。**
+    """
+    def on_skip(path: Path, why: str) -> None:
+        print(f"[skip] {label}: {path.name} ({why})", flush=True)
+    return on_skip
+
+
 def build_args() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="チェックポイント評価 (synth_val + keyed_val)")
     p.add_argument("--ckpt", type=Path, required=True)
     p.add_argument("--noise-dir", type=Path, default=None, help="synth_val 用ノイズ WAV ディレクトリ")
     p.add_argument("--keyed-dir", type=Path, default=None, help="keyed_val 用 WAV+TXT ディレクトリ")
+    p.add_argument("--keyed-set", action="append", metavar="NAME=PATH",
+                   help="名前付き held-out セット (複数指定可)。旧 21 件を凍結したまま"
+                        "新しいセットを足して両方報告するために使う")
     p.add_argument("--out", type=Path, default=Path("models/eval/eval.json"))
     p.add_argument("--baseline", type=Path, default=None, help="比較元 JSON")
     p.add_argument("--device", type=str, default="cuda")
@@ -97,20 +143,30 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[synth] {line}", flush=True)
 
     # ---- keyed_val ----
-    if args.keyed_dir is not None:
-        samples = discover_real_samples(args.keyed_dir)
-        if samples:
-            dataset = RealSignalDataset(samples)
-            keyed_report = evaluate_real_dataset(model, mel, dataset, device)
-            report["keyed_val"] = keyed_report.to_dict() | {
-                "confusion": keyed_report.analysis.confusion_to_dict()
-            }
-            for line in keyed_report.summary_lines():
-                print(f"[keyed] {line}", flush=True)
-        else:
-            print(f"[warn] keyed-dir にサンプルがありません: {args.keyed_dir}", flush=True)
+    keyed_sets = parse_keyed_sets(args.keyed_dir, args.keyed_set)
+    keyed_reports: dict[str, DetailedEvalReport] = {}
+    for name, path in keyed_sets.items():
+        samples = discover_real_samples(path, on_skip=_report_skips(name))
+        if not samples:
+            print(f"[warn] サンプルがありません: {name} ({path})", flush=True)
+            continue
+        rep = evaluate_real_dataset(model, mel, RealSignalDataset(samples), device)
+        keyed_reports[name] = rep
+        report[name] = rep.to_dict() | {"confusion": rep.analysis.confusion_to_dict()}
+        for line in rep.summary_lines():
+            print(f"[{name}] {line}", flush=True)
 
-    if "synth_val" not in report and "keyed_val" not in report:
+    # セットが複数あるときは合算も出す。**個別を消さない** —
+    # 片方だけ悪化しているのを合算が隠すのが一番まずい。
+    if len(keyed_reports) > 1:
+        merged = reduce(_merge_reports, keyed_reports.values())
+        report["keyed_all"] = merged.to_dict() | {
+            "confusion": merged.analysis.confusion_to_dict()
+        }
+        for line in merged.summary_lines():
+            print(f"[keyed_all] {line}", flush=True)
+
+    if "synth_val" not in report and not keyed_reports:
         print("[err] synth_val も keyed_val も評価できませんでした", flush=True)
         return 2
 
@@ -146,6 +202,14 @@ def _print_comparison(cmp: dict) -> None:
         if "ter_baseline" in ov:
             print(f"Overall  TER {ov['ter_baseline']*100:.1f}% → {ov['ter_current']*100:.1f}% "
                   f"({ov['ter_delta']*100:+.1f})", flush=True)
+        # **モード別を全体より先に出す。** 採否は「欧文 15% / 和文 15%」で判定するので、
+        # ここが主要 KPI である (`src/eval/compare.py` は前から計算していた)。
+        for mode, d in sorted(data.get("by_mode", {}).items()):
+            if "ter_baseline" not in d:          # 片方に無いモードは比較できない
+                print(f"  {mode:<10} TER n/a", flush=True)
+                continue
+            print(f"  {mode:<10} TER {d['ter_baseline']*100:.2f}% → "
+                  f"{d['ter_current']*100:.2f}% ({d['ter_delta']*100:+.2f})", flush=True)
         if data["by_eff_snr"]:
             print("By EffSNR:", flush=True)
             for b, d in sorted(data["by_eff_snr"].items(), key=lambda kv: float(kv[0])):

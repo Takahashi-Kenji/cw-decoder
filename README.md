@@ -128,6 +128,21 @@ python scripts/audio_send.py --device 13
 python scripts/run_app.py --ckpt models/full/best_infer.pt --net-source 192.168.1.20
 ```
 
+## 同梱モデルと切替
+
+配布物には複数のモデルを同梱しています（画面のコンボボックスで切り替え。自動では切り替わりません）。
+
+| 表示名 | 得意な受信条件 |
+|---|---|
+| **p2b**（既定） | 弱い信号・詰まった間隔（実交信で最も誤りが少なかったもの） |
+| full_v5 | 強い信号・機械打鍵 |
+| ft_v5_wide | 強い信号・広い間隔（自局の打鍵環境） |
+| wabun / p2c | p2b の前身と派生（比較用） |
+| baseline | 第 4 版までの配布モデル |
+
+ステータスバーに受信音の動作点（文字間・コントラスト）と、その条件が得意なモデルが出ます。
+各モデルの実測は `docs/models_and_results.md` を参照してください。
+
 ## テスト実行（開発者向け）
 
 ```powershell

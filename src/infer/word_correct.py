@@ -84,7 +84,7 @@ EUROPEAN_LEXICON: tuple[str, ...] = tuple("""
 CQ DE K KN AR SK BK RST RPT OM YL XYL TNX TKS FB HW GM GA GE GN ES
 UR DR PSE WX RIG ANT PWR NAME QTH GL CUL AGN NR QRZ QSL QSO QRM QRN QSB
 QRP QSY QTC QRT R RR TU CFM SRI HR NW BTU VY GUD GB DX WKD WID ABT MNI HPE
-CUAGN SIG SIGS RCVR TX RX JST OP
+CUAGN SIG SIGS RCVR TX RX JST OP JCC JCG
 """.split())
 
 _LEXSET = frozenset(EUROPEAN_LEXICON)
@@ -818,6 +818,120 @@ def segment_word(word: str, *, max_parts: int = 4) -> list[str]:
     return [word]
 
 
+# --- 緩い分割 (2026-08-28) ---------------------------------------------------
+#
+# 厳密一致の分割はコールサインや数字を含む連続文字列には何もできない。
+# 運用者の録音 (JA1ABC/3、23 WPM) は文字間 4.3 dot に対し語間 5〜6 dot で
+# **差が 1 dot 未満**。間隔ではどのモデル・どの閾値でも語が切れなかった
+# (`docs/experiments/ledger.md` 20260828_p2d_wordspace)。欧文は語が切れないと
+# 読めない (運用者) ので、**語彙とコールサインの型で切る**。
+#
+# 部品: 語彙語 / コールサイン型 / 数字列 / 未知 1 文字。未知が多い分割は採らない。
+# 接尾は /数字 (移動運用) か /英字 1〜3 (P, MM, QRP)。/3J のような混在は許さない
+# (許すと JA1ABC/3J + G3UVN/3 という誤った切り方が同点になる)
+# プレフィックスは 1〜2 文字で**必ず英字を含む** (JA, 7K, W, K)。数字だけを許すと
+# 599NAME (59 + 9 + NAME) がコールサインに見える
+# 接尾 (数字の後の英字) は 2 文字以上。1 文字を許すと CC2I や M0Z のような断片が
+# コールサインに見える (運用者の録音で実際に起きた)
+# 接尾は 2〜3 文字。4 を許すと GA5NNBK (GA + 5NN + BK) がコールサインに見える
+_CALLSIGN_RE = re.compile(r"^(?:[A-Z]{1,2}|\d[A-Z]|[A-Z]\d)\d[A-Z]{2,3}(?:/(?:\d|[A-Z]{1,3}))?$")
+# RST (599) と JCC/JCG 番号 (4 桁) まで。6 桁を許すと 599599 が 1 語になる
+_NUMBER_RE = re.compile(r"^\d{2,4}$")
+# これ以上つながった欧文にだけ掛ける。8 だと GA5NNBK (7 文字) が切れず
+# GA 5NN BK にならなかった (運用者の実受信 2026-08-28)。根拠 2 つの歯止めがあるので 6 に
+_LOOSE_MIN_RUN = 6
+_LOOSE_MAX_UNKNOWN = 0.30     # 未知 1 文字の割合がこれを超える分割は採らない
+# 語彙語 < 数字 < コールサイン の順に安い。コールサインを語彙より安くすると
+# GA5NN (GA + 5NN) や DE5NN のような語彙の並びがコールサインに読まれる
+# (GA5NNBK → GA5NN BK になった、2026-08-28)。JA1ABC/3 は未知 1 文字の並び (3 × 8)
+# よりずっと安いので、コールサインを 1.6 にしても壊れない。
+_LOOSE_COST_LEXICON = 0.75   # 0.8 だと GA+5NN (1.6) と GA5NN (1.6) が同点になる
+_LOOSE_COST_CALLSIGN = 1.6
+_LOOSE_COST_NUMBER = 1.2
+_LOOSE_COST_UNKNOWN = 3.0
+# 1 文字の語彙語 (K / R) は連続文字列の中では手がかりが弱いので、コスト割増
+_LOOSE_COST_SHORT_LEXICON = 2.0
+# 分割の部品としてだけ使う語 (寄せの語彙には入れない — 数字を含む語は寄せの対象に
+# しないという歯止め `test_contains_no_digits` があるため)。RST 599 の略記。
+_LOOSE_EXTRA_WORDS = frozenset({"5NN", "ENN"})
+
+
+def _loose_piece_cost(piece: str) -> float | None:
+    """分割の部品としてのコスト. ``None`` は部品にならない."""
+    if piece in _LEXSET or piece in _LOOSE_EXTRA_WORDS:
+        return _LOOSE_COST_SHORT_LEXICON if len(piece) == 1 else _LOOSE_COST_LEXICON
+    if _NUMBER_RE.match(piece):
+        # 3 桁 (RST) を優遇。599599 を 5995+99 でなく 599+599 に切るため
+        return _LOOSE_COST_NUMBER if len(piece) == 3 else _LOOSE_COST_NUMBER + 0.2
+    if len(piece) >= 4 and _CALLSIGN_RE.match(piece):
+        return _LOOSE_COST_CALLSIGN
+    if len(piece) == 1:
+        return _LOOSE_COST_UNKNOWN
+    return None
+
+
+def _is_confident_piece(piece: str) -> bool:
+    """語彙 (2 文字以上) / コールサイン / 数字 = 切れ目の根拠になる部品."""
+    cost = _loose_piece_cost(piece)
+    return cost is not None and cost != _LOOSE_COST_UNKNOWN and cost != _LOOSE_COST_SHORT_LEXICON
+
+
+def segment_european_loose(word: str, max_piece: int = 10) -> list[str]:
+    """つながった欧文を 語彙語 / コールサイン / 数字 / 未知の塊 に切る (動的計画法).
+
+    ``CQCQCQDEJA1ABC/3`` → ``["CQ", "CQ", "CQ", "DE", "JA1ABC/3"]``。
+    切れない・根拠が足りない・短い ときは ``[word]`` を返す。
+
+    厳密一致の :func:`_resplit_european` と違い、**未知の塊を挟んでも切る**。
+    歯止め:
+
+    * ``_LOOSE_MIN_RUN`` 以上の長さにしか掛けない
+    * **根拠のある部品 (語彙 2 文字以上 / コールサイン / 数字) が 2 つ以上**ないと採らない
+    * 未知の 1 文字は続けて 1 塊にまとめる。1 文字の語彙 (K / R) も、未知の塊の
+      途中に現れたものは塊に戻す (``/P K 188`` → ``/PK 188``)。末尾の K は残す
+    * **切った結果は「寄せ」に流さない** (呼び出し側)。断片を語彙に寄せると
+      ``Q`` → ``K``、``/PK`` → ``OP`` のように壊れた (2026-08-28 実測)
+    """
+    n = len(word)
+    if n < _LOOSE_MIN_RUN or " " in word:
+        return [word]
+    best: list[tuple[float, list[str]] | None] = [None] * (n + 1)
+    best[0] = (0.0, [])
+    for i in range(1, n + 1):
+        for j in range(max(0, i - max_piece), i):
+            prefix = best[j]
+            if prefix is None:
+                continue
+            cost = _loose_piece_cost(word[j:i])
+            if cost is None:
+                continue
+            cand = (prefix[0] + cost, [*prefix[1], word[j:i]])
+            if best[i] is None or cand[0] < best[i][0]:  # type: ignore[index]
+                best[i] = cand
+    tail = best[n]
+    if tail is None:
+        return [word]
+    pieces = tail[1]
+    if sum(1 for p in pieces if _is_confident_piece(p)) < 2:
+        return [word]
+
+    # 未知 1 文字と、未知の塊の途中に現れた 1 文字語彙をまとめる
+    merged: list[str] = []
+    for k, piece in enumerate(pieces):
+        cost = _loose_piece_cost(piece)
+        is_unknown = cost == _LOOSE_COST_UNKNOWN
+        is_short_lex = cost == _LOOSE_COST_SHORT_LEXICON
+        prev_unknown = bool(merged) and not _is_confident_piece(merged[-1])             and _loose_piece_cost(merged[-1]) != _LOOSE_COST_SHORT_LEXICON
+        last = k == len(pieces) - 1
+        if is_unknown and prev_unknown:
+            merged[-1] += piece
+        elif is_short_lex and prev_unknown and not last:
+            merged[-1] += piece
+        else:
+            merged.append(piece)
+    return merged if len(merged) > 1 else [word]
+
+
 def script_of(word: str) -> str | None:
     """語をどちらの符号表で扱うか. ``None`` なら触らない.
 
@@ -868,7 +982,7 @@ def _segment_japanese(
     採用する条件は 3 つ。どれも「正しい語を壊さない」ための歯止めである。
 
     1. **塊全体を語彙で説明できること。** 未知の断片が残る分割は採らない。
-       これが無いと ``イチノセキ`` が ``イチ ノ セキ`` に割れる
+       これが無いと ``トウキョウ`` が ``アメ ノ ミヤ`` に割れる
     2. **2 文字以上の語を 1 つ以上含むこと。** 助詞だけの並びはどうにでも
        切れるので採らない (``ハノガ``)
     3. **1 文字の曖昧一致を許さない。** 1 文字カナはどれも符号が近く、
@@ -968,8 +1082,13 @@ def correct_text(
     ja_margin: float = DEFAULT_JA_MARGIN,
     japanese_enabled: bool = True,
     japanese_extra: frozenset[str] = frozenset(),
+    segment_only: bool = False,
 ) -> CorrectionResult:
     """確定テキストを語ごとに切り直し・寄せする.
+
+    ``segment_only=True`` なら**つながった欧文を語彙で切るだけ**で、寄せも和文の
+    補正もしない。「寄せ」を切っている運用者でも語の切れ目だけは得られるように
+    (2026-08-28、間隔では切れない局のため)。
 
     改行と語間スペースは保つ (改行は送信のターンの切れ目を表すため潰せない)。
     辞書は**モードではなく語の文字種**で選ぶ (``script_of``)。
@@ -1000,6 +1119,24 @@ def correct_text(
         while index < len(parts):
             chunk = parts[index]
             if not chunk.strip():
+                out.append(chunk)
+                position += len(chunk)
+                index += 1
+                continue
+            # 長くつながった欧文は先に語彙で切る (2026-08-28)。間隔では切れない局
+            # (文字間 4.3 / 語間 5 dot) のため。切れた部品は parts に差し戻して、
+            # 以下の語ごとの補正 (寄せ) にそのまま流す。
+            if script_of(chunk) == "european" and len(chunk) >= _LOOSE_MIN_RUN:
+                pieces = segment_european_loose(chunk)
+                if len(pieces) > 1:
+                    # **寄せには流さない。** 断片を語彙に寄せると Q → K、/PK → OP と壊れた
+                    fixed = " ".join(pieces)
+                    spans.append(CorrectedSpan(position, position + len(fixed), chunk))
+                    out.append(fixed)
+                    position += len(fixed)
+                    index += 1
+                    continue
+            if segment_only:
                 out.append(chunk)
                 position += len(chunk)
                 index += 1

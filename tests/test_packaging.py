@@ -91,3 +91,15 @@ class TestDistributedReadme:
             DEFAULT_PROFILE_PATH, DEFAULT_TEMPLATES_PATH,
         ):
             assert path.name in text, f"{path.name} が README に無い"
+
+
+def test_spec_compiles() -> None:
+    """spec は Python として構文が通ること.
+
+    2026-08-28 に f 文字列の途中に実改行が入った spec を配布ブランチに push し、
+    ビルドで初めて気づいた。テストで止める。
+    """
+    from pathlib import Path
+    spec = Path(__file__).resolve().parent.parent / "packaging" / "cw-decoder.spec"
+    # BOM 付き UTF-8 (PyInstaller は utf-8-sig で読む)
+    compile(spec.read_text(encoding="utf-8-sig"), str(spec), "exec")

@@ -50,6 +50,10 @@ class DefaultConfigSampler:
         hand_keying: bool = False,
         extreme_tail: bool = True,
         electronic_keyer_prob: float = 0.25,
+        char_space_range: tuple[float, float] | None = None,
+        intra_space_range: tuple[float, float] | None = None,
+        pre_silence_range: tuple[float, float] | None = None,
+        word_space_range: tuple[float, float] | None = None,
     ) -> None:
         self.mode: Mode = mode
         # 実ノイズ混合 FT ではユーザーの受信ピッチ近傍 (例: 600±50Hz) に絞る
@@ -78,6 +82,31 @@ class DefaultConfigSampler:
                 f"electronic_keyer_prob must be in [0, 1], got {electronic_keyer_prob}"
             )
         self.electronic_keyer_prob = electronic_keyer_prob
+        # --- 裾野を広げるための任意の範囲 (既定 None = 従来と完全に同一) ---
+        #
+        # **既定では乱数を 1 つも余分に引かない。** None のときは従来の
+        # どおりの描画順を保つので、`test_matches_pre_change_implementation_bitwise`
+        # が守られる。
+        #
+        # なぜ要るか (2026-08-27 実測):
+        # `hand_keying=False` の分岐は間隔を `KeyingParams` の既定値で固定する。
+        # つまり**学習した 163 万サンプルすべてが文字間ちょうど 3.0** だった。
+        # held-out の実測は 4.38 で、**一度も見たことのない値**である。
+        # 先頭の無音も 0〜0.3 秒しか作っておらず、held-out の 1.38 秒は範囲外。
+        #
+        #   | | 合成 (既定) | L4 | held-out |
+        #   |---|---|---|---|
+        #   | 文字間 | 3.0 固定 | 3.24 | 4.38 |
+        #   | 要素間 | 1.0 固定 | 1.11 | 1.38 |
+        #   | 先頭の無音 | 0〜0.3s | 2.16s | 1.38s |
+        self.char_space_range = char_space_range
+        self.intra_space_range = intra_space_range
+        self.pre_silence_range = pre_silence_range
+        # 語間も同じ穴 (2026-08-28 発見): 既定の分岐は **語間 7.0 固定** で、
+        # 語間 5 dot 以下の局では baseline も p2b も**どのバイアスでも語間がゼロ**になる
+        # (7.0 → 15/15、6.0 → 15/15、5.0 → 0/1、4.5 → 0/0)。運用者の
+        # 「文字は取れるのに欧文のスペースがまったく無い」の原因。
+        self.word_space_range = word_space_range
 
     def __call__(self, rng: np.random.Generator) -> SynthConfig:
         common = dict(
@@ -85,7 +114,7 @@ class DefaultConfigSampler:
             tone_freq_hz=float(rng.uniform(*self.tone_freq_range)),
             tone_drift_hz_per_sec=float(rng.uniform(-50.0, 50.0)),
             rise_fall_ms=float(rng.uniform(3.0, 10.0)),
-            pre_silence_sec=float(rng.uniform(0.0, 0.3)),
+            pre_silence_sec=float(rng.uniform(*(self.pre_silence_range or (0.0, 0.3)))),
             post_silence_sec=float(rng.uniform(0.0, 0.3)),
         )
         # エレキー相当を混合成分として引く (I-1)。hand_keying=False のときは
@@ -111,9 +140,19 @@ class DefaultConfigSampler:
                 **common,
             )
         else:
+            spacing: dict[str, float] = {}
+            # **指定されたときだけ引く。** None なら乱数を消費しないので、
+            # 従来の描画順とビット単位で一致する。
+            if self.char_space_range is not None:
+                spacing["inter_char_space_units"] = float(rng.uniform(*self.char_space_range))
+            if self.intra_space_range is not None:
+                spacing["intra_element_space_units"] = float(rng.uniform(*self.intra_space_range))
+            if self.word_space_range is not None:
+                spacing["inter_word_space_units"] = float(rng.uniform(*self.word_space_range))
             keying = KeyingParams(
                 dash_dot_ratio=float(rng.uniform(2.5, 4.0)),
                 element_jitter_sigma_ratio=float(rng.uniform(0.05, 0.25)),  # 拡張: 上限0.20→0.25
+                **spacing,
                 **common,
             )
         if self.effective_snr_range is not None:
@@ -177,6 +216,10 @@ class MorseSynthDataset(IterableDataset[tuple[torch.Tensor, torch.Tensor]]):
         hand_keying: bool = False,
         extreme_tail: bool = True,
         electronic_keyer_prob: float = 0.25,
+        char_space_range: tuple[float, float] | None = None,
+        intra_space_range: tuple[float, float] | None = None,
+        pre_silence_range: tuple[float, float] | None = None,
+        word_space_range: tuple[float, float] | None = None,
     ) -> None:
         if not mode_mix:
             raise ValueError("mode_mix must be non-empty")
@@ -221,6 +264,10 @@ class MorseSynthDataset(IterableDataset[tuple[torch.Tensor, torch.Tensor]]):
                     hand_keying=hand_keying,
                     extreme_tail=extreme_tail,
                     electronic_keyer_prob=electronic_keyer_prob,
+            char_space_range=char_space_range,
+            intra_space_range=intra_space_range,
+            pre_silence_range=pre_silence_range,
+            word_space_range=word_space_range,
                 )
                 for mode in self.mode_mix
             }

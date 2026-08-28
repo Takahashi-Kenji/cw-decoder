@@ -38,6 +38,23 @@ def bundle_dir() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
+def model_search_roots() -> tuple[Path, ...]:
+    """追加モデル (``models/<name>/*.onnx``) を探すルートの並び.
+
+    配布物では exe の隣、開発環境ではリポジトリのルート。どちらでも
+    ``~/.cw-decorder`` を後ろに足す (インストール先に書き込めない環境のため)。
+    **同梱モデルの展開先 (``_MEIPASS``) ではない** — 利用者が置く場所である。
+    """
+    if is_frozen():
+        app_dir = Path(sys.executable).resolve().parent
+        # 同梱した追加モデル (spec の datas → _internal/models/<name>/) を最初に見る。
+        # **選択リストにあるモデルはすべて同梱する** (運用者、2026-08-28)。
+        # リストにあるのに実体が無いとトラブルになる
+        return (bundle_dir(), app_dir, Path.home() / ".cw-decorder")
+    app_dir = Path(__file__).resolve().parent.parent.parent
+    return (app_dir, Path.home() / ".cw-decorder")
+
+
 def default_model_path() -> Path | None:
     """同梱モデルの場所。無ければ ``None``.
 
@@ -74,5 +91,6 @@ __all__ = [
     "bundle_dir",
     "default_model_path",
     "is_frozen",
+    "model_search_roots",
     "resolve_model_path",
 ]

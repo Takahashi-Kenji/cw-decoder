@@ -96,9 +96,20 @@ const LINE_BREAK_GAP_S = resolveLineBreakGapS()
  * 出すぎており (101 個 / 正解 77 個)、実運用の「足りない」と向きが逆だったため。**
  * どの値が良いかはこのデータからは決められない。実信号で試して決めること。
  */
+/**
+ * 語間スペースの出しやすさ (argmax 前に足す log 確率、負で出にくい)。
+ *
+ * 既定 **-1.0**。held-out の実測 (2026-08-25) で、この値なら欧文・和文とも
+ * TER と CER が同時に改善する (欧文 13.06 → 11.84%、和文 27.15 → 26.70%)。
+ *
+ * **デスクトップ版はモード別に持つ (欧文 -1.0 / 和文 -5.0) が、ここは持てない。**
+ * ブラウザ版は 1 回のデコード結果を欧文と和文の両方に描くため、値は 1 つしか
+ * 選べない。両方が改善する -1.0 が安全側の選択になる。
+ * 和文だけを読むなら `?wb=-5` を付けると和文 23.08% まで下がる (欧文は 13.88% へ悪化)。
+ */
 function resolveWordBreakBias(): number {
   const raw = new URLSearchParams(location.search).get('wb')
-  if (raw === null) return 0
+  if (raw === null) return -1.0
   const v = Number(raw)
   return Number.isFinite(v) ? v : 0
 }

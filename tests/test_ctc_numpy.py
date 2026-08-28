@@ -11,6 +11,7 @@ import pytest
 import torch
 
 from src.infer.ctc import FrameToken, ctc_greedy_decode_frames
+from src.tokens.morse_tokens import VOCAB_SIZE, WORD_BREAK_TOKEN_ID
 from src.infer.engine import ctc_greedy_decode_with_frames
 from src.tokens.morse_tokens import BLANK_TOKEN_ID, VOCAB_SIZE
 
@@ -69,3 +70,54 @@ class TestFrameTokenIsShared:
         from src.infer.engine import FrameToken as EngineFrameToken
 
         assert EngineFrameToken is FrameToken
+
+
+class TestWordBreakBias:
+    """語間スペースの出しやすさを argmax の前に調整する.
+
+    held-out の実測 (2026-08-25): モデルは**欧文ではぴったり** (50/50) だが
+    **和文では 1.8 倍に膨らむ** (52/29)。和文の挿入誤り 34 個のうち 27 個が語間で、
+    欧文と和文の TER 差 (13.06% 対 27.15%) はほぼこれで説明できる。
+
+    掃引の結果、欧文 -1.0 / 和文 -5.0 で TER も CER も同時に改善した。
+    """
+
+    @staticmethod
+    def _log_probs(wb_logit: float, other_logit: float = 0.0) -> np.ndarray:
+        """1 フレームだけの (1, 1, V)。WORD_BREAK と別トークンを競わせる."""
+        v = VOCAB_SIZE
+        x = np.full((1, 1, v), -20.0, dtype=np.float32)
+        x[0, 0, WORD_BREAK_TOKEN_ID] = wb_logit
+        x[0, 0, 1] = other_logit
+        return x
+
+    def test_バイアス_0_は従来と同じ(self) -> None:
+        x = self._log_probs(wb_logit=-0.1)
+        assert (ctc_greedy_decode_frames(x)[0][0].token_id
+                == ctc_greedy_decode_frames(x, word_break_bias=0.0)[0][0].token_id)
+
+    def test_負のバイアスで語間が引っ込む(self) -> None:
+        x = self._log_probs(wb_logit=-0.1, other_logit=-0.5)   # 素では語間が勝つ
+        assert ctc_greedy_decode_frames(x)[0][0].token_id == WORD_BREAK_TOKEN_ID
+        assert ctc_greedy_decode_frames(x, word_break_bias=-1.0)[0][0].token_id == 1
+
+    def test_正のバイアスで語間が出る(self) -> None:
+        """ブラウザ版は元々「語間を増やす」ために正の値で使っていた."""
+        x = self._log_probs(wb_logit=-1.0, other_logit=-0.2)   # 素では別トークンが勝つ
+        assert ctc_greedy_decode_frames(x)[0][0].token_id == 1
+        assert (ctc_greedy_decode_frames(x, word_break_bias=+2.0)[0][0].token_id
+                == WORD_BREAK_TOKEN_ID)
+
+    def test_他のトークンの確信度は変わらない(self) -> None:
+        x = self._log_probs(wb_logit=-9.0, other_logit=-0.2)
+        a = ctc_greedy_decode_frames(x)[0][0]
+        b = ctc_greedy_decode_frames(x, word_break_bias=-5.0)[0][0]
+        assert a.token_id == b.token_id == 1
+        assert a.confidence == pytest.approx(b.confidence)
+
+    def test_語間の確信度はバイアス後の値(self) -> None:
+        """ブラウザ版 (web/src/decode/ctc.ts) と同じ規約に揃える."""
+        x = self._log_probs(wb_logit=0.0, other_logit=-20.0)
+        got = ctc_greedy_decode_frames(x, word_break_bias=-1.0)[0][0]
+        assert got.token_id == WORD_BREAK_TOKEN_ID
+        assert got.confidence == pytest.approx(float(np.exp(-1.0)), rel=1e-5)

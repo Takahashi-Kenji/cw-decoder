@@ -60,6 +60,7 @@ class RedecodeWorker(QObject):
         confidence_threshold: float,
         word_correct_enabled: bool,
         word_correct_ja_enabled: bool,
+        word_split_enabled: bool = True,
     ) -> None:
         """``audio`` を 1 回でデコードしてテキストを返す.
 
@@ -87,6 +88,8 @@ class RedecodeWorker(QObject):
                 text = correct_text(
                     text, japanese_enabled=word_correct_ja_enabled
                 ).text
+            elif word_split_enabled:
+                text = correct_text(text, segment_only=True).text
             self.result_ready.emit(text, end_sample)
         except Exception as exc:                              # noqa: BLE001
             # **清書は補助機能なので落とさない。** 失敗しても受信は続く

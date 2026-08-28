@@ -6,12 +6,43 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from torch.utils.data import IterableDataset
+from torch.utils.data import IterableDataset, get_worker_info
 
 from src.finetune.dataset import RealSignalDataset
 from src.synth.dataset import ConfigSampler, DefaultConfigSampler, MorseSynthDataset
 from src.synth.noise import RealNoisePool
 from src.tokens.morse_tokens import Mode
+
+
+class LengthCappedDataset(IterableDataset[tuple[torch.Tensor, torch.Tensor]]):
+    """長すぎるサンプルを取り除く IterableDataset のラッパ.
+
+    **バッチはその中の最長サンプルに合わせて詰められ、必要メモリは長さに比例する。**
+    実測 (batch 16): 27 秒で確保ピーク 2.29 GB。合成は中央 7.2 秒だが最長 54 秒あり、
+    **バッチ 16 件の最長は中央 31 秒・p90 49.8 秒**になる。この結果 4.3M
+    パラメータ (17 MB) のモデルが GPU の 16 GB を埋め、2.8 GB がシステムメモリへ
+    退避して**スループットが 2.21 → 0.87 sps に落ちた** (OOM で落ちないので
+    静かに遅くなる)。
+
+    **合成側にも掛けること。** 実データだけに上限を掛けても学習の 80% は合成なので
+    効かない (実際にこれを踏んで 1 回無駄にした)。
+    """
+
+    def __init__(
+        self,
+        base: IterableDataset[tuple[torch.Tensor, torch.Tensor]],
+        max_samples_len: int,
+    ) -> None:
+        self.base = base
+        self.max_samples_len = max_samples_len
+        self.n_dropped = 0
+
+    def __iter__(self):
+        for wave, target in self.base:
+            if self.max_samples_len > 0 and wave.numel() > self.max_samples_len:
+                self.n_dropped += 1
+                continue
+            yield wave, target
 
 
 class MixedRealSynthDataset(IterableDataset[tuple[torch.Tensor, torch.Tensor]]):
@@ -38,6 +69,10 @@ class MixedRealSynthDataset(IterableDataset[tuple[torch.Tensor, torch.Tensor]]):
         hand_keying: bool = False,
         extreme_tail: bool = True,
         electronic_keyer_prob: float = 0.25,
+        char_space_range: tuple[float, float] | None = None,
+        intra_space_range: tuple[float, float] | None = None,
+        pre_silence_range: tuple[float, float] | None = None,
+        word_space_range: tuple[float, float] | None = None,
     ) -> None:
         if not 0.0 < real_ratio <= 1.0:
             raise ValueError(f"real_ratio must be in (0, 1], got {real_ratio}")
@@ -55,13 +90,30 @@ class MixedRealSynthDataset(IterableDataset[tuple[torch.Tensor, torch.Tensor]]):
             hand_keying=hand_keying,
             extreme_tail=extreme_tail,
             electronic_keyer_prob=electronic_keyer_prob,
+            char_space_range=char_space_range,
+            intra_space_range=intra_space_range,
+            pre_silence_range=pre_silence_range,
+            word_space_range=word_space_range,
         )
         self.real_ratio = real_ratio
         self.seed = seed
         self.max_samples = max_samples
 
+    def _make_rng(self) -> np.random.Generator:
+        """**worker ごとに別の乱数列にする.**
+
+        全 worker が同じ seed を使うと、実サンプルの抽選が worker 間で丸ごと
+        重複する (同じデータを何度も見る)。``MorseSynthDataset._make_rng`` と
+        同じずらし方を使い、合成側と実側で系列が揃わないよう定数を変える。
+        """
+        worker = get_worker_info()
+        worker_id = worker.id if worker is not None else 0
+        if self.seed is None:
+            return np.random.default_rng()
+        return np.random.default_rng(self.seed + worker_id * 100_019)
+
     def __iter__(self) -> Iterator[tuple[torch.Tensor, torch.Tensor]]:
-        rng = np.random.default_rng(self.seed)
+        rng = self._make_rng()
         synth_iter = iter(self.synth_dataset)
         count = 0
         while self.max_samples is None or count < self.max_samples:

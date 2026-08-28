@@ -16,8 +16,10 @@
 from __future__ import annotations
 
 import argparse
+from functools import partial
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import torch
@@ -28,15 +30,22 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+from src.eval.harness import evaluate_real_dataset                   # noqa: E402
+from src.finetune.dataset import (RealSignalDataset, discover_real_samples,  # noqa: E402
+                                  filter_by_duration)                        # noqa: E402
+from src.finetune.lead_in import report_lead_in, resolve_lead_in_range     # noqa: E402
+from src.finetune.pipeline import (LengthCappedDataset,                 # noqa: E402
+                                   MixedRealSynthDataset)               # noqa: E402
 from src.synth.dataset import MorseSynthDataset, make_fixed_eval_set  # noqa: E402
 from src.synth.noise import RealNoisePool                            # noqa: E402
 from src.tokens.morse_tokens import BLANK_TOKEN_ID, VOCAB_SIZE       # noqa: E402
 from src.train.checkpoint import load_checkpoint, save_checkpoint    # noqa: E402
-from src.train.collate import cw_collate                              # noqa: E402
+from src.train.collate import PAD_BUCKET_SAMPLES, cw_collate                              # noqa: E402
 from src.train.logger import CSVLogger                                # noqa: E402
 from src.train.loop import evaluate, train_step                      # noqa: E402
 from src.train.model import CWModel, ModelConfig                     # noqa: E402
 from src.train.preprocessing import MelExtractor                     # noqa: E402
+from src.train.run_meta import build_run_meta, write_run_meta        # noqa: E402
 
 
 def resolve_effective_snr_range(
@@ -87,6 +96,127 @@ def apply_lr(optimizer: torch.optim.Optimizer, lr: float) -> None:
         group["lr"] = lr
 
 
+# ``best.pt`` を選ぶ指標の候補。
+# **既定を合成欧文にしてはいけない。** その指標は 2026-06-12 から TER 0.00% で
+# 飽和しており (models/full/eval.csv の 100k/101k/102k は全部同点)、
+# ``ter < best_ter`` の strict 比較では同点区間で best が一度も更新されない。
+# どの重みが残るかが実質的に運になる。
+BEST_METRICS = ("synth_eu", "synth_ja", "synth_mean", "keyed")
+
+
+def validate_best_metric(name: str, keyed_dir: Path | None) -> None:
+    """``--best-metric`` が実際に測れるかを**起動時に**確かめる.
+
+    10 時間走ってから「その指標は無い」と落ちるのを防ぐ。
+    """
+    if name not in BEST_METRICS:
+        raise SystemExit(f"--best-metric は {BEST_METRICS} のいずれか: {name!r}")
+    if name == "keyed" and keyed_dir is None:
+        raise SystemExit("--best-metric keyed には --keyed-dir が要ります")
+
+
+def pick_best_metric(name: str, values: dict[str, float | None]) -> float:
+    """評価結果の dict から ``--best-metric`` の値を取り出す."""
+    value = values.get(name)
+    if value is None:
+        raise SystemExit(f"--best-metric {name} を測れませんでした (評価セットが空)")
+    return value
+
+
+def resolve_resume_path(resume: Path | None) -> Path | None:
+    """``--resume`` の存在を確かめる.
+
+    **黙ってスクラッチ開始しない。** 以前はパスを間違えると警告もなく
+    最初から学習を始めていた。フル学習では 10 時間を溶かす。
+    """
+    if resume is None:
+        return None
+    if not resume.exists():
+        raise SystemExit(f"--resume のファイルがありません: {resume}")
+    return resume
+
+
+def build_train_dataset(
+    real_dir: Path | None,
+    real_ratio: float,
+    mode_mix: dict,
+    seed: int,
+    effective_snr_range: tuple[float, float] | None,
+    noise_pool: RealNoisePool | None,
+    noise_prob: float,
+    noise_snr_range: tuple[float, float],
+    hand_keying: bool,
+    extreme_tail: bool,
+    electronic_keyer_prob: float,
+    lead_in_range: tuple[float, float] | None = None,
+    real_max_duration_s: float = 0.0,
+    max_duration_s: float = 0.0,
+    sample_rate: int = 8000,
+):
+    """学習データを作る。``real_dir`` があれば実データを混ぜる.
+
+    **土台のフル学習は合成 100% で、実録音を 1 件も見ていなかった。**
+    FT は 1,000 step (実データ側 8,000 回の抽選 = 7 エポック相当) で頭打ちになり、
+    2,000 step では悪化する。集めた実信号を活かすには土台から混ぜる必要がある。
+
+    実データが 1 件も見つからないときは**黙って合成のみに落ちない**。
+    10 時間走ってから「実データが入っていなかった」と気づくのでは遅い。
+    """
+    synth_kwargs = dict(
+        mode_mix=mode_mix, seed=seed, effective_snr_range=effective_snr_range,
+        noise_pool=noise_pool, noise_prob=noise_prob, noise_snr_range=noise_snr_range,
+        hand_keying=hand_keying, extreme_tail=extreme_tail,
+        electronic_keyer_prob=electronic_keyer_prob,
+    )
+    def capped(ds):
+        """**合成にも掛ける。** 実データだけでは学習の 80% に効かない."""
+        if max_duration_s <= 0:
+            return ds
+        print(f"[init] {max_duration_s} 秒より長いサンプルは学習中に捨てる "
+              f"(バッチの詰め長が GPU メモリを決める)", flush=True)
+        return LengthCappedDataset(ds, int(max_duration_s * sample_rate))
+
+    if real_dir is None:
+        return capped(MorseSynthDataset(**synth_kwargs))
+
+    samples = discover_real_samples(real_dir, on_skip=_report_skips("real"))
+    samples, too_long = filter_by_duration(samples, real_max_duration_s)
+    if too_long:
+        # **黙って捨てない。** 何件・どれを外したかを残す。
+        print(f"[init] {real_max_duration_s} 秒より長い実データ {len(too_long)} 件を外した "
+              f"(バッチは最長サンプルに合わせて詰められ、GPU メモリのピークを決める)",
+              flush=True)
+        for sample in too_long[:3]:
+            print(f"[init]   長すぎ: {sample.wav_path.name}", flush=True)
+    if not samples:
+        raise SystemExit(f"--real-dir に実データがありません: {real_dir}")
+    print(f"[init] 実データ {len(samples)} 件を比率 {real_ratio} で混合", flush=True)
+    real_dataset = RealSignalDataset(samples, lead_in_range=lead_in_range, seed=seed)
+    report_lead_in(real_dataset, lead_in_range)
+    return capped(MixedRealSynthDataset(
+        real_dataset=real_dataset,
+        mode_mix=mode_mix,
+        real_ratio=real_ratio,
+        seed=seed,
+        noise_pool=noise_pool,
+        noise_prob=noise_prob,
+        noise_snr_range=noise_snr_range,
+        hand_keying=hand_keying,
+        extreme_tail=extreme_tail,
+        electronic_keyer_prob=electronic_keyer_prob,
+    ))
+
+
+def _report_skips(label: str) -> "Callable[[Path, str], None]":
+    """`discover_real_samples` が捨てた WAV をその場で印字するコールバックを作る.
+
+    **黙って捨てられると「学習に入っているつもりが入っていない」に気づけない。**
+    """
+    def on_skip(path: Path, why: str) -> None:
+        print(f"[skip] {label}: {path.name} ({why})", flush=True)
+    return on_skip
+
+
 def build_args() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="CW デコーダ学習")
     p.add_argument("--steps", type=int, default=200, help="総学習ステップ")
@@ -127,12 +257,45 @@ def build_args() -> argparse.ArgumentParser:
     p.add_argument("--electronic-keyer-prob", type=float, default=0.25,
                    help="手打ち分布のうち、この確率でエレキー相当 (従来分布) を引く")
     p.add_argument("--device", type=str, default="cuda")
+    p.add_argument("--real-dir", type=Path, default=None,
+                   help="学習に混ぜる実録音のディレクトリ (再帰)。"
+                        "**土台のフル学習は合成 100%% で実録音を 1 件も見ていない**")
+    p.add_argument("--real-ratio", type=float, default=0.3,
+                   help="--real-dir 指定時、実データを引く確率")
+    p.add_argument("--max-duration-s", type=float, default=0.0,
+                   help="これより長いサンプルを学習中に捨てる (秒)。**0 で無効。** "
+                        "**合成にも掛かる。** バッチは最長サンプルに合わせて詰められ、"
+                        "必要メモリは長さに比例する (実測 batch16: 27 秒で 2.29 GB)。"
+                        "合成は中央 7.2 秒だが最長 54 秒あり、バッチ 16 件の最長は "
+                        "中央 31 秒・p90 49.8 秒になる")
+    p.add_argument("--real-max-duration-s", type=float, default=0.0,
+                   help="これより長い実データを学習から外す (秒)。**0 で無効。** "
+                        "バッチは最長サンプルに合わせて詰められるので、長い 1 件が "
+                        "GPU メモリのピークを決める (実測: 45 秒の 1 件でバッチ 16 件が "
+                        "47 秒分に膨らみ、2.8 GB がシステムメモリへ退避して 2.5 倍遅くなった)")
+    p.add_argument("--real-lead-in-min", type=float, default=0.0,
+                   help="実データの先頭に足す助走 (ノイズ床) の最短 (秒)")
+    p.add_argument("--real-lead-in-max", type=float, default=2.0,
+                   help="実データの先頭に足す助走の最長 (秒)。**0 で無効。** "
+                        "L4 の 8/24 分は符号の 60ms 前から録音が始まっており、"
+                        "93%% の録音で 1 文字目が落ちる。長さを毎回変えることで、"
+                        "継ぎ目も固定オフセットも手がかりにさせない")
+    p.add_argument("--keyed-dir", type=Path, default=None,
+                   help="実録音の検証セット (WAV+TXT)。**held-out 評価セットは渡さないこと** "
+                        "— 物差しが汚染される")
+    p.add_argument("--best-metric", choices=BEST_METRICS, default="synth_mean",
+                   help="best.pt を選ぶ指標 (既定 synth_mean)。合成欧文は飽和しているので "
+                        "単独では使わない")
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_args().parse_args(argv)
     args.ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+    # **走り出す前に弾く。** 10 時間走ってから設定ミスに気づくのを避ける。
+    validate_best_metric(args.best_metric, args.keyed_dir)
+    args.resume = resolve_resume_path(args.resume)
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     print(f"[init] device={device}", flush=True)
@@ -156,7 +319,11 @@ def main(argv: list[str] | None = None) -> int:
             f"prob={args.noise_prob}, snr=({args.noise_snr_min},{args.noise_snr_max})",
             flush=True,
         )
-    dataset = MorseSynthDataset(
+    lead_in_range = resolve_lead_in_range(args.real_lead_in_min, args.real_lead_in_max)
+    dataset = build_train_dataset(
+        real_dir=args.real_dir, real_ratio=args.real_ratio,
+        lead_in_range=lead_in_range, real_max_duration_s=args.real_max_duration_s,
+        max_duration_s=args.max_duration_s,
         mode_mix=mode_mix, seed=args.seed, effective_snr_range=eff_range,
         noise_pool=noise_pool, noise_prob=args.noise_prob,
         noise_snr_range=(args.noise_snr_min, args.noise_snr_max),
@@ -174,19 +341,34 @@ def main(argv: list[str] | None = None) -> int:
         dataset,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
-        collate_fn=cw_collate,
+        # **詰め長を量子化する。** バッチごとに長さが変わると GPU の
+        # キャッシュアロケータが形状ごとにブロックを取り、17 MB のモデルが
+        # 15 GB を抱えてシステムメモリへ退避した (2.21 -> 0.87 sps)。
+        collate_fn=partial(cw_collate, pad_bucket=PAD_BUCKET_SAMPLES),
         pin_memory=device.type == "cuda",
         persistent_workers=args.num_workers > 0,
     )
 
-    # 固定評価セット (再現可能). WPM は 10/20/24/30 を含み実運用域をカバー
-    eval_samples_eu = make_fixed_eval_set(
-        snr_grid=[10.0, 0.0, -5.0],
-        wpm_grid=[10.0, 20.0, 24.0, 30.0],
-        samples_per_cell=args.eval_samples_per_cell,
-        seed=args.seed + 1,
-        mode="european",
-    )
+    # 固定評価セット (再現可能). WPM は 10/20/24/30 を含み実運用域をカバー。
+    # **和文も測る。** 欧文だけだと 2026-06-12 から TER 0.00% で飽和しており、
+    # 学習が進んでいるのか止まっているのかが分からない。
+    eval_grid = {
+        "snr_grid": [10.0, 0.0, -5.0],
+        "wpm_grid": [10.0, 20.0, 24.0, 30.0],
+        "samples_per_cell": args.eval_samples_per_cell,
+    }
+    eval_samples_eu = make_fixed_eval_set(**eval_grid, seed=args.seed + 1, mode="european")
+    eval_samples_ja = make_fixed_eval_set(**eval_grid, seed=args.seed + 2, mode="japanese")
+
+    # 実録音の検証セット (任意)。**held-out 評価セットを渡してはいけない。**
+    keyed_dataset = None
+    if args.keyed_dir is not None:
+        keyed_samples = discover_real_samples(
+            args.keyed_dir, on_skip=_report_skips("keyed"))
+        if not keyed_samples:
+            raise SystemExit(f"--keyed-dir にサンプルがありません: {args.keyed_dir}")
+        keyed_dataset = RealSignalDataset(keyed_samples)
+        print(f"[init] keyed val: {args.keyed_dir} ({len(keyed_samples)} 件)", flush=True)
 
     # ---- モデル ----
     model = CWModel(ModelConfig(vocab_size=VOCAB_SIZE)).to(device)
@@ -200,9 +382,27 @@ def main(argv: list[str] | None = None) -> int:
     scaler = torch.amp.GradScaler(device=device.type, enabled=use_amp)
     criterion = torch.nn.CTCLoss(blank=BLANK_TOKEN_ID, zero_infinity=True)
 
+    # 実験台帳に転記するための情報。ckpt (extra) と meta.json の両方に同じものを入れる
+    run_meta = build_run_meta(
+        argv if argv is not None else sys.argv,
+        cwd=_PROJECT_ROOT,
+        seed=args.seed,
+        best_metric=args.best_metric,
+        resume=None if args.resume is None else str(args.resume),
+        keyed_dir=None if args.keyed_dir is None else str(args.keyed_dir),
+        noise_dir=None if args.noise_dir is None else str(args.noise_dir),
+        real_dir=None if args.real_dir is None else str(args.real_dir),
+        real_ratio=args.real_ratio if args.real_dir is not None else None,
+        real_lead_in=None if lead_in_range is None else list(lead_in_range),
+        real_max_duration_s=args.real_max_duration_s or None,
+        max_duration_s=args.max_duration_s or None,
+        hand_keying=args.hand_keying,
+    )
+    write_run_meta(args.ckpt_dir, run_meta)
+
     start_step = 0
     best_ter: float | None = None
-    if args.resume is not None and args.resume.exists():
+    if args.resume is not None:
         # 語彙が拡張されている可能性に対応 (例: WORD_BREAK 追加)
         raw_state = torch.load(args.resume, map_location=device, weights_only=False)
         old_vocab = int(raw_state["model_config"].get("vocab_size", VOCAB_SIZE))
@@ -288,28 +488,52 @@ def main(argv: list[str] | None = None) -> int:
             report = evaluate(
                 model, mel_extractor, eval_samples_eu, device, mode="european"
             )
+            report_ja = evaluate(
+                model, mel_extractor, eval_samples_ja, device, mode="japanese"
+            )
             ter = report.overall.ter
             cer = report.overall.cer
+            ter_ja = report_ja.overall.ter
+            keyed_ter: float | None = None
+            if keyed_dataset is not None:
+                keyed_ter = evaluate_real_dataset(
+                    model, mel_extractor, keyed_dataset, device
+                ).overall.ter
             print(f"[eval  {step:6d}] {report.summary_lines()[0]}", flush=True)
             for line in report.summary_lines()[1:]:
                 print(f"          {line}", flush=True)
-            eval_log.log(step=step, ter=ter, cer=cer, n_samples=report.overall.n_samples)
+            print(f"          japanese TER={ter_ja * 100:6.2f}%  "
+                  f"CER={report_ja.overall.cer * 100:6.2f}%"
+                  + ("" if keyed_ter is None else f"   keyed TER={keyed_ter * 100:6.2f}%"),
+                  flush=True)
+            eval_log.log(step=step, ter=ter, cer=cer, n_samples=report.overall.n_samples,
+                         ter_ja=ter_ja, cer_ja=report_ja.overall.cer,
+                         ter_keyed="" if keyed_ter is None else keyed_ter)
+
+            # **best は飽和していない指標で選ぶ** (BEST_METRICS の注記を参照)
+            best_value = pick_best_metric(args.best_metric, {
+                "synth_eu": ter,
+                "synth_ja": ter_ja,
+                "synth_mean": 0.5 * (ter + ter_ja),
+                "keyed": keyed_ter,
+            })
 
             # 評価結果を先に反映してから last.pt 保存
             # (こうしないと resume 時に best_metric が古い値で読まれる)
-            new_best = best_ter is None or ter < best_ter
+            new_best = best_ter is None or best_value < best_ter
             if new_best:
-                best_ter = ter
+                best_ter = best_value
             save_checkpoint(
                 args.ckpt_dir / "last.pt", model, optimizer, scaler,
-                step=step, epoch=0, best_metric=best_ter,
+                step=step, epoch=0, best_metric=best_ter, extra=run_meta,
             )
             if new_best:
                 save_checkpoint(
                     args.ckpt_dir / "best.pt", model, optimizer, scaler,
-                    step=step, epoch=0, best_metric=best_ter,
+                    step=step, epoch=0, best_metric=best_ter, extra=run_meta,
                 )
-                print(f"[ckpt  {step:6d}] new best TER={ter * 100:.2f}%", flush=True)
+                print(f"[ckpt  {step:6d}] new best "
+                      f"{args.best_metric} TER={best_value * 100:.2f}%", flush=True)
 
     total = time.time() - t0
     print(f"[done] {step} steps in {total:.1f}s ({step / max(total, 1e-6):.2f} sps)", flush=True)

@@ -1,6 +1,6 @@
 mode: european
 estimated_duration_s: 15.0
 wpm: 24
-label_note: 実際に打鍵していない {HORE}/{RATA}/{SK} をラベルから除去 (2026-08-03)
+label_note: 2026-08-03 に「打鍵されていない」として除去した運用記号を復元 (2026-08-24)。除去は誤りだった: 2026-08-12 に 別実装のデコーダ と波形の要素列で確認され、scripts/audit_labels.py も音の境界付近で検出する。原稿生成器 src/finetune/keying_scripts.py:96 は和文を {HORE}...{RATA} で包む。
 ---
-RST 579 JP0JQ QSL? 73 TU
+RST 579 JP0JQ QSL? 73 TU {SK}

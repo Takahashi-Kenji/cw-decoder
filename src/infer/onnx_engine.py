@@ -52,6 +52,10 @@ class OnnxInferenceEngine:
         self._input_name = self._session.get_inputs()[0].name
         self.config = mel_config or MelConfig()
         self.blank_id = blank_id
+        # 語間スペースの出しやすさ (argmax 前に足す log 確率)。
+        # **モードで最適値が違う** — 実測 (2026-08-25) で 欧文 -1.0 / 和文 -5.0。
+        # モード切替のたびに呼び出し側が差し替える (自動モードは和文と同じ値)。
+        self.word_break_bias = 0.0
         self.model_path = path
 
     def decode_chunk(self, waveform: np.ndarray) -> list[FrameToken]:
@@ -67,7 +71,9 @@ class OnnxInferenceEngine:
             return []
         wave = np.ascontiguousarray(waveform, dtype=np.float32)[None, :]
         log_probs = self._session.run(None, {self._input_name: wave})[0]
-        return ctc_greedy_decode_frames(log_probs, blank_id=self.blank_id)[0]
+        return ctc_greedy_decode_frames(
+            log_probs, blank_id=self.blank_id, word_break_bias=self.word_break_bias,
+        )[0]
 
     @property
     def frame_hop_samples(self) -> int:

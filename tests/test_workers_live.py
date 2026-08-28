@@ -6,6 +6,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import numpy as np
+import pytest
 from PySide6.QtWidgets import QApplication
 
 from src.infer.engine import InferenceEngine
@@ -139,3 +140,87 @@ def test_current_mode_changed_signal_emitted() -> None:
     assert len(modes) >= 1
     # 値は "european" か "japanese" のいずれか
     assert all(m in ("european", "japanese") for m in modes)
+
+
+def test_operating_point_signal_emits_none_for_noise() -> None:
+    """雑音だけなら動作点は測れず None が流れる (古い推奨が残らないように)."""
+    w = _worker()
+    got: list[object] = []
+    w.operating_point_changed.connect(got.append)
+    w.set_decoding(True)
+    rng = np.random.default_rng(0)
+    sig = (rng.standard_normal(8000 * 7) * 0.2).astype(np.float32)
+    # 音声スレッドのブロック処理と同じ順で駆動する (窓へ投入 → 速度/動作点の測定)。
+    # `_maybe_measure_wpm` は `_feed_live_block` の中からは呼ばれない。
+    for i in range(0, sig.size, 400):
+        w._feed_live_block(sig[i:i + 400])
+        w._maybe_measure_wpm(400)
+    assert len(got) >= 1
+    assert all(g is None for g in got)
+
+
+def test_operating_point_signal_emits_recommendation_for_cw() -> None:
+    """CW が入れば (OperatingPoint, Recommendation) が流れる. **自動切替はしない (表示のみ)**."""
+    from src.infer.model_recommend import Recommendation
+    from src.infer.operating_point import OperatingPoint
+    from src.synth.keying import KeyingParams
+    from src.synth.synthesizer import SynthConfig, synthesize_from_text
+
+    w = _worker()
+    got: list[object] = []
+    w.operating_point_changed.connect(got.append)
+    w.set_decoding(True)
+    cfg = SynthConfig(mode="european", snr_db=20.0, snr_is_effective=True,
+                      keying=KeyingParams(wpm=20.0, tone_freq_hz=600.0))
+    sig = synthesize_from_text("CQ CQ CQ DE JA1ABC JA1ABC K K", cfg,
+                               np.random.default_rng(0)).samples
+    for i in range(0, sig.size - 400, 400):
+        w._feed_live_block(sig[i:i + 400])
+        w._maybe_measure_wpm(400)
+    payloads = [g for g in got if g is not None]
+    assert payloads, "CW を流したのに動作点が一度も測れなかった"
+    op, rec = payloads[-1]
+    assert isinstance(op, OperatingPoint) and isinstance(rec, Recommendation)
+    assert op.wpm == pytest.approx(20.0, rel=0.25)
+
+
+def test_auto_mode_word_break_bias_follows_submode() -> None:
+    """自動モードの語間バイアスは、確定列の末尾が和文の中かで切り替わる.
+
+    2026-08-25 の「自動モードは和文の値 (−5) で固定」は欧文の語間を消した
+    (運用者の報告 2026-08-28)。p2b ではラタの認識率が 17% → 83% なので追従させる。
+    """
+    from src.infer.sliding_window import CommittedToken, DecodeView
+    from src.tokens.morse_tokens import HORE_CODE, RATA_CODE, TOKEN_TO_ID
+
+    eng = InferenceEngine.untrained("cpu")
+    w = AudioInferenceWorker(
+        eng, sample_rate=8000, mode="auto",
+        word_break_bias_european=-1.0, word_break_bias_japanese=-5.0,
+        window_s=5.0, hop_s=1.0, commit_lag_s=1.0, head_guard_s=0.5,
+        squelch_threshold_db=-60.0,
+    )
+    assert eng.word_break_bias == -1.0            # 開始は欧文 (CQ は欧文で始まる)
+
+    def tok(code: str, i: int) -> CommittedToken:
+        return CommittedToken(TOKEN_TO_ID[code], 1.0, i * 800, i * 800 + 400)
+
+    a = TOKEN_TO_ID["・-"]                          # A / イ
+    w._emit_live_view(DecodeView(committed=[tok(HORE_CODE, 0), tok("・-", 1)]), 0.0)
+    assert eng.word_break_bias == -5.0            # ホレの後は和文の値
+
+    w._emit_live_view(DecodeView(committed=[tok(HORE_CODE, 0), tok("・-", 1),
+                                            tok(RATA_CODE, 2), tok("・-", 3)]), 0.0)
+    assert eng.word_break_bias == -1.0            # ラタの後は欧文の値に戻る
+
+
+def test_fixed_mode_word_break_bias_is_unchanged() -> None:
+    """固定モードは従来どおり (欧文 −1 / 和文 −5)."""
+    eng = InferenceEngine.untrained("cpu")
+    kw = dict(sample_rate=8000, word_break_bias_european=-1.0, word_break_bias_japanese=-5.0,
+              window_s=5.0, hop_s=1.0, commit_lag_s=1.0, head_guard_s=0.5,
+              squelch_threshold_db=-60.0)
+    AudioInferenceWorker(eng, mode="european", **kw)
+    assert eng.word_break_bias == -1.0
+    AudioInferenceWorker(eng, mode="japanese", **kw)
+    assert eng.word_break_bias == -5.0

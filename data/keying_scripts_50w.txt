@@ -1,0 +1,1201 @@
+# 2026-08-25 50W セッション用。本文はすべてユニーク、長めに設定
+japanese	コンニチハ、テンキ ハ クモリ、ワツテージ ハ コ
+european	RST 559
+japanese	ヘンーヱプウユワク、キヌヨチヒペアニプ、キコ。セス。ゲルヰス、
+japanese	テンキ ハ ハレ
+european	RST 579
+japanese	テンキ ハ アメ
+japanese	オハヨウ
+european	QTH?
+japanese	{HORE}トエツスゲノウマ
+japanese	ヨロシク
+european	JL9TIU
+japanese	{HORE}コンバンハ、テンキ ハ ハレ、アンテナ ハ ダイポール{RATA}
+japanese	チウニホケ、ケナニマ、ヨノサ、クナアペタクムネルコチバ、ヘムベクキホトホアユ
+european	JF1YQD
+japanese	ヨロシク、サムイ デス、シカタ ナイ
+japanese	リグ ハ アイシー
+european	CQ CQ CQ DE JH5WO JH5WO K
+japanese	テンキ ハ クモリ
+japanese	タニエヱノ、ポテベハーペヅゴシハーハレユコメヂソシマカヱポヒヘミーサゾドポヒクーヒ
+european	JM3WCX
+japanese	シカタ ナイ
+japanese	{HORE}テンキ ハ ハレ{RATA}
+european	JO8KAO
+japanese	ネトクメラスケヤヒブハミヌシ、キゼ、ミウマハフラルヨン
+japanese	{HORE}ヨロシク{RATA}
+european	JP6ZX
+japanese	チモスヨヒヲユコキアテエセヤナチペツホマ、ヱラルハゾボレーソコブプユマメテ
+japanese	ヨロシク、テンキ ハ ハレ、アンテナ ハ ダイポール
+european	QRL?
+japanese	コンニチハ、テンキ ハ ハレ、リグ ハ ヤエス
+japanese	シセエモポクシ、スニヰオリ、ヰーイイカンーチヨフバフ。エノチセノホテ、ノープツレルヰンタトホ
+european	ZDCUUKDMQTWFDJF2YR1A6F2JR0765KX3507Y2MOY6G
+japanese	{HORE}テンキ ハ ハレ
+japanese	キジサーホカフー、キーテルヤコヅムゴコタカオ
+european	QRV?
+japanese	グツベ。、ミブタルキカヱホヒウマラメヰダピテロイギパヌテテウツホユモシネヰムメデドムエチコバホジ
+japanese	パヲーヰーヌソハピヲターテミハネヒザフラアシミヌミー、ロゾイキア。ツセムルヤトンナダヲヨ
+european	GB 73 {SK}
+japanese	{HORE}オハヨウ{RATA}
+japanese	コンニチハ、サムイ デス、リグ ハ ヤエス
+european	JL4YND
+japanese	コンニチハ
+japanese	リレハモヌセロムレカアマデヘヤニブラヘシ、
+european	MXJH2ZABNDTX6NP934YHIIROC14R2U9Y8SH0GJ673A
+japanese	アンテナ ハ ロングワイヤ
+japanese	ワツテージ ハ コ
+european	JS4HXH
+japanese	ヨロシク、アツイ デス、リグ ハ ヤエス
+japanese	{HORE}テンキ ハ アメ{RATA}
+european	JA2VNL
+japanese	{HORE}コンニチハ、アツイ デス、シカタ ナイ{RATA}
+japanese	{HORE}サムイ デス
+european	TU ES 73 {SK}
+japanese	コンバンハ、テンキ ハ ハレ、アンテナ ハ ダイポール
+japanese	{HORE}ニヨケベ、。ヌヱ{RATA}
+european	JH2KJE
+japanese	ソ。コサテエサゾソヤデムーケポスケヤラズ
+japanese	アンテナ ハ ダイポール
+european	UR RST 579 NAME AKI QTH KANAGAWA
+japanese	{HORE}コンバンハ
+japanese	、ケフ。ツンユ、、グベ、シラロトレビヰヨーネヒタフネルウカヤフ、ヘミヌ
+european	QRO?
+japanese	、ヱパユラバヤヂリヂヲモオ。パポヒノジユミ、ツリ、ルメヨモヱモボセカフンコアオピ
+japanese	サムイ デス
+european	QSK
+japanese	コンニチハ、テンキ ハ ハレ、アンテナ ハ ロングワイヤ
+japanese	コンバンハ
+european	JS2OE
+japanese	、、ズエワヨ、、ロリワユ、ユ、モワクペメシテペザザムソア
+japanese	{HORE}ヨロシク、アツイ デス、シカタ ナイ{RATA}
+european	TNX QSO 73 {SK}
+japanese	ヨヱシヌセヌセボパホダクヒヰピグトラブヱウワヱヤ、ケボヲジツニヰハーケンコマホザパ、ヂセニザテ
+japanese	ロケフルヂネレヒワバ。、ソネウワトヤヰオヒウセソヘ。モ
+european	LPIQ05VCQVZ9Y7BO97N7S6J2TTV
+japanese	コンニチハ、サムイ デス、リグ ハ アイシー
+japanese	{HORE}カヘ、ソーモリタリフロ{RATA}
+european	W34Q2CV5E4XAZTGTNTV
+japanese	ヨロシク、サムイ デス、アンテナ ハ ダイポール
+japanese	バンジルルロソハブツヒ。ワヌヰヘソベサネヅモ
+european	XPSFKCRZ8UA3ATWI80A027V2MGGVN7ANLTVWDKJ02SXN
+japanese	オハヨウ、テンキ ハ クモリ、アンテナ ハ ロングワイヤ
+japanese	{HORE}コンニチハ、サムイ デス、シカタ ナイ
+european	73 TU {SK}
+japanese	{HORE}、スクヲ{RATA}
+japanese	コンニチハ、テンキ ハ クモリ、アンテナ ハ ロングワイヤ{RATA}
+european	QSY?
+japanese	{HORE}サムイ デス{RATA}
+japanese	ルタレイプアルーヨテレツリ、ヘヰタトネクコフナニピギウトスーエノポアアフミバスパサ
+european	CQ CQ CQ DE 7N6CZG 7N6CZG K
+japanese	オハヨウ、アツイ デス、リグ ハ アイシー
+japanese	{HORE}ダンヨラ{RATA}
+european	CQ CQ CQ DE JE9YVY JE9YVY K
+japanese	アツイ デス
+japanese	キフブヌワトプムサワエピセマテパ、、アセメウノノウーシケチサシ
+european	JO6TGR
+japanese	ガ、ヤホーヤオヌクヤケバオアカーモ。ヨ。キミンスサシワスチフ
+japanese	ツニマト。、ヌホモカズヱエフトソニゼドオビネイヌノシサ、。ソフソチムムウルズガヒトメレギ
+european	ILVN1C2FW9CN4C6RQ4
+japanese	コンバンハ、テンキ ハ アメ、リグ ハ ヤエス
+japanese	コンニチハ、アツイ デス、リグ ハ アイシー{RATA}
+european	CQ CQ CQ DE JQ5WD JQ5WD K
+japanese	ポルテ。キプカチドゼラモヅルシキソージゾセイシロノトゼペルミー
+japanese	{HORE}ヨロシク、テンキ ハ ハレ、アンテナ ハ ダイポール{RATA}
+european	CWP3DRJYYUEIE2BFTSL5GCRSYRCMXS90
+japanese	テケムムエサヒヰケーメネアユマプツギピチワワピテカロツヘワザ、、シピヘンク
+japanese	コヌルヂシヂフレヲラポスゾレイテイツアカヱーヤロ。ギヒド、ミヲヌワブ
+european	CQ CQ CQ DE JN7TMW JN7TMW K
+japanese	ヒドハネヰロスアホヨヌムオ、カンガマリヨシーヰネソアルウソヘミザ
+japanese	ル、ヤツヲテテヨクマラトレーシハソズモズエゴコクテツマヂヲーコロメキハオピヲーヰンガノネガガビキ
+european	W58EB34K16A1XN8ZY3WMXWUKROC9LXO8I
+japanese	コンバンハ、テンキ ハ ハレ、ワツテージ ハ コ
+japanese	コンバンハ、テンキ ハ クモリ、リグ ハ ヤエス
+european	CQ CQ CQ DE JM5XVS JM5XVS K
+japanese	{HORE}ンリ、モテヌ{RATA}
+japanese	ユヤミマイタヱエツルゴビオニラヘケヅパベムネキオドロワメヤヲミハニメヨツトビルザア
+european	JE5OIJ
+japanese	ナノ。タタタモクヲウゾホラアソスヅンオケーフボブクーツモーコホ
+japanese	ギルルサテフ{RATA}
+european	JN7TK
+japanese	レミスヤダタネガルセバププミハラヰリヌバムセナヲンヒナホシロボキイク
+japanese	{HORE}コンニチハ、テンキ ハ アメ、シカタ ナイ{RATA}
+european	UR RST 599 NAME KEN QTH YOKOHAMA
+japanese	ヌヘヰスピムモガズヱノイシヨヘユスンーヒヲエゲ、イテヱヰレムドンチネゾヲヨクタリツ
+japanese	{HORE}オハヨウ、テンキ ハ ハレ、シカタ ナイ{RATA}
+european	CQ CQ CQ DE JO7UYD JO7UYD K
+japanese	レヒ、ニネユワピヱセネドネ、ユザスヰヰヰーチテサフユチ
+japanese	{HORE}コンニチハ
+european	JL5YWQ
+japanese	コワ、レペ、プヰタツネフケコドメハオケバオアカマソガレヒーゼオソトヱロダ
+japanese	、スヰウナヨピ、ルポソネサレプナグボバホニツスイノマ
+european	CQ CQ CQ DE JI2AIP JI2AIP K
+japanese	{HORE}コンバンハ、テンキ ハ クモリ、アンテナ ハ ロングワイヤ{RATA}
+japanese	デ。コスパワル。ツドルダワートオヱカーホポロナセミリグヘヒスノヌヂピロ
+european	CQ CQ CQ DE JG1VG JG1VG K
+japanese	ヨロシク、アツイ デス、アンテナ ハ ロングワイヤ
+japanese	ユ。ロゲメヱユヌロヲピオヒエチグヰユヌゼネマミサアロボオーカヌヰラル。
+european	A01WPXSK40AKUG9IL9I4IB2X
+japanese	リグ ハ ヤエス
+japanese	ヨロシク、テンキ ハ クモリ、シカタ ナイ
+european	CQ CQ CQ DE JO6UN JO6UN K
+japanese	ギアエユーロフピクマメザフメトフヌチ、ヲ、。ナー
+japanese	ロデグヤカヱジセムタ、バ。ヰムリキハルベ、モヨヒユヲルウーダヌ
+european	QRZ
+japanese	テンキ ハ クモリ{RATA}
+japanese	ダホセウダ。キグモニオンテクモヲヨピヨサポタセサレネレヒガメー、オーソヱヱゾス
+european	LBS0E1R5HCAQ0LDWGBB1E5WG
+japanese	ヤソテウユオヂヲケヰヤコフオープオペヲムワチロ
+japanese	ムララヌエシニマルキセレブンラヒヘラキハルーシテケエゼ、ワキホエヌドヨニレ
+european	YSNY9YDMQOKTIG7EACQDZPCPPD26T6WJINJS
+japanese	タセワフ、モグオフラヂクレノイソズドウチヌヌースルヰアリソ、ポポヅノウ
+japanese	コンバンハ、サムイ デス、ワツテージ ハ コ
+european	7K6ONP
+japanese	ボモゴルモケカセイヒツヤ。ウギニキナユヒアプワツヘレヤヲラン
+japanese	マニモバタヨメオヘツニ、メウアナシソラソホ、。ヘーノーナブヒガスホ
+european	CQ CQ CQ DE 7M6APB 7M6APB K
+japanese	ソシザユンウミモトコレヂオイワモー、ゲロウラバワヘユムシビタオヨヌタンセリキイ
+japanese	ツハセモハヲソカウーヲホハヤリコヱヌガチンタタ
+european	CQ CQ CQ DE JF8TI JF8TI K
+japanese	オツムシナヒ、ブセマヲツモジイトチーハヤブ、ミリエヌンーボギグヤーポ
+japanese	オハヨウ、アツイ デス、アンテナ ハ ロングワイヤ
+european	QSY
+japanese	、メモナヘスレークマーテサオカレチヤワニニピヤギエムタノモノアマホヘニスタコ
+japanese	トラドスベンチ。、ヰハセ。オクソナモーニヰヤタフエスヒレネイマヒモクアキギビ、ヨ
+european	PZCS283F0M08Z2JZAEVZ3KP46X9
+japanese	ヨロシク、テンキ ハ ハレ、リグ ハ ヤエス
+japanese	{HORE}コンバンハ、テンキ ハ ハレ、アンテナ ハ ダイポール
+european	7N3PZV
+japanese	ノガテチハイコダベ。ヌ{RATA}
+japanese	{HORE}クタユジゲギヤリズツ{RATA}
+european	QRO
+japanese	ズワボゼネキボロ、ハジレサヰヂレヱガ、ソケキヱゲモヱヤテヒトホモヨヌクギギ
+japanese	{HORE}アツイ デス
+european	JA7NRR
+japanese	コンバンハ、サムイ デス、アンテナ ハ ロングワイヤ
+japanese	グピポペケイトペ。ムタグエンヰヘレクアサスヰミレヰプズニヅクシキムムサヤズホマゲケヤオヨヲンワネ
+european	JM2XF
+japanese	{HORE}ホイーン{RATA}
+japanese	ソレビ、ホケモーヒラヰト。ハカーノカスオヰマダワヌシーハベチラミ。、ラー。ヘオスシオイロテ
+european	CQ CQ CQ DE JS4JI JS4JI K
+japanese	{HORE}ピヤテウノデ、サビ
+japanese	カウーヅ、ヤホカケソズンーヲロコレハ。ヨカノケニマダワマスナビガムゾ、ウエ。ヨンスア
+european	7L3SW
+japanese	ハゼウミヰアイ、ヒリリボ、ロソーヲーサキカタフヌンレゾテ
+japanese	キダワ、キロキレカークークプドタパロモワスイウワ。カモ、テ
+european	JR6QAT
+japanese	リプ、クシズオド、グルユスリフアウマロヤ、ボテラハ
+japanese	{HORE}コンニチハ、テンキ ハ ハレ、ワツテージ ハ コ{RATA}
+european	JBK276EKVXJU4GPTJWMWEBXI4QCDAB7NDLGAXXCA
+japanese	コンニチハ、サムイ デス、アンテナ ハ ダイポール
+japanese	ヨロシク{RATA}
+european	RST 569
+japanese	オハヨウ、テンキ ハ ハレ、シカタ ナイ
+japanese	{HORE}アツイ デス{RATA}
+european	CQ CQ CQ DE JE8GDA JE8GDA K
+japanese	ナアヒヨブヒロウノプ{RATA}
+japanese	コンバンハ、アツイ デス、アンテナ ハ ダイポール
+european	CQ CQ CQ DE JL8JE JL8JE K
+japanese	ヱヨオカネマヒテヒムオムタル。、コアボアガイイマリルムコーベハブナワマ
+japanese	{HORE}ヨロシク、テンキ ハ ハレ、リグ ハ ヤエス{RATA}
+european	CQ CQ CQ DE JF8LPL JF8LPL K
+japanese	ウウトハヲメペヲカヤー、ノアナダベ、タジズホ、ワオノオ。キヘスートビゼワールカメヘクヂスユヒゾ
+japanese	コンバンハ、テンキ ハ クモリ、シカタ ナイ
+european	UR RST 569 NAME TARO QTH FUKUOKA
+japanese	コキウテペバパヤサ、ノ、シネソンドムスグピミトワメクフヂペロヘズミハ、モレホ
+japanese	オハヨウ、サムイ デス、リグ ハ アイシー
+european	CQ CQ CQ DE 7M2LBO 7M2LBO K
+japanese	{HORE}コンニチハ{RATA}
+japanese	コンバンハ、テンキ ハ クモリ、アンテナ ハ ダイポール
+european	CQ CQ CQ DE 7L5LGW 7L5LGW K
+japanese	ケクポプリヌヒヲハワヲンゼホヌヌチセシテフムラヲワイー
+japanese	ハサニヰツムコイスハリアハヰヌテコ。ナ、ズヱス
+european	LJ5XI672DGTVFW9OLBIFG7JD0ZQ43NK
+japanese	ヒマキチマチエエテムヒセミーズサツツミルロルケスヘリプテ
+japanese	{HORE}オハヨウ、サムイ デス、アンテナ ハ ロングワイヤ{RATA}
+european	QRX
+japanese	ヨロシク、アツイ デス、ワツテージ ハ コ
+japanese	{HORE}オハヨウ、アツイ デス、シカタ ナイ
+european	QRP
+japanese	オハヨウ、テンキ ハ ハレ、アンテナ ハ ロングワイヤ
+japanese	、グウベシムモ、エギヲピミケ。。ミー、ヒ
+european	QWS23CH6OOYI93TV9XI4WISR17PC
+japanese	オハヨウ{RATA}
+japanese	コンニチハ、テンキ ハ ハレ、アンテナ ハ ダイポール
+european	RHTC4C48YLNALWO9O7WCTB0UM1OE
+japanese	{HORE}オハヨウ、サムイ デス、アンテナ ハ ロングワイヤ
+japanese	チス、イセグニンチシンホテメプヨニベポザナユリプ、
+european	JG6YE
+japanese	ヂツタゲプニナユウーコ、ヘーラケマトゾヤペホルゴプピ
+japanese	オハヨウ、サムイ デス、ワツテージ ハ コ
+european	0QMCQFEC45P2OVZ73V2UJB3O
+japanese	{HORE}ヨロシク、テンキ ハ ハレ、アンテナ ハ ロングワイヤ{RATA}
+japanese	{HORE}サネ、ワヒラ{RATA}
+european	UR RST 559 NAME JIRO QTH KANAGAWA
+japanese	{HORE}ヨロシク、テンキ ハ クモリ、アンテナ ハ ロングワイヤ{RATA}
+japanese	{HORE}コンニチハ、アツイ デス、アンテナ ハ ダイポール{RATA}
+european	RST 339
+japanese	コンバンハ、サムイ デス、リグ ハ ヤエス
+japanese	ムヱ、コヘンメモメヂギカノキツハメハーソケツコユケツナトヅブ
+european	QSL
+japanese	コンバンハ、アツイ デス、リグ ハ ヤエス
+japanese	ヅケセ。ホエノネワヱタネヤヱヘ。ウマークラサヅジモユオポポタアフウセネーボユキピマユ、ヂヌメホエ
+european	CQ CQ CQ DE JM2ES JM2ES K
+japanese	アツイ デス{RATA}
+japanese	{HORE}コンバンハ{RATA}
+european	CQ CQ CQ DE JG5GH JG5GH K
+japanese	{HORE}テンキ ハ クモリ{RATA}
+japanese	{HORE}オハヨウ、アツイ デス、リグ ハ アイシー{RATA}
+european	TMBBX331CP2X9JOKXEQH7NAAF0J7JWH9J2GH1DYY
+japanese	{HORE}テンキ ハ クモリ
+japanese	ルフキエベ、ビキナノサエヤポラヌハーイネヅクラメアツンヨラ、フタク、テムドニリクヲパ
+european	H4JVNFL11WY7SFBP5RDL6UTBG5VE0
+japanese	、、ンーグミスポミヨメモフムヒウイネヘミマラホエカロナゼアゲシザテネズヲモセデヅバネエペイル
+japanese	{HORE}ヨロシク、テンキ ハ アメ、アンテナ ハ ダイポール{RATA}
+european	UR RST 339 NAME TARO QTH FUKUOKA
+japanese	ヨロシク、テンキ ハ アメ、アンテナ ハ ダイポール
+japanese	トサリノ、ガイーボオラワシナフセクトケマストタエツポメー。ヱユオ、ワミリチセミバヌークーヨハク
+european	QRM
+japanese	オハヨウ、テンキ ハ アメ、リグ ハ ヤエス
+japanese	コンバンハ、サムイ デス、アンテナ ハ ダイポール
+european	CQ CQ CQ DE JR1MR JR1MR K
+japanese	ヱレネシステキケシマウニアムノ、テアヤミームギホムラ、
+japanese	ヰニノコロヌシミークウ。ボウヲユリセリヘレタカイアネピワヱ
+european	UR RST 569 NAME YOSHI QTH KANAGAWA
+japanese	シテリイピバプニペヤスシーシ。ヤサ、ンー、マケホアレクナヤメー、チヨオムポズツノヱセチゲス
+japanese	サビノーフロ。ニズハユノコテホセコル。ルチウホソドラテデダザパエドマカヤイトアゼイニケ
+european	RST 479
+japanese	{HORE}ヨロシク、アツイ デス、アンテナ ハ ダイポール{RATA}
+japanese	ヨロシク、アツイ デス、シカタ ナイ
+european	RST 599
+japanese	、ヤチヰペミープモテサアコワシパヘエユンロマチアニノ。クビスゴペヰメウズメチキテナカモウ、
+japanese	{HORE}ルタゼリフネネソ{RATA}
+european	T39IDU46PUG5PUO3FJW3M2YR7ZJ2TZL402
+japanese	ヨロシク、アツイ デス、アンテナ ハ ダイポール
+japanese	オエスーモモドセネヰエガエーペブロトレヰムヒズハイ、コキフ。クトヱピチオー、ヘテナア
+european	JE0BJ
+japanese	ヱヒーツロヌサウペノメインノトボミカフギポカコリブロソエベクスザメノジチクアビゲヘワズカネゲミ
+japanese	アフソーソウメヰクオヨナヤヌソブスサーセカリヰブシウ
+european	9R33RQP1SPXTPHQB0YNW36S2HLVGZMX
+japanese	ヨロシク、テンキ ハ ハレ、シカタ ナイ
+japanese	{HORE}エイカヘ
+european	CQ CQ CQ DE JE9ARE JE9ARE K
+japanese	{HORE}ヨロシク
+japanese	コンニチハ{RATA}
+european	UR RST 579 NAME YOSHI QTH YOKOHAMA
+japanese	ウオノアスナケヰタワリベホフヰーチワエピヌヨーンゲユタムエマエ
+japanese	{HORE}エニーレチコサフ{RATA}
+european	OPKMZMYPCAHVUO4WJFI28NU5B6KX7WADFMLR8Q7NIY
+japanese	ス。スシヤエシーオソアソビヌシネヌチスエ、ウリヰケツピツ
+japanese	オハヨウ、テンキ ハ クモリ、ワツテージ ハ コ
+european	N9VFQHS4E499L70IR1NK0JM6SBVCKIN6O82EYD8
+japanese	ケヒネワラヒア{RATA}
+japanese	ヨロシク、テンキ ハ クモリ、アンテナ ハ ダイポール
+european	UR RST 569 NAME HIRO QTH TOKYO
+japanese	コンニチハ、サムイ デス、シカタ ナイ
+japanese	ムミマヒネモアジメヱソダカニワブグテラレ、モチパ、テノケヌムス、ネカヰユ
+european	YH24EEVFMKKBITJHWU
+japanese	コンニチハ、テンキ ハ クモリ、アンテナ ハ ダイポール
+japanese	{HORE}コンニチハ、テンキ ハ アメ、ワツテージ ハ コ{RATA}
+european	CQ CQ CQ DE JS4ST JS4ST K
+japanese	ヨロシク、サムイ デス、リグ ハ アイシー
+japanese	ラキ、ソリツヱカゲカシヌピサヒイヱムナヂルヲガテンキスラケシクネーリ。ヘソフハメムヌ
+european	DJY1WF90QSGEMDKTRD2HF3ZW2392AYYC
+japanese	タソフヌムチロソミヘマテキドキアサムポニヲツセアンペアリソナヒペオシポパヌエホデケゼフエレ
+japanese	コンニチハ、テンキ ハ クモリ、アンテナ ハ ロングワイヤ
+european	7K4YK
+japanese	コンバンハ、アツイ デス、リグ ハ アイシー
+japanese	ペヘホナタ。、ベホ、タヨラナミノヤサゲ、ネンヨヂサゲエヨスドムケチミリユメヱハーム
+european	RWARGHZ61PNWFEAZFQBYJRSA5
+japanese	ヨロシク、テンキ ハ クモリ、リグ ハ アイシー
+japanese	{HORE}コンニチハ、サムイ デス、ワツテージ ハ コ
+european	JI8VW
+japanese	マブテサオキザキイカヤ、ノーカイ、ソーソケリヨポウホテヰクイポホソル、、ナミ
+japanese	コンニチハ、アツイ デス、リグ ハ ヤエス
+european	73 GL {SK}
+japanese	ラーキルハチナベミテノニホテガクモテシフヨデゾタースピヌテグネエワ
+japanese	{HORE}ヰロモオケヲラヌギ。ク{RATA}
+european	QRZ?
+japanese	{HORE}テラヨー{RATA}
+japanese	マヤーハミーセムタジペノヌナツゲメロヨネ、モネ、ノオフボノラボワヌプリオビロパナヰフレヲオツー
+european	UR RST 599 NAME YOSHI QTH FUKUOKA
+japanese	コンニチハ、サムイ デス、ワツテージ ハ コ
+japanese	{HORE}ピユハゲツーレーノー{RATA}
+european	UR RST 479 NAME TETSU QTH FUKUOKA
+japanese	ホユニネー。エギレペデ、メゴターサリマテケレスシラ。ノツダテサト。ゴ、リフフラチクギヱス
+japanese	ヲダネオツネ、ケハパカリホナワヨネ。ペテワキオ
+european	JO2KXQ
+japanese	テンキ ハ アメ{RATA}
+japanese	ヲタンワマツネビタセガヤエスコスメヲパマレ
+european	UR RST 599 NAME AKI QTH FUKUOKA
+japanese	ホゴ、ト、。ロゲマメウヂグヤサヂ、エウトウウサヒテムムホシタウデツムハーツユテアツヰ
+japanese	ハグプエペモンコラビギヌミルダヘキサヌデメマワモギフユハレヰゲ、コオアグシホレレヰトヘワナイ
+european	JA8IV
+japanese	ツーダナコクアジユホヘ。ツヂグヲイヌユマラロヌモ
+japanese	スヨーオンムツ、ムノノ、、ラクタキスゴズオフーヤバケベ、ウシリワユニテフメアヲネタヅニヲ
+european	JBFSL3W8A6KFMDXY5XJIZYR2U9G7KUJ1T4OVEHY
+japanese	キボ、サトヲロツヰピプツデドタポドムヒムペヤギ、ツキノソモヌミズワミテカマプケエカ
+japanese	チテチーレケゾツチラヱダキアヌオルヰヰード、フネキーヒエ。サスヲレミウラリルニクソサモウミ
+european	JH4XW
+japanese	メネピユ、ベナキヨチーテナンヘパマエタンツヘシトララオポモギデ
+japanese	{HORE}コンニチハ、テンキ ハ ハレ、リグ ハ アイシー
+european	JS1NRJ
+japanese	オハヨウ、アツイ デス、シカタ ナイ
+japanese	ヲテパオハナヱムコダピカオボチモヌリマタメタ、ヱゾヘペキヘ
+european	M3FH7XW02PJ3510MBH7I1Y1MGB
+japanese	オハヨウ、テンキ ハ アメ、シカタ ナイ
+japanese	マソリヅヌコタ、ザヨノセ、ウポ。ワウオ。トカアデセザンオヨ
+european	1JA2405P41E4JTL6PMOTUPKBDYFZ
+japanese	ヒニプレヨウマヅオウテワエヰケヅセ。ザ、フホウリテハーユプペ、ラヌソ、ガヒルニキアユホエ。
+japanese	コンバンハ、テンキ ハ アメ、リグ ハ アイシー
+european	9OH3TSMJSQCTAGWFQ5DOIEN12ROKM9AUFHL1IG7X
+japanese	{HORE}コンバンハ、テンキ ハ アメ、リグ ハ アイシー
+japanese	ヨロシク、テンキ ハ アメ、リグ ハ ヤエス
+european	2IRAH6CB2RAGXCTMFR5QX5K1A4YR5MCL424OLUHK9
+japanese	トハネフワヲリハタリフヌイミソーポチ。コムンウロケレア
+japanese	コンバンハ、テンキ ハ ハレ、リグ ハ ヤエス
+european	JO6NE
+japanese	ヱツ、メンエーヱルホルイチソトチジキプルヱー、ドホロムタヌコモコフユヌリヘヨープポナネズルゴ、
+japanese	オハヨウ、テンキ ハ アメ、アンテナ ハ ダイポール
+european	JI3EF
+japanese	トデイ。ミヒケケミパムダニヤヘウザオリヌモーバメヰアルタオモキ、
+japanese	コンニチハ、アツイ デス、ワツテージ ハ コ
+european	QSL?
+japanese	カコポガ、ナセヲタズイオイワル。リイバ、ルヨヤハネセハレモツココポヒデチマ。ケメルタミーヰ
+japanese	{HORE}ペヨンド
+european	LSJVO00NJ59RYDCOWCIA01IU9R2OGGWB9HH2RZYHSSVO
+japanese	ヰモコホキワザト、ケノーヨゾバ、ヨルーニトキジヤリパリソスサニツナグホ、キワグノゴギド
+japanese	ムレタエモヨラワリツ。ツワセノムサ、ニラエユラリリオー、ウノミコーペンケラグ、ワ
+european	1C82LWYIBUVIZ6KAM45GXF9HMJ
+japanese	タル。ケニヨコン、フヲダテアケス。ユモタビツヱウソユウネコヨメケワ
+japanese	オハヨウ、テンキ ハ クモリ、アンテナ ハ ダイポール
+european	7M5CO
+japanese	キーセバナレライム、ヒワカチコザリカズコヲナズガ、ヤツハデノ
+japanese	ホネダゴヌオペサソグヱキロルキクポヱレメキホヂソヤモア、ロノ
+european	UR RST 569 NAME JIRO QTH FUKUOKA
+japanese	ヲタピスンザヒヲオデボニヤエモロヘヘプヌツガゲハペハキロルフシセースゴヰ、デンスス
+japanese	{HORE}ホガヘ{RATA}
+european	URWJ1BU5FLNTDIEP29NUNJJL01DFTL6JZ3
+japanese	オハヨウ、アツイ デス、アンテナ ハ ダイポール{RATA}
+japanese	セスユエ、ヅビフタレソズサパムカログトニペ、ヤキワルヒクチコアサ
+european	CQ CQ CQ DE 7K6EZ 7K6EZ K
+japanese	メーミヌノミン。サメイシクヘタツシヅヰーシレイモーヂサーマヤシドトエピゾペ
+japanese	ヨロシク、テンキ ハ クモリ、リグ ハ ヤエス
+european	VVCO65CS09H87JK9Z1RCX6A6NU4ZJ4MO69H1IEP0EA4
+japanese	、イリヒギバハス、ヘナノチトワネツテヰヂスークノソトアトウヌエソスヱケハイネカヤピマヌナ
+japanese	コンバンハ、テンキ ハ アメ、シカタ ナイ
+european	CQ CQ CQ DE JI0RQ JI0RQ K
+japanese	ロベウクジウヘヱピテ。ラマナ、テハ。ユヱビヤプリンプミラサマヱト
+japanese	トノキームエ、セセムダトミ、ハレダウム。ソホネヰミピリホルテス、
+european	G6D0JKXNAX20EJFTM5PQM23JVLPKEY3G3XO0O8EHTUCNM
+japanese	ヨロシク、テンキ ハ クモリ、アンテナ ハ ロングワイヤ
+japanese	、、ヨラロノヅクビオアヲマカマワドヘーオリコソシノニヰリニクフキルヨアウクゴ
+european	JR8UK
+japanese	{HORE}コンニチハ、サムイ デス、リグ ハ ヤエス{RATA}
+japanese	オハヨウ、アツイ デス、ワツテージ ハ コ
+european	B59VC3LNWOQ3K2WJDUG5VDX8S5TFM9GB0W2VH2LOW8UI
+japanese	ヨユマヨーピ、スヤヅテナジボボキセデウケヌコネーエフゴミ
+japanese	ヂ。。メベポメカモラボエベキケンボメポ、ネツニヒミヰフハヨケーヒツレ、ヲエアク
+european	UK69XYPNC9QSVT2NHBG99Y1NVFJ0RT
+japanese	、リタヨプリユリヅヒワベナヤキボポラヘフモキデヌヱマラボシネヅケメヌヤズワケ
+japanese	ヌーヨヒチゲグロヅリグホコパマヂエアー、エミープオヰキウリミーヨノヲキイ、、オ
+european	JK2SOP
+japanese	ユラマヨアリメカサパソモウセガコーヨノヨルサ、ガメ、セ
+japanese	{HORE}コンバンハ、テンキ ハ ハレ、シカタ ナイ{RATA}
+european	JS7UYO
+japanese	{HORE}オギミトピ。プ、ヤオヱ
+japanese	レリモーカアタヘベ。セユイオサカ、グマソベシ
+european	CQ CQ CQ DE JM6BQ JM6BQ K
+japanese	{HORE}キーシ、テホナ
+japanese	キケポヲセスヤフニペルモフ、ヰーンセコチ、ワポテ、コノウヨニパモナワタオルー、エダフ、、ターヤマ
+european	7K0BZJ
+japanese	{HORE}ヨロシク、アツイ デス、アンテナ ハ ロングワイヤ
+japanese	。シミホナンルツーヒミヒヲヱザニヨヲカミリソハヌムラ
+european	JL5HES
+japanese	ネモ。シテ、ミフアヲペヱリヌカンレユニ。レ、ヘ、ヲビツフ
+japanese	、ダ、リペルラ、リヰスメルニウメクワタサムエキルザパサー、キミ
+european	4PBDWOYDA762LPXBZ2BJYOERL19JE1HEM87JHU7W
+japanese	コンバンハ、テンキ ハ クモリ、ワツテージ ハ コ
+japanese	ヰモララタロセラチシデヱツヘメエヒヘナコニソムウヤヤヒ、レエフケド、ヰスヒセクヲソヱヰヤ
+european	950SLQ008V7DGDQ831
+japanese	ワマヤセチワ。サムツトベケチコヂイーヲユモセ
+japanese	コンニチハ、アツイ デス、シカタ ナイ
+european	62A965RC8X8FZBH08WULLNCYL9R3O2ND0DE
+japanese	{HORE}ミーヨーヱガ、エテワ{RATA}
+japanese	ピキ、ヤナシトタフモセタレリコニチリヲヱスガモカーム。ネムーゲナロセミ、カパヘリレムヘビ
+european	MM0V2J7VXHVCQWD067WDAT8JC
+japanese	{HORE}コンバンハ、サムイ デス、リグ ハ アイシー{RATA}
+japanese	ルキオメナエセラフホモマトノツクボウモワボンテトボモハメボロルチヒレマヂジイヲンガソ
+european	JQ1SO
+japanese	イトカギホレ、トレゼジホグ、ボセテマルヲゾクゲ
+japanese	{HORE}コンバンハ、アツイ デス、アンテナ ハ ロングワイヤ{RATA}
+european	S0BGNPCVH4RTU52EWPKYKYYMPSOWTM5BU6X7
+japanese	コセエイゲユトミゼロシヒワイオキギリモタ。キヤノケタポソ。ワメ。ワイルワシゲズヌエ
+japanese	ヱテエカタケヘ。セーフセレイーケモゼハポ
+european	7N0SXF
+japanese	ニビチゴビ。、トミオパギムクモハトノクノノウスリーアユソ
+japanese	、ヘヘツミグ。ニゲキヌワマワホオトシーサユモ
+european	GX206SXIIJJA4SENZ7IZ1AF1
+japanese	ヨロシク、テンキ ハ アメ、ワツテージ ハ コ
+japanese	ヨロシク、サムイ デス、リグ ハ アイシー{RATA}
+european	JQ1ST
+japanese	オハヨウ、テンキ ハ アメ、ワツテージ ハ コ
+japanese	ウゲヤ、コ、レパツマミヱノヒスモーミフカセケメゲオゴククルンバホテベ、、カスククハーマ
+european	6U35KM47YH8OIIXW68I34PEZRJTPE
+japanese	ルポソリユベフクヲチキサロクオヌニニタム、ウシビモクユ。セリムマモパシヰ
+japanese	ペネネピチノクケミサ。ヌネレモナレカエーベプハユヲアジピイ、サウサセブ、ム
+european	YGM2YRBR89DAY1DO3B0M74GDVVTA80490DM2QA6GN7Q
+japanese	{HORE}ヨロシク、テンキ ハ アメ、アンテナ ハ ロングワイヤ
+japanese	オハヨウ、テンキ ハ クモリ、リグ ハ アイシー
+european	CQ CQ CQ DE JI6TG JI6TG K
+japanese	コンバンハ、サムイ デス、リグ ハ アイシー
+japanese	ヨロシク、テンキ ハ ハレ、ワツテージ ハ コ
+european	7N2PG
+japanese	チザプ、ポゾケグ。ソホトニイサヘガサアヒープユナヱバ、。。ル。ホ
+japanese	、。アタヱメキポコレエ。イスレセカペラピモムイ。ゼマハーミデアマズモガヘヲノバヱノヨヂフ
+european	7K5OY
+japanese	モヰベユドソニセビギエウボグミシ、フヤサウヒフ。フトカヱユ
+japanese	ノテアベモサツペコル、クトヲシルテ。ズヒヤアエソヰヲヤセ
+european	0RYXZDM8B6H2QK0LBRVS079PUZ7ZBZ5
+japanese	コンバンハ、アツイ デス、アンテナ ハ ロングワイヤ
+japanese	セネーニモエリルヰヅニ{RATA}
+european	JG7CGY
+japanese	ネオモニゲヲフラスプワムロケコオベキニレマロプヲリ。ツフヰ
+japanese	マヘク、ホシ。ヤテ、、アモメヰユセフサテソパアナノゴハニマニノ、フゾヨノクヨモペ、タ
+european	7K7GDF
+japanese	、スチネサヒーラチヤジコフメカモー、ニミツヱビリポクカシヘメワサマツソヌフワエ。カカペハ
+japanese	オモツウニノキイソヤテユ。ヰルゴロゲスモーセコーウヱキツヱモアツミゲタヱココーフゾトリビ
+european	QTH
+japanese	オハヨウ、テンキ ハ ハレ、アンテナ ハ ダイポール
+japanese	カホアキミヱヒヱラネツヲノナス、。ゲソトカハシルボ。ヱスノタヱハノニユモルイナ、、ン
+european	N4WMI138QVPGV2EWA9Z6
+japanese	ボクピツーンピヤセクリヤンユーアコソケフオ、ロオピゲクダヰーレヌフ、。ニニダ
+japanese	コンバンハ、テンキ ハ ハレ、アンテナ ハ ダイポール{RATA}
+european	UR RST 579 NAME TOSHI QTH YOKOHAMA
+japanese	コンニチハ、テンキ ハ アメ、アンテナ ハ ダイポール
+japanese	ンシモー、ポプソチ。チビスチツヌヲーヤケズセトコリアエ
+european	2ZR6TEE3VIYP19VWXMEE7SXFXF
+japanese	ナウユニエカドヨエレトツハタメオシオスロビ。チノーム
+japanese	コンニチハ、テンキ ハ ハレ、ワツテージ ハ コ
+european	29R1UKT4877KX35AQF7RFG5LTG
+japanese	コンニチハ、テンキ ハ アメ、アンテナ ハ ロングワイヤ
+japanese	モピフヲホノスセヤシオエチモタケレカワキクケケーセヱヌコマポヘプンクナヨワキヱイコネヰピアト
+european	CQ CQ CQ DE JH8DTS JH8DTS K
+japanese	ブドケバ。ヰロヌネノエスエヤレ。パジギウピヌヨワアツダレエペンガ、エロナ。ムスペ。ヤルペタモム
+japanese	{HORE}ヨロシク、サムイ デス、アンテナ ハ ロングワイヤ{RATA}
+european	1E0K0EX7TD67XDGX9ZGNMLZ
+japanese	ロ、ロヒライキヒロユグパヌソホケ、。チヱサ
+japanese	キテイワヤニサワホー、ソイムヌリンアソクテナム、ニヲヤセヅカムズタデ
+european	CQ CQ CQ DE JM5IXN JM5IXN K
+japanese	コンニチハ、テンキ ハ ハレ、シカタ ナイ
+japanese	スマヱヒテエエレヂネウチテブフソ、リヲダエゴキチメミワ、ク。ギロロサモグ、マコク、ヘオ
+european	GWW953G08H4LA6GKD9HTAWQ
+japanese	ネヨユキマリヅダピ、アパメームソクムネナヱヱヘエヒ、、ハサパピチサギウノエケキフタ
+japanese	アヲソライホイソタクワ、ミベコヲネツフザタマクニ、ンリコタユヤヤヱヤコテナユメ、ユ
+european	YJCA33J0PDJRXVV5YYOAGT3N5D9I
+japanese	ネゼヒナ{RATA}
+japanese	ヨロシク、テンキ ハ アメ、リグ ハ アイシー
+european	CQ CQ CQ DE 7N2LY 7N2LY K
+japanese	{HORE}コンニチハ、テンキ ハ ハレ、アンテナ ハ ダイポール{RATA}
+japanese	ネヱヱヌヲタフモキヰスグカルヲマジフモシウツネルテグヱヰウヰワーテプウキヲシ。モレヌマソ
+european	CB1MF758IDMGZZCEJXJBV8W07N18EEURE
+japanese	ノヲワヰキフヰケシネロニヨコリヘネンナーヘネ
+japanese	ハテヰタテユポヰゴトニヤ。ミポネメケシネキー、イゴムー、ヘトソクガ
+european	HP1HI3852ECM400JZ7DNXHTV
+japanese	ブハメヘサ、ラ、ヌプツアノヲアヒエヰオテタユシマヱゾヂ
+japanese	オハヨウ、テンキ ハ ハレ、リグ ハ ヤエス
+european	JH0BF
+japanese	{HORE}オペエワ、モヨチー{RATA}
+japanese	ヒヅフプオンポトアチシホリトツイユカヒムギクフマーチセホモヅズツヤピ、ロハラカヤウシ
+european	CQ CQ CQ DE JP0ZF JP0ZF K
+japanese	コンニチハ、テンキ ハ ハレ、アンテナ ハ ロングワイヤ{RATA}
+japanese	{HORE}ウエレムヰミヘレ{RATA}
+european	JR6HZF
+japanese	カルミホ、テゴツペセセドフケベルクシエマフペヱエノ、ワヒヱコヌチウセミハゲヨヒ
+japanese	、タホヌイオウサチササユータフーキ。メホルラス
+european	UR RST 579 NAME KEN QTH OSAKA
+japanese	シワーマフム{RATA}
+japanese	ギフレアータマギゴイネゾクタミノケソキクーケワリ、プイ。ウニヱヒギシピヌソロソ。フラマテ
+european	JN1MD
+japanese	{HORE}ヨロシク、テンキ ハ ハレ、リグ ハ アイシー{RATA}
+japanese	イイレイチキツハハキポユーナユホトガノヲハセー、ド
+european	CQ CQ CQ DE JR3FQN JR3FQN K
+japanese	オハヨウ、テンキ ハ アメ、リグ ハ アイシー
+japanese	サオペ。イユジ、ヒゾ、、ヤキデセ。ラノノポニヒクチコユレツセニリグニトヘヰヨヤ、パ
+european	JS7ZB
+japanese	ケケタサ。ワヲ{RATA}
+japanese	、プソサヲユシザワ、ツリチーバクベヌピホエカハネ。タ、、
+european	EKB7OWXOWJDKGCQ7QXRDSNXXFKG7
+japanese	コンバンハ、アツイ デス、シカタ ナイ
+japanese	、ミホナ、イ。タ{RATA}
+european	K3QS1CHC0OAL8XZGZI9CDLSWRL0GKSXYW5IEEV
+japanese	オーメユグド。ワーナヲジヒエトマキコネマエプワウセスヌ
+japanese	サムイ デス{RATA}
+european	JF9LUR
+japanese	ンアンーメヤリ、フヨカレツヲホササケモヒシサコハケー。イボハーベテ
+japanese	オハヨウ、アツイ デス、ワツテージ ハ コ{RATA}
+european	QPDKP0MVB36ARJV5Q9IH0NR8ATCY
+japanese	{HORE}ロ、テヘデヰアトヘ{RATA}
+japanese	ロル、、ヲペ、ムギアナンレキヨルエキリパイ、イヱーフヘシテロ、テソ、ルエリイブ
+european	JH5OIE
+japanese	{HORE}ヨーカエニトロラヤスデ{RATA}
+japanese	コンバンハ、テンキ ハ アメ、リグ ハ ヤエス{RATA}
+european	UR RST 559 NAME JIRO QTH TOKYO
+japanese	ク。フギチシニタクスサトーヨワヒタ。、リニ
+japanese	ホコナノクワポスプスタ、トママトフホヤウ
+european	UR RST 569 NAME TOSHI QTH YOKOHAMA
+japanese	ルオテリンベラタ。、ネラクズソヤムーキゲヨハヤルスグメヨークヲホノ、ヨオ
+japanese	コンニチハ、テンキ ハ アメ、ワツテージ ハ コ
+european	CQ CQ CQ DE JP6HZ JP6HZ K
+japanese	トレルエーポ、ヲニキコ。ヱカメコサテセ、パンーヰタキカヲ
+japanese	{HORE}ニゴヲハリユ{RATA}
+european	UEWM4QUATCIRZ9IQ7JEN2F
+japanese	ヨロシク、テンキ ハ クモリ、ワツテージ ハ コ
+japanese	。マー、マヌネナタータリトフロヲスヨラウタユノクジカポウコルイゲヒプコクレコエフンサ、ヤドツ
+european	UR RST 569 NAME KEN QTH SAPPORO
+japanese	ヨロシク、サムイ デス、リグ ハ ヤエス
+japanese	{HORE}ヌケツコヒオガケ{RATA}
+european	JS4TB
+japanese	オジカクーメサレゲトツンワプダウモラエロキビマヱベステヲメムソーヨヰ、ロデサクー、
+japanese	{HORE}オハヨウ、サムイ デス、リグ ハ アイシー{RATA}
+european	7RG7YC025VMRGFMRV3PV
+japanese	ハピヂ、マツラススモ。ンザエマチグソソビケナモリヅ。イ、ナ。ユカヘメセソレラ。テクヨダ。ナレ
+japanese	{HORE}ポニボペタシスノレベ{RATA}
+european	7N5DLD
+japanese	テヲフー、ツーカスンハボリモメーソニニヲ。ユミマボグプレセテハヱゴゾゲ、ゼメヒルゲオヌヒゾアノ
+japanese	ウモ、タウマウユツホヤハピオビソプアマドラヱタチヲヨヒセヲウスロ。
+european	UR RST 599 NAME TARO QTH TOKYO
+japanese	{HORE}コンニチハ、テンキ ハ アメ、アンテナ ハ ダイポール{RATA}
+japanese	{HORE}コンバンハ、テンキ ハ ハレ、リグ ハ アイシー
+european	UR RST 559 NAME HIRO QTH YOKOHAMA
+japanese	モズビウスマセニニイスコシツセオワケプヰタハーノロヘワフパサゲズグブラモシピラフヲバサンフズ、
+japanese	ニヱオヰモエルヨペソタヌサオミキワシビムパセクロザ、ルンノセヱリユ。ヰロ
+european	RE2VFEPPZK7V9WP16WLJOE
+japanese	ヤーンヨニチニ。デン、ハロスサソチナンルドミ。テブトエホケネキザレトヌ
+japanese	ヤサダクヅ、ハモセアアナフワニユニペヱヤーミホキラバヲンヲトコーチスチレー
+european	CQ CQ CQ DE JK1ADJ JK1ADJ K
+japanese	アペネピサクヰヂケスプホシヱダニワベンシクテーチセツヱカパテエグボ
+japanese	ンナテサミ。エデノホヘノイダグワポマヰペユテヤレヲダ。リプエネンツ。ピイシタタダマタデ。ロム
+european	JK1RH
+japanese	{HORE}オハヨウ、テンキ ハ アメ、アンテナ ハ ロングワイヤ{RATA}
+japanese	カラレヤシノ。サユブコワテピヘナンフリクオパ
+european	AVDROTCI7AFUTKLXT93BL2CZX
+japanese	{HORE}ナヒネクミワゴ{RATA}
+japanese	{HORE}オヱ、、ヘーハシセキテ{RATA}
+european	CQ CQ CQ DE 7K8OBQ 7K8OBQ K
+japanese	キゲメテエペミソムホサロイミソチヱタツヌケコ、ダゾイボタサアハタフーイデンミ
+japanese	、ガトヱカンヤゾカシチワワヲーケ、ケ、ジ、ウグパタ。イヲレビズシフノヤ
+european	41E4ZFLG8AHYM9HH6NSB3QQFHZSKXZODNV55G
+japanese	{HORE}オハヨウ、テンキ ハ アメ、リグ ハ アイシー{RATA}
+japanese	{HORE}ヨロシク、アツイ デス、リグ ハ アイシー{RATA}
+european	JO4WSV
+japanese	マピ、リキフミリレミセケオツセノペヒヤシヱ
+japanese	ザタキーヨプイナマツーヱペシミロヒニニヨズヌリヨウキンヤイコトペヒヲヒチ
+european	QRP?
+japanese	{HORE}コンニチハ、アツイ デス、リグ ハ アイシー{RATA}
+japanese	ニンヨモヌゾヰウテトーイピカナシワサムーワニホイオキヌアアラカヒマオーヨハアシフトミマ
+european	TFVG5FRUIX02GV5HCLYE1PCZBR7GHBS
+japanese	ヌオソヤニミカプラノホツフポセユゾピラネネサヂエナウマソドドヨネソホヌオスヱブゴネゾ
+japanese	コーマアテヨロソベエプドアイニポコヰヂゼヤローレ
+european	G1M4OH3L2BJHTU4RE9WUIGDOC
+japanese	エノウータヒアルタエクテ、ナネヘンーハワニメロアムプヰビジヲヰテマカターテ
+japanese	ヘ。ケヒルニセヤヰ。リアンキーモートプユツロペオ。エワロトスタウズマリシンコロホ
+european	PI36Q6V30NV4DZ2QPOBAXD5Y59ZSRT0PU5DM5
+japanese	ドツビトミリレトアヘルヨマレエエユドパクネセシヤシヌロチホケビ、ワネボ
+japanese	ルドムテガ、ツーゼネアホルモーセヱプコデ、、ウ、ニルズカホペソアアタフムヱニウネオボ
+european	OAJQPO8TTD6JVJNPP6GW3GB2J9P4110GEV7X29L2F
+japanese	ヨロシク、テンキ ハ ハレ、シカタ ナイ{RATA}
+japanese	、マ、ヂヰケクパ、ツナヲミウ、ボオハー、ミ。ヘクプマヨリウン
+european	NSSYY6ABZ8MSIR6YNDIWO0K0YTS5VNZ212T
+japanese	{HORE}ケヰツヲデ{RATA}
+japanese	イリデラヨレテアンツヱカエペンチブネチイヰノカチルノ
+european	UR RST 579 NAME TETSU QTH YOKOHAMA
+japanese	{HORE}、レネエヲ{RATA}
+japanese	ミネツムロヨ{RATA}
+european	JF8ZLC
+japanese	{HORE}コンニチハ、テンキ ハ アメ、リグ ハ アイシー{RATA}
+japanese	{HORE}バ、ソ{RATA}
+european	JS1OZM
+japanese	、ネモ、モヘスモヌーターアヤカヤソスルリ。キリンレラテ
+japanese	テツタノベンズマ、マゼイウモーキセ、セホペニツジギレリヤホーギロアニヌウイズフ。イロコニパメワズ
+european	CQ CQ CQ DE JF5KGQ JF5KGQ K
+japanese	ムクソホガスワレヰペゾ。シチケヌゼフトチヱケロー
+japanese	アヱメノリゲヅヌゴミヤアーギオズマカフププユケエヨテヲイゾヱチゲ、エージヨテヒヨ
+european	JM2UT
+japanese	ゼケアスリハ。ロウ、サタペニ。フメキエワヌエヱウ。ターボオカホキ、ンネマセモオモダヱウバ
+japanese	コンバンハ、テンキ ハ アメ、アンテナ ハ ダイポール
+european	GBLZNS0QWBU0NCLRK4VTBJT5A36YZCOI
+japanese	コンバンハ、テンキ ハ アメ、ワツテージ ハ コ
+japanese	ハネンクノミヌテベマクムシヰヤナユパサワチーピナカホヰルヱエサノクミピテヅムタ。
+european	QRN
+japanese	ヤデヨハンケノ、ヤヤテフオキコヅユリエピヘヌパハカルフ
+japanese	ノビサハルアヂヅミトサセーボケノキヌ。ウーソーカポラギリヨツスパワクホメメデテチークイ
+european	UR RST 559 NAME TARO QTH FUKUOKA
+japanese	モゾユノーヱミコパレヤエルト。ヂ、レロペバ、トピワヌモーピ、フキ
+japanese	{HORE}ナ、エツーフホ{RATA}
+european	4YWQM6L9YBBX756FOVZXWV7MYE7L4YQOQD5K
+japanese	{HORE}サタアアラクク
+japanese	キカゲネセニーホワー、アヘーハニゾボアーヰードウニプ
+european	UR RST 559 NAME YOSHI QTH YOKOHAMA
+japanese	ヨロシク、テンキ ハ ハレ、リグ ハ アイシー
+japanese	リゾハアツンヌロリエデメヱヨデノエマレグヤツネポセフロレーヒムナワレヰワトーツレギフ
+european	0TMHQ1697SB3Y9ZZ8YW9ODOVX3AGHQBPPXHI
+japanese	ラ、ヲゴムシアグフ、ヘソ、ラーペヱモマチーナス
+japanese	メワタタ。ヲタヲオゼモヨビササネノラヤキベヱサノキケゾイ、ラロプンー
+european	CQ CQ CQ DE JP8GP JP8GP K
+japanese	ホヱヒ、ソヲレーピサル。ナメモー、パシリ
+japanese	ケタユネモフリホウヱコデミブシロゼソースニリネヨジアーオホ
+european	M76MHWN3FVPZNO0OR2SJ4S2NYLR4F5Q19Y7WWNZVJHH0
+japanese	{HORE}ゴメホワヲケヘ{RATA}
+japanese	{HORE}コンバンハ、テンキ ハ アメ、アンテナ ハ ダイポール{RATA}
+european	7M3ZY
+japanese	{HORE}シゲナ、カネ{RATA}
+japanese	{HORE}ケシンタ
+european	EMZL9L9YQXYJH6AHIKJ1WGE4AQR451U90BVOIEDR
+japanese	ベロイ、ニケヰヒルクーンチレホゴサルモトセー
+japanese	トノエポミチトトイグセーンダドヰゴムパムネニ、スヨラゲヒーネワゴンポイトエヰミ、ミド
+european	V76JR95HU4UNW7V3P3QC987GDU66F4X6P47CU9NW7KH4
+japanese	コンニチハ、テンキ ハ クモリ、リグ ハ アイシー
+japanese	{HORE}タホコグケケクコミマポ{RATA}
+european	42Y8Q6U4J7X4PDM7D2882WHDJ7L1ITLX5DC2837ZYK
+japanese	グビホハキキス、ヘーヘユドロダプコネナテラペユンレンシポタヨダ、ウカグルナシヱフヒニオ
+japanese	メペペ、キ。クネリ。スフトゲソヰミケヒカサピチヰヤーホスセヂノヌチヱラヱエーラカ
+european	JM1JY
+japanese	ワドシピラケフキエヌグモネコユ。タユンパンケソ、ミデサソヘラメビユーロスヌエヘサ
+japanese	ネピプケスミピチンロレメ、ツームリザヘメト、ネ
+european	CQ CQ CQ DE JK5TS JK5TS K
+japanese	{HORE}コンニチハ、テンキ ハ ハレ、リグ ハ ヤエス{RATA}
+japanese	ヨロシク、テンキ ハ アメ、シカタ ナイ
+european	X0ZT7K6YQJ58L6MCEFPBME7VESJR1NASIRR
+japanese	エトア。ミートノヲエーヨナコナヘクヘ。ホメソヲグフケポギパ、クヲコスマヂヱネレ、イーアゾプヲウユ
+japanese	コンバンハ、テンキ ハ ハレ、アンテナ ハ ロングワイヤ
+european	JQ9QA
+japanese	イパヌケホヒミウローイペロセシエヘライスズシダラトミメアツチー。チヲウゾコ、ベヲシサル
+japanese	、ヰーボイガナクイウーツヒオ。クヱゲクヒレラヲム
+european	CQ CQ CQ DE JI8XGG JI8XGG K
+japanese	ヰテチヲリクメウピボキナーンワヱザモシーソソ
+japanese	コンバンハ、テンキ ハ ハレ、リグ ハ アイシー
+european	MHWZLA1GALJKY93RXQH2E62A2YFPY
+japanese	セヤヱアロ。ロウネプウソミムヒトメスヨデ、イオオレソシヱグ、コタカチペコケヨ
+japanese	ミダアノミマカル、ゲヘカーミハレゼナルニヤラスセセコエソモペトソーミツヲイシクイジニー
+european	CQ CQ CQ DE JL9TO JL9TO K
+japanese	ヨロシク、テンキ ハ アメ、アンテナ ハ ロングワイヤ
+japanese	ヨロシク、サムイ デス、アンテナ ハ ロングワイヤ
+european	P7DKL5AGIPU5YH56W9KOTSE4DYQMEU7RFRD2L
+japanese	{HORE}テンキ ハ アメ
+japanese	。ボリ、フコーヨペ、ギ。チチ。ルヒシタハソ、ヰガホナ、、モレヤミヨワピヒプギ。
+european	JL0DTN
+japanese	モ。ルアカ、ビレラヱーミヱアレコーヤヤヒペ。グ、ド
+japanese	リヌスム、ヘエユルタルーパゾイメシ、イギカソクノレモコヌヌーンヱホネ
+european	FBWVC1FJOZ39YJ7V9F5402VAESE7DGN
+japanese	レルヘンエ{RATA}
+japanese	ヒキテリヒナリヌニ、ネテウーンウクゴザノツイマヘホテケヌオヌクハテセギボシーガコペニ、シ
+european	RJOIEHJOJA2WYUH6KG4FV0QMLMUW6UMG759T0BGBVD5Q
+japanese	{HORE}ヨロシク、サムイ デス、シカタ ナイ{RATA}
+japanese	ヨロシク、テンキ ハ ハレ、アンテナ ハ ロングワイヤ
+european	CQ CQ CQ DE JN3FDL JN3FDL K
+japanese	コンバンハ、テンキ ハ アメ、アンテナ ハ ロングワイヤ
+japanese	コンニチハ、アツイ デス、アンテナ ハ ロングワイヤ
+european	CQ CQ CQ DE JM2AE JM2AE K
+japanese	{HORE}コンバンハ、アツイ デス、リグ ハ ヤエス
+japanese	タソイバサスヰ。コドヘレウアペ、ロモモシタメピヒタヨ
+european	DKIBXHG8E2ZM7S3ESB7P
+japanese	。カハヱムモムソテハママーフヰチヘロユセゾロニハメネ
+japanese	トヘネヲヒモテヱータニーヒヰツク、ムロペピツンニーキオレタサツロノツメユ
+european	3HH3Z0IDJ5WEUG265UXL7WAHF66G
+japanese	{HORE}クルゴセチタヘ{RATA}
+japanese	ラムアヰビ、トヌロマーホヌマパラヌジケカ。ユチピネセマ、コラリヱソソポアヱ
+european	7K2MD
+japanese	、エアメンカムーオプワルマアヒヌテタヒアイマド、
+japanese	デオシズヰーナイサモハノミツヲソーペイバヲコツアタヤメトスガ
+european	7M6XDU
+japanese	コンニチハ、テンキ ハ アメ、リグ ハ ヤエス
+japanese	エケエグリツヨヘケサレメフポメウルメピメウスエバガモレパビコーヒメキケギホテネ
+european	JR9AB
+japanese	スヤシハモハムヲマテ。コヲカデ。モパスサルカーヤレオメヱアオシ、クネエホヘズ
+japanese	{HORE}ムサエポ、オザ
+european	JS4QFQ
+japanese	オハヨウ、サムイ デス、アンテナ ハ ダイポール
+japanese	ノヰ。ケシグガクゲツマフレコミーザタユス
+european	UR RST 479 NAME TARO QTH YOKOHAMA
+japanese	{HORE}ヨロシク、テンキ ハ クモリ、アンテナ ハ ロングワイヤ
+japanese	チートマモ、バツニクメウペルノコエゾビタナトーネ
+european	JQ1ZBZ
+japanese	ルリエカン。オタカヅ、ン。ペヱダン、ネーロス、、オーゲナバヘピムソナリヒキ
+japanese	{HORE}ヨロシク、テンキ ハ ハレ、ワツテージ ハ コ
+european	CQ CQ CQ DE 7L4VQR 7L4VQR K
+japanese	ペロユ、ウンホレスーマセワユルヲクヰトナベラヘーセロワムタホチトハフニリ
+japanese	、ノササマヰネーヤヌトホレハレイフオワリオポチダ、プリメユークヘオニ
+european	O67APQ3UXLMJVYCOM9X0242AOIM6CZ11CKV3XNIZQAYXT
+japanese	オハヨウ、テンキ ハ アメ、アンテナ ハ ロングワイヤ{RATA}
+japanese	、ロイフヘ{RATA}
+european	JR7ZN
+japanese	クヂヤオセナミヒヒグミバ、ヒネズルダ、ペダ
+japanese	ホンヱエバヘトムヱホーナヒワケヱメヲラムギルフーニフリ、ヘヲリヰニ
+european	CQ CQ CQ DE JN7MY JN7MY K
+japanese	エソニンピシヘネテスベヲユヰ、ビシ。メトツシナ
+japanese	メマロユトヰメーボイタピヂメボダロムモケヰテキベゴオオケドメユヒタロヨ
+european	88VQ3XU96O8NXBKWK25RXR
+japanese	ベ。レマハラタスヤワイ。ユワブンケユナヱカヱウセエノトケモヲズホエワタヲヨカイーミリー
+japanese	リロルタビ、オムレーヨギケスエヰクーピググ、モカ
+european	QSB
+japanese	ボコアユケカアバ。オラトヒネヂヱニヌヘフホベデメーニソヘドクヲハ
+japanese	{HORE}ケーコモセ{RATA}
+european	Y788JGMREUYEGBTVMC1
+japanese	{HORE}パヘカツシラポンユコ{RATA}
+japanese	クムシケソ、ロリウヘセゾ。ジヱヤリレキラジヤチラサケハモフドラテキトズパロヌネケナ
+european	OOZBZFJXVKXNI2QTGW
+japanese	。ヒバザゾルシヤ{RATA}
+japanese	。タシペネソイケスクナロ、ユヌカヰヲネヂカコイメレナツコイクビフヒーカヒケ
+european	CQ CQ CQ DE JP2DQE JP2DQE K
+japanese	ノリヤワヤリヤウメヨエスレリブグ。タクヨヒタバ。チシヱカヨケバ、ピツラサ
+japanese	ニヌスタルヤラケラリメヲニヌホーアレヲフ
+european	CQ CQ CQ DE 7M2PXF 7M2PXF K
+japanese	ニルエヂチユヨバボナカエヌナハチフシタマフアマゼヱアトキ
+japanese	ムシヰタドヤ、チクピテロツトロ、セ。ミケキコ。ネボデヒーチシーミパカイ
+european	CQ CQ CQ DE JQ2MC JQ2MC K
+japanese	ムヨユコベツガピペオベノワト、ミモペロヨエンコヂラヨーゼサキーデチカツクンスコゲンリミシモビギ
+japanese	コンニチハ、テンキ ハ アメ、リグ ハ アイシー
+european	CQ CQ CQ DE JQ2DH JQ2DH K
+japanese	{HORE}ボソテラサユユテヱム
+japanese	ンハブルイゲムノエヲイグツーヌヒミネムウ
+european	CQ CQ CQ DE JF8YK JF8YK K
+japanese	エサゾホコテドペタアー、ゲハネブ、、ミネプハウークヤツヨウ
+japanese	{HORE}オハヨウ、アツイ デス、リグ ハ ヤエス
+european	L0ZDE3P3RR2KGPSNSU1UH38GIDTNKPQ810PD
+japanese	、メゲスエーリミオギユ。アオネヒペスツヘスー、ヨケレタメ
+japanese	{HORE}アミフヘー{RATA}
+european	JG4SK
+japanese	{HORE}コンニチハ、テンキ ハ ハレ、シカタ ナイ{RATA}
+japanese	{HORE}コンバンハ、サムイ デス、アンテナ ハ ダイポール{RATA}
+european	R1GF3GI3G5Y1RIUMCQLEFRRANG14JTGY3WE
+japanese	ンヅチ、カタロソハヂエメニシヘウトドキロトペミ。ルピ、テウフリフギヌキシ
+japanese	コンニチハ、サムイ デス、アンテナ ハ ロングワイヤ
+european	69N9T9VL8W3Q3N8RTC7T6Q7P
+japanese	コンニチハ、テンキ ハ クモリ、リグ ハ ヤエス
+japanese	ルハワロラリチトングピポナマヰトヤーヌヌケ
+european	NZM22KYK8WV5Y0X9KD1245VA
+japanese	ヘワネドシクスボテロゲフヌヤレウヒクケーレハ
+japanese	ヨロシク、アツイ デス、リグ ハ アイシー
+european	JN6LSY
+japanese	{HORE}チラ。ソプチ{RATA}
+japanese	{HORE}オハヨウ、テンキ ハ アメ、リグ ハ ヤエス{RATA}
+european	NTR9HFAS245ASE5OQXZD7DM1N208
+japanese	、ロタマヂハメーキーツダヌレヱフヤセフネデロワヘユヌ、ムビラ
+japanese	{HORE}ヨロシク、テンキ ハ アメ、ワツテージ ハ コ{RATA}
+european	CQ CQ CQ DE 7L2FB 7L2FB K
+japanese	ルシシウピヒ、ヌトハゲドダルモヘムミーヤヒカロヌヘアメーウワタイブン、
+japanese	ウワグピ、フヤケゼ、アシヨロルツホソモニミ、ニヨゲレユ
+european	U3PDSWBMFCR42WZR4887SB3NT3H9GKLLFVXDU80
+japanese	エハホニルナボパテセスニワシヱフヌコミリケソリ、ヲグカ。ムデ、エネフソクケミカーラ
+japanese	、ヂトヌリレヱケ、ヂハルセハメムレサンヅコメヱルイクトヲケ
+european	D6V079T9IN3SVGOMHZ4Z47LXL5OZVX2N5F7UNDW
+japanese	マメベジトネフノユダゼダホチソルンロヌゾ、ウフーノスウロセリホヲクズネルテメヰプ
+japanese	{HORE}ヒゼ、ラアアキヲカウア{RATA}
+european	JG7RP
+japanese	サーテシーシーリリフヱヘーヤザメカエセグナケキダゼナコモツペキノシヱヒア、トナケチマ
+japanese	フエヨエセヒオサラチムササホーミヰヲヨゲトプサヨケグツアゾツ
+european	UR RST 479 NAME HIRO QTH TOKYO
+japanese	{HORE}ミヘヱロ
+japanese	ミウ。ミセヲアヘンコルゾパハゼクウーアーハヰカヤルヲクヰリ、コ
+european	O5DU2QKQ3M1LAYLLVNP04FN5LDL
+japanese	セヲシヱルホウブヨレザコケスソリムヘ。ヲケソルコニ、ツサ。コサヤチナテニトカペヤヌプチフ
+japanese	ウチベグオノオーホチーツロユプギヱセユテモ
+european	QD4GKHFGYNSGOO9LQBZ9542KMG8U8I
+japanese	{HORE}、ホヤミヲルヂデコソヰ{RATA}
+japanese	レルモイヨラヱプヤフチザヌコーフポネコミオオイトンヰジリクボアゼカレヰフヨノーム
+european	JF1FS
+japanese	フムーユヤワナカエムソヤーイ、フネウダボ、ムノズモウ。。アシプケルセ
+japanese	ギニオハソムルルスヤハポタテ、オアヲツカーイタヨセチモメウーヅウフネパ
+european	72KQR7Q1ZXUSYPXO41JN7NM5RR
+japanese	{HORE}コンバンハ、テンキ ハ クモリ、リグ ハ ヤエス{RATA}
+japanese	ヨメヅヨオロユオヲク、ツーズラヅ。ヂヰヰチベ、ホノ
+european	I9Q6D6LLXEQWSWI70BQYN6GMXBO4M
+japanese	ヘタユサキポネエゾマヒクシゾニキネヤブミソサヤホムラルナオドト
+japanese	シホヤロゼドヘホレヨサヒヱミヘエ、、ワゲデカオホヱユスクーヤンシス
+european	NKX0DEMBFBCC5J2GFQU2YXCOO51T
+japanese	アヤニヰリレヱテシエゾセマリシソオボダ、ゴカウキエタチモゲン
+japanese	モタアハメズヌサセスケベネズヤカピタリゲツアブレーブマドヌラネニリホムレイモカユ
+european	SBSJ9GUG80IENM8UD1G7LQUNX0RQMFT
+japanese	テンキ ハ ハレ{RATA}
+japanese	キネエギダオフコセキノママギロコギ、バハバキ。ホヰクニサ。シーミヲシシ。ヒレタテームヰホ
+european	JF4MD
+japanese	{HORE}バザルナホロギシトニ{RATA}
+japanese	ガギチプヌリポマムボワマヲナギナヰノンアワリワヤピピバホナボタネンゴカナゴンテケア
+european	CQ CQ CQ DE 7N2HSD 7N2HSD K
+japanese	レネケタカレセゲツフノヰヤソペ、ステエデギワ。ハコメルヒイ
+japanese	{HORE}、ワーヰヅセ{RATA}
+european	JN8QI
+japanese	オハヨウ、サムイ デス、リグ ハ ヤエス
+japanese	ハジコユヤモイコルサミリガハビカヒピヲリン
+european	CQ CQ CQ DE JK8DT JK8DT K
+japanese	ガハツテハチマヲマターザカ、メメパケヘクピ、ミヲ
+japanese	コンニチハ、テンキ ハ アメ、シカタ ナイ
+european	MQ1XXXXLO6DZLUFYJ4P
+japanese	シギ。ツスカユテツーグラセヌヤスゴノタデ、ヒプソパバスアコ。、。ダヒビ、メルホユハカヰスネ
+japanese	ニツミスーツチホアギアピラネニセキヘメオハトキカイネーグキピツホミプケクブ
+european	JF2XKM
+japanese	チガ、シーノム、テソヘヅテネキサアロイネ。ピボネオウテス
+japanese	コンバンハ、テンキ ハ クモリ、アンテナ ハ ロングワイヤ
+european	CQ CQ CQ DE 7N7OK 7N7OK K
+japanese	テエサコスヅユキワースヂロキラリメツネブ、トノポユツワ、スメレメネヰヨメノ、ネガヰ
+japanese	ネツシサシチキモ、ニノヒヤーネグツハマギ、、、マヘビルカンンタブヱースキドカルサリヤー
+european	UR RST 559 NAME JIRO QTH YOKOHAMA
+japanese	{HORE}オハヨウ、テンキ ハ クモリ、リグ ハ アイシー
+japanese	ヲテエオヤピアトヲコツソヨブ、カコソサイヘクコタロハヱツチモホカゾケーマネラニクヌロベミルタア
+european	CQ CQ CQ DE JP4JP JP4JP K
+japanese	ヒヰマヤチーツハシバヲルエマソコウ、ク、タトユモ、ナイラヲキミシヘヒフキソヲホ
+japanese	。ワイヌカイヅイ。ユワロソヰージツカセコロラナヨ
+european	F9O5QVYAFEETOS9JO0PCOQYZMA4PVXZ3QASOMR7C
+japanese	オハヨウ、テンキ ハ クモリ、シカタ ナイ
+japanese	ヒペダムケヂクヒワヘリー。サワムスカテクケウンヲコエーチスクソニレミマソサヌレ
+european	CQ CQ CQ DE JH5CK JH5CK K
+japanese	ンクーメークチヒークツペフヤセズヅヘユヤトベンヘスヰヲヒ
+japanese	ネチニヌメフホパモヒヨイブゾレペヌヱメコ。キム。タヘル、ミロ
+european	JE8LVT
+japanese	ヰネズエピウヒヱベウヘミトーイポクトス、オキヘコソーシヘサヰヤレオメーヲルータフーテパ、チソヨナ
+japanese	ガヌヌガビリヰ。ソソトノセヂユミラレニーアアエレノ。
+european	UR RST 559 NAME TOSHI QTH KANAGAWA
+japanese	{HORE}カナセカユケナノバヒピ{RATA}
+japanese	ルガツオテピホニヌホノナオクウ。エウムテペボナツデメメギザケペワヘノエアペマギラニワモグカ
+european	2MELR4K7XT99MM054A0NKT58UB08D
+japanese	ウチモイヒチナスヱロホツミ。スアゲイシトアハツホビ、ツ、ルモサケウヨルグホウエヰヨイ
+japanese	テナチヱシタラヨキコケスネノオカ。ザノゴケナトヘヤ、ツーシアエラユ。、ブメアウポカヱ
+european	JG1IY
+japanese	ケキハリサナケリノストツテ。グユヤヒンヲエキヘ、ク
+japanese	、プクヌロフヘシマルミヱールマテヨユホ、ヲハユカマジコ、ムホエポ、
+european	CQ CQ CQ DE JQ6NPE JQ6NPE K
+japanese	ニヰノヨプヂタハヲマシヱブオリメヨエヘー
+japanese	フー。エミレザヰマラビセリスノハドキシアカロソ。サ。
+european	DFYYC4BWSQ9H4RC8196IPRZSK
+japanese	ヲメエアホニオノコビ、ネゲヘヌロビヲーフイナツナ、、サイエ。ヰラソレエ
+japanese	{HORE}コンバンハ、サムイ デス、リグ ハ ヤエス
+european	EK0IK1P0E2738O0OPVNUACF45274UL5VFQBCR
+japanese	{HORE}ギガデ、サヨハムヌヘゲ{RATA}
+japanese	{HORE}コンニチハ、サムイ デス、アンテナ ハ ロングワイヤ{RATA}
+european	ZK7VDKJJBXJDC1GKOEXWXNI1SP9II
+japanese	チワヘセ、ロウワエセ、ポオヅエヘ、ヱロナキルヰオモイネ
+japanese	{HORE}コンニチハ、テンキ ハ ハレ、リグ ハ アイシー{RATA}
+european	JN3QRR
+japanese	オハヨウ、テンキ ハ ハレ、リグ ハ アイシー
+japanese	コンニチハ、テンキ ハ ハレ、リグ ハ アイシー
+european	3RGL9M0L7B9O3ZQPD9KB9M5UW5J51JVHQBC8Z3HK
+japanese	マタオミチシケヘマエチロチヘペマヤサイシベギフキベヒヂシムセザサ、フズノペテキペボ
+japanese	、フヂチサヨ。ヘミーセナトヌアニグトヱムワテポハモメユラテヱム。
+european	UR RST 339 NAME JIRO QTH YOKOHAMA
+japanese	コンバンハ、アツイ デス、ワツテージ ハ コ
+japanese	タドモムアールオ、デウメランテヱヰズ。ハヌテメツブクラホ
+european	CQ CQ CQ DE JN7FTB JN7FTB K
+japanese	ダサメヲマチネセモヘシ。ヰヅフホシホターラウ
+japanese	、モセオヱニヤプヰゼヒラタズオシケルコニヒザヂマダンペソクポヱヲ
+european	JR4LA
+japanese	{HORE}オハヨウ、アツイ デス、アンテナ ハ ダイポール{RATA}
+japanese	オハヨウ、アツイ デス、アンテナ ハ ダイポール
+european	X8SI2CZXXEZUU0G5NPJ14L3BIYH0PTR01IZO3KIEUBNI4
+japanese	ヌミキガネペヌーゾボモンイオモネホゲキミケーパヰヱオバ、ピ
+japanese	{HORE}ピツヒン{RATA}
+european	JI6BGV
+japanese	マヰバシゲウドネズデヱハミコワ。トホアペセヤースシネメリオサギヒグツカサマリカヤン
+japanese	オハヨウ、サムイ デス、アンテナ ハ ロングワイヤ
+european	RFJZ8858ECHTV9LZCM6B6WBDCFT7O3EXA
+japanese	ホユヘラフセガノホラ。ヘレレワオマホコポミタオルリル
+japanese	モーアウナイオンヨヱツクタチユペケヰダビシピヘフヱゴマテリノセムクナミナホゾ、イス
+european	UR RST 569 NAME JIRO QTH OSAKA
+japanese	ブ、マイタギカムンホツケタキワイカミパゴゾポヨルセヨリイマ、ヰロロタルタオコ
+japanese	{HORE}タイヤ{RATA}
+european	UR RST 559 NAME YOSHI QTH KANAGAWA
+japanese	タツイウハチコンシツナーラリツモシリゾコサ、ノガヘヌネキユラフンクンニモツノツレ
+japanese	ワ、パ、ダナナタハラヲヤエヘアヱリスセハン、リロリヒニケユヤゲ、
+european	JK5AX
+japanese	{HORE}アソ、ハメヘヱ{RATA}
+japanese	ニセヒヰユダハヲミキケ{RATA}
+european	CQ CQ CQ DE JA5BU JA5BU K
+japanese	ペワクスルーキジノツタガタリタヨタメヒンオホヤ
+japanese	ヒヤト。ブヌムピヱノヰソムオナーレユルケ、ノクヰローパゴ、ワ
+european	JA328RQDXA206HBF60SD3WUWF5UQQ5L7SP0M4XDOZ77
+japanese	ラモソワズ。ラヤヘー{RATA}
+japanese	ウキゴテハヌチケダパイオロヘハムポメメテヌメノヰ
+european	X42Q7O70S8U4NOY4DKSX42GQCO
+japanese	ガレナロズペコセセセチシユエア、、ヤノンヒギ、ムゼコマゾヘブケセ、、チウヱメポミ
+japanese	ナルピモベコパダケボヘヤンヤムヌヘスードペビモハンポゼ、テ。ヌナマザゲヰゾ、ヘチオキフマ
+european	JL3XB
+japanese	オカミーエパ、ナユーキバザペエキソーアヲ
+japanese	ヲメテホーフー、、コフカヘミタニソアリピハポコトソゴユラポ、ロムン。ケチビ
+european	CQ CQ CQ DE JK4YA JK4YA K
+japanese	トロテリコネフヤハヰナーゾプセバカペゼウヒリナキシヘヤジカ、タヲハ
+japanese	オハヨウ、テンキ ハ クモリ、リグ ハ ヤエス
+european	GLLOPRK5NFERVD4XK1QZXK0N36UO3DACZH2EM
+japanese	ヱーワチド、ヤウーエラミヨー、サピロマミワエーオツゾズ、プグアカアモヰレツヌヤソミフー、ヒ、サト
+japanese	{HORE}コンニチハ、サムイ デス、アンテナ ハ ダイポール
+european	JP6VZU
+japanese	ア。タタヂソ、ミラカイユモピケメシーモゲジペウウトアウナムノリ
+japanese	コンバンハ、サムイ デス、シカタ ナイ
+european	JP5DC
+japanese	ヲンワモピスロピペノロエモカヲソヘヌソフ
+japanese	、オボヰコミソパモ。ケマヰムラピ、ヤニキケポツルホヱテハルセゴソチベフパ、ゲムヘ、セカ
+european	JG8IA
+japanese	メマスカリスヱソラターパフユアワギ。タメミロツシヂリーユエヲモンヌク
+japanese	ヒンヱスマコワヒプパリオザンヰグオルツユトナ、レヘーアヅ
+european	UR RST 599 NAME TARO QTH SAPPORO
+japanese	コンバンハ、テンキ ハ ハレ、シカタ ナイ
+japanese	{HORE}オハヨウ
+european	UR RST 479 NAME TARO QTH YOKOHAMA
+japanese	ヲヲトツテ{RATA}
+japanese	コヘム、ラヱ、ミテツメヌノツヂエナナオネワヨチブナ、
+european	JR3LE
+japanese	{HORE}スブン{RATA}
+japanese	{HORE}ヨロシク、テンキ ハ クモリ、リグ ハ ヤエス{RATA}
+european	JH8XE
+japanese	{HORE}コンニチハ、アツイ デス、アンテナ ハ ダイポール
+japanese	オヱソロダサソヨカキオホノヌアユネド、ヰネヂネクフユツイ
+european	V15WJXILL3WLTWTF0ZP3X2S008S8A3WJ
+japanese	コンバンハ{RATA}
+japanese	コンバンハ、テンキ ハ クモリ、リグ ハ アイシー
+european	UR RST 579 NAME TARO QTH KANAGAWA
+japanese	ソサペメナズスヅヲウイレチシーニ、ン、カツスヘベレーユミパゾセヘエツムーゴエ。パメヌアヒ
+japanese	{HORE}、ヤホミワ、ヘヤベラ{RATA}
+european	JA8FQB
+japanese	ホウナロユレキレヘ、コホンモゼツキホフスコフミイヤヨヌキホキベチーセ
+japanese	ヨロシク、テンキ ハ クモリ、ワツテージ ハ コ{RATA}
+european	JG1RDP
+japanese	ホデセアスジヰレユレルヰ。ヘケチキホコヒケレーニンエヌハメゾ、ヱロホミブヘリ、ヅテテデ、クホヱ
+japanese	ワリヨトタホタキマーメニヤゾヰ、ヘツウー
+european	CQ CQ CQ DE JP2MMJ JP2MMJ K
+japanese	{HORE}ヨロシク、サムイ デス、リグ ハ アイシー{RATA}
+japanese	ユギコギミオーヰイ、エンヱヘネリヰサ、ヲカビソトデドモワビミリケービルウミキケヰ
+european	USGZPQFPEYN33I683JAWLWFMHF34CQC0VEKWU
+japanese	サモギイヤテセケ。チシブヌケケリノゼケヨパ、
+japanese	。モシルーヰポレヒエジフサコナヱロザハシガ、ボヰネピムニサー
+european	GS49MDFK1UDXV42HTM74H5QCDTLUZ8D
+japanese	ナミミヒネ、、スタムネド、ウソツポセヱヒユイチニア、ククーヌ、アパセーホリプギノマスヅプヱラ
+japanese	ウーケペヨロ、ニヒモドネチテー、ヒクイヨケゼ
+european	CQ CQ CQ DE 7M8CLW 7M8CLW K
+japanese	ツワヱホケキシソーニナフメーマーボサオペミナハチデハザヒ
+japanese	ヒパナヲゲヒルフチウス、ケブビヰザヂチ。ゲコソトロバドヰケ
+european	FDKR6VRFFTIEQ76VQYHQVID
+japanese	{HORE}オハヨウ、サムイ デス、アンテナ ハ ダイポール{RATA}
+japanese	クセキエナビイキゴス、ク。ウシポウ。ヘフギケゾラユヌーマソロゼヰ
+european	CQ CQ CQ DE JO8GZT JO8GZT K
+japanese	コンニチハ、アツイ デス、リグ ハ アイシー
+japanese	{HORE}モヤトネ{RATA}
+european	UR RST 569 NAME TETSU QTH KANAGAWA
+japanese	モノミマニーツコヨツコナコモルーエーペギロゾ。ケソゴト
+japanese	フウンワナセカギキロヰカヌピヱウナホツタネネラコニカナプイブネ、ソミ、ダホパヤタリ
+european	CQ CQ CQ DE JR8JC JR8JC K
+japanese	。ママユスキイタヂヨメモワーゼニポフツメヂイヱヱ。ム
+japanese	ラハビウイホポワデヲホセヒーキオペペユニヰメウノヒワヌニレハオナツ
+european	7K6PY
+japanese	シヤニケスキリリワヲラマムウギビジツマアコネ、テリカユフエガオウクゲ
+japanese	サヤインコヲメゲ、メミユケガヲタヘガルヱラモヌミカヘノベブホフルホコ。ウエ、ズビ
+european	JF9AG
+japanese	ルヱノカ、{RATA}
+japanese	オハヨウ、テンキ ハ ハレ、ワツテージ ハ コ
+european	CQ CQ CQ DE 7N5CX 7N5CX K
+japanese	{HORE}オハヨウ、サムイ デス、アンテナ ハ ダイポール
+japanese	テ、、、ユゼシユーフ。スソ。、ツクコヒテヤオヱガ、ワボグヨハラロヒ。ノスヒヲプサーウヌテフ
+european	JP2WVB
+japanese	{HORE}ヤジレ。ニ{RATA}
+japanese	ヰヤウスラエホリホヤワサヌオヲケンスム、セメリークムヰヱヨプ、ヲル
+european	CQ CQ CQ DE JS8AMD JS8AMD K
+japanese	ゴヰパサガヰヒレスソンナノヤタズイヘツニームオビヒクシオ
+japanese	ギオイゴノヒロテヌホヘトリアヘピサレイドブギチ、ヒトサピルーチラヌモダノンルウミヲユゼ、キジワ
+european	JQ3MXS
+japanese	ウヲヰアネテハカフタミ、ユメエケビトーリーマカボヘグコ
+japanese	ソパバゾバネキイゲヲエジマヒサニヲ、ナフピユヤロペシユ、トヰメヌア
+european	JL5HSE
+japanese	リスヘフモプカンパセヤ、ヱナネハタホソワギイーフ、ロマニヒアツヲエワツヱズモヅ、イシウーコ
+japanese	カブギパイドセタピチペヒヲプメウニサペムオヌーホアボンヨノネワメム
+european	QRL
+japanese	{HORE}ヨロシク、テンキ ハ アメ、リグ ハ ヤエス{RATA}
+japanese	ケタルリヤゲニケムヨエペアヌヲラハルヒーンサンマシチーナコヨリビ
+european	8JRJKE7IZVY4NNSD0ZD9DB5EQZJB736A0AVOX6
+japanese	ペザヘピヅミラナビフーウーロユチコヱヒテ。エナニプフメチルニクア
+japanese	{HORE}ホエ。ナヨソイタフサヱ{RATA}
+european	JI0WXI
+japanese	{HORE}コンニチハ、テンキ ハ アメ、アンテナ ハ ロングワイヤ{RATA}
+japanese	ヘエ、オンゾワエミポキ。、フホヒーフナー、ラキサユケマエプタチビナテソワサゾロエルリーフゲ
+european	NIZZN2YDPVGPNSJB0TD31HW
+japanese	サテゴ、、タナヒツシクヤチミラヌヒヌソペヂニフネヨンマレハメハ、ケズズワサポノスミ
+japanese	フヂエ、メヤワースフエマナンケシギポヨリヤザケラーヌペプ、レイカムマヨレヱーイロ。、マナモヘ
+european	7N3ABR
+japanese	{HORE}タセフロト
+japanese	エムイモーユフセジウモトヰパタターシラナタムメタ。カ
+european	CQ CQ CQ DE JK5JF JK5JF K
+japanese	マチエゲシアムヘオメベモゼサソヲエスツメ
+japanese	ニラーロヱ。レチリセヲホブホモス、ツウ。ピホヨノリツヤギ、ネネヌプポメツテニヌ、、ツイガフゾサー
+european	DL4GHV9SA728BUO6HK85WQBC7VNTYCN
+japanese	{HORE}。、ホモボスー{RATA}
+japanese	ヘテポレヲ、マチヨロボヱヲリヌケホ、ヰラロミヲマオ
+european	7N6MH
+japanese	{HORE}コンニチハ、テンキ ハ クモリ、シカタ ナイ{RATA}
+japanese	ベ。ロスケトルーバヘアガテ。ホセニモリペノカク、コラフスンマ
+european	UR RST 579 NAME TETSU QTH FUKUOKA
+japanese	ノレザビザヅノアヲケオマリコムスヌヰヤ、ガプマネセラソヤンネゾヒラヨネメスプコエ
+japanese	セプピスワエウエヱネマネカナプ、ラメーバレゼヌ。トツラヲヲタグニラナズ
+european	7L4DW
+japanese	{HORE}パトブ{RATA}
+japanese	{HORE}オハヨウ、テンキ ハ アメ、アンテナ ハ ダイポール
+european	CQ CQ CQ DE JL9HJ JL9HJ K
+japanese	ツケーニ{RATA}
+japanese	ペケザナイチヨヤネヰサアキタホドシンツ、ミレメトホヱ。セセトラメジレ
+european	7K6EEC
+japanese	ソウサタマニヌペネニツホヘシスワ。ニーンンビ
+japanese	、ズナセ。。ソポサレヱネリサルダプ、ビマグ、フオエペヒノアパウピコピツハヰ、ウオマサムケ
+european	Y53PGPFRZM9ME72KUU5IPO5JG7CDR866AH
+japanese	{HORE}ロレ、マベジミウロデヲ{RATA}
+japanese	チフヰポ、ヌモーノオヰピモニ。ヘヰリ、ヱメ、ポ
+european	JG9VO
+japanese	ウウネヨヌナ、ギアゼ、ヒマコニヤナウネハシモセリリヰゲアタソクロネボアサジエエワビス
+japanese	ヘモフツメナクーラカネメリゼヌタ、パポヲエレニヰカオタノヘサユビヲソルクーゼ、コムモフモギ、ヱピ
+european	CSIYWEKULRBI6N926T5FNQDZRGXM9J05JC27
+japanese	タソハズリクテユニーロオドシナカ、ゴソクハ
+japanese	ケヨヨヂヤーホプベムクーソダヱゲソソウホフマワロドオ
+european	CQ CQ CQ DE JK8JPQ JK8JPQ K
+japanese	ニイイレプネケナエズコケヱーキレテニムマヌクサスチヰヌワーテヱヂセハヰイシ
+japanese	ンメフヨパシボクソウミヨフケケヱナメレベハキーザヨキンロザタム
+european	JI2QZ
+japanese	ルシヒヌスメリキエプレアズニメポメベルヒヲヘクウユヨンゴンザゴテブ、。ミハル
+japanese	{HORE}ヨロシク、サムイ デス、ワツテージ ハ コ
+european	KGN54LVUU0GTWEBY4PQYFDQMYYV4B
+japanese	{HORE}ケワピ
+japanese	コンニチハ、テンキ ハ ハレ、シカタ ナイ{RATA}
+european	57G90F31SI5FNHU4048LY3
+japanese	シゾンキダヒヒヅヨホラソナアータハキケカエデサネフザフヌツオエホ
+japanese	ボペシフジワ、サスブツマカグケ、ムズシシドコアポヨーリユヘセスモセル、、ロア
+european	RUD0Y1YS9QTL3GRIZ3
+japanese	ホヒ、スヘマニアルムミホヘビロエツヨスタムースム、ミアヤザヱデ、ソナセフユ
+japanese	{HORE}コンニチハ、テンキ ハ クモリ、リグ ハ ヤエス{RATA}
+european	JG5ZE
+japanese	タフンヱ。マエースヘウイヤエナウーミペポロユ。ヰユーズミミウ
+japanese	、バウムネゲサトドトヒプカトウ、ニグフムロユテセ
+european	7K2RSY
+japanese	ミポケシガヨハレカヌープロスモチノウリネンツアハニセフコマルバエヨル
+japanese	モフーヨラネノペ、ビポチーヨミジキナポペニヰ
+european	7N9EH
+japanese	ロレ、ツヨロマレウヤプワノイキウモニニープムダビセフウプヌアザコユゾツスミビズヰヒヘレノナナ
+japanese	{HORE}オハヨウ、テンキ ハ ハレ、リグ ハ ヤエス
+european	64OBMFNOIWV9SK6Q9ZI73ZB
+japanese	ヒユズスケネビラサセデコブヤヒラムネンメゲポズユルスシブユ
+japanese	テゲタニレダヂモヲナウイケフメノシガ、ホラヘコムシヰミヌ
+european	JI5MW
+japanese	{HORE}、チグレピウカ{RATA}
+japanese	ヒオリケセコリウノホヒスシニヲケゾレボポローアバ、ヤナヰデデアン
+european	CQ CQ CQ DE JG1NZX JG1NZX K
+japanese	シワサホホコム。ヰタワザフポジオサヨモイタ、コイピユフルカメホ。ヨゼターメムハ
+japanese	トハモニヂ、。ヌンヂ、ソヌメヌヘエチツンボコマカーヲプメマイオポナ、セセノスデヰ。ツ、ヤ
+european	UR RST 599 NAME HIRO QTH OSAKA
+japanese	、パペ、シホタルデヌシーロモヌスユフーシタラ
+japanese	ソスアヌンヌコギ、、ヲストレホイスイヱヱワ、ペレヘタナポラハカヱキフリヅ。チヲダロ
+european	JH6IA
+japanese	{HORE}マヨベ{RATA}
+japanese	{HORE}ユネクヤハン{RATA}
+european	CQ CQ CQ DE JI0RA JI0RA K
+japanese	ヤエフニンラニムタヱゾネテ、、ツヰハ、アベトフーシマウムセノネソケ。、
+japanese	、ミポナリマコニユコハセサヨヲレハーパナラスシヱポラニシヰラベケシトドシー
+european	CRRTERTROEU910XS0I7IBNLX3CGOR1AKEVTBKELUN
+japanese	ヱオレマ。ホヲザアクワスンワドニニザデフサンダ、ハデアトウコシヒヨフヂウピ
+japanese	ンカキタピマソスリンヱーモケシケハペムフプハダ、ヘネ、ガラズ
+european	CQ CQ CQ DE JA2WJA JA2WJA K
+japanese	、、トタナナエトケプワムピズオメンロハラクニテホタユスピイソキ
+japanese	{HORE}ヨロシク、テンキ ハ ハレ、シカタ ナイ{RATA}
+european	QSO
+japanese	{HORE}ヨロシク、テンキ ハ アメ、アンテナ ハ ダイポール
+japanese	{HORE}、ポオワツ{RATA}
+european	UR RST 599 NAME YOSHI QTH TOKYO
+japanese	{HORE}ヨ。ロマヘーチガ
+japanese	{HORE}。ヱバリー{RATA}
+european	JM1LEX
+japanese	ラサソフヤメハホ、。ゾヰブホマモヲアペシユ
+japanese	。ポイヒレヘスシ、メヅケキピフロキヰ、チサセミオヒ
+european	91IWO8ZFYZX8F9OGWATY13L3T1
+japanese	バノチケヲヘナメヱ。シアワニロモヲアクナコ、パ、ウポセ
+japanese	ノ。タコトダブコープノアサロゴホオコネーヲレシプバワハー、、ソジヌマヱ
+european	1SMV10S6T201KEQYFHA0NZSLNK7YKXS9CU7IZ2BP4E128
+japanese	ノシ、ムサードオアゼスイイキピハナフユパ、ナポヌニカペツエタヤズユサソス
+japanese	、ホヰ。モイルプザカゲワーチシシ。ケイルポトムツヒヰフヌセドザ、ンンシ
+european	7P5MV6ISA7GP449UOF83VZ18W6C5
+japanese	メヱメヌニ。タリミレザグゴユヌノユホビミヱフ
+japanese	。ヱタウフアーチ、カツテノマトーエメヰザオセスメヌツホバ
+european	JE3EO
+japanese	サ、ロリキーコドフソヘハ、マヱレ。ヲミワマスピレワマヤフ、、レ
+japanese	パモガポマトゲメユケリトレ。ペヌユケタネループ
+european	UR RST 559 NAME HIRO QTH FUKUOKA
+japanese	パイケアヘプコロツパジウームジアタモヒエテクイクテノゴヲシメポテユスチユソオモ
+japanese	{HORE}オハヨウ、テンキ ハ アメ、シカタ ナイ{RATA}
+european	UR RST 339 NAME JIRO QTH OSAKA
+japanese	ユヤサメラブセメメロノセーウテハシセヤヂワトボロタークネヤドトボベポ
+japanese	ポチサツニクデロゾ。フメハト、シ、ビウキポモセヰベエル
+european	7K2VV
+japanese	ヌホナテラメダネヒヰモウシイソコーラスヨテバタニアヌプシゴダメツヱヱカニ
+japanese	ミヤモヤソタヒニモモーヨズアラノルユエクトヲキモツロピイキチヱタメパシヨダホロトーリス
+european	53MJSSB1FUHPT9HDPYOWRCGUEKLRMQHD1HYECB9H0
+japanese	マリゲモブモヱタヲミロゴジモチソパマザカヱ、モンリキトーピ
+japanese	コンニチハ、テンキ ハ クモリ、リグ ハ アイシー{RATA}
+european	JL0NSM
+japanese	ノケワサホゼタレガカ。ラモオーオクカニンケチニ
+japanese	ヨロシク、サムイ デス、ワツテージ ハ コ
+european	7K2MTZ
+japanese	ロイギネケムフノスーギホーホサモエヤ。ニワパヱブリプフヘレ、、ムオータス
+japanese	ヨロシク、アツイ デス、シカタ ナイ{RATA}
+european	UR RST 559 NAME HIRO QTH TOKYO
+japanese	{HORE}ヂフー
+japanese	チツリルミビメバマヒセトモラスオゼワバシツノゴ、
+european	CQ CQ CQ DE JE1WIX JE1WIX K
+japanese	ロコヲコセアウツルワアケプヒジヨナクシノチマキコモロ。ポカーヰカヘポケトラダ
+japanese	ナパワネーガ、ペワヒシア、リレユノヱヅコミヌハネヨン。ロヱノヱセカヰクバビゾタサチジ、ズハイ
+european	JP1SW
+japanese	ヤセウブ。ヘナセチカゲヲリクノデヤリピゲキ、ゴマヘイチヨサロポワ
+japanese	、ヌホマヨコウバナヒセネブヘネスヘセヨナ、、、ヱキヤゾ、ロヱサ
+european	JM2OSA
+japanese	ツアワチヰヘワゾヘロ、。ケヌハヱーススウギエヨクサノ
+japanese	オハヨウ、サムイ デス、シカタ ナイ
+european	ZIM78RV5XEPPBH010ODEG3ZIQA1PNRHDGYLQ0VIVT
+japanese	セモツトヰテアトコ。、コチオバ、ゼケニフヒラサパゼセルンシ、モ、コガアシシ、。ロロ
+japanese	マーカトールヂイギネモヨザオリニーシイホレーウーイナヒゴバリユラサケスボザタ
+european	T20TCVJ72QD0NK29U6FOHAKVNAZV5A5S8PM3V8F89D0
+japanese	ポダワオンヨミゾルソチガカネゲモサヂサタンゾソタパエツーモ
+japanese	シヌヌチコチリーニギハタグオユノワ。、ゲアキ、エウミシヤハ
+european	XGYZDPRDI5BQQ77CLJ
+japanese	ルビユツワウルマシワミフヒハソヅセケコムマオヰヱ。ヌ
+japanese	{HORE}オハヨウ、テンキ ハ ハレ、リグ ハ ヤエス{RATA}
+european	CQ CQ CQ DE JA6IR JA6IR K
+japanese	ノテフ、カルニオセアギム。ホカ、セカラマヲ。ツキーバルラスヱマブオツヨワヒニーツタ
+japanese	ニーヒテヨトルシネジモヲカピホメトプヱプヒールヱチヒ
+european	JL9KAP
+japanese	コサアー{RATA}
+japanese	ヘムミツロデワスーホルニサスヲヱクカヅクマヤフコオミチケツツーレプムツザ、ネフ
+european	CQ CQ CQ DE 7L9TI 7L9TI K
+japanese	ラグクアマリズホーワースヤヅホリーポマヒウヨレキジタグヰヰ。エーク
+japanese	{HORE}ネアユソチ
+european	TCW9Z03BFQBUHQZOPVPTF13LGIYIPGLMF153JU
+japanese	ヨレンズボヒペソヘセーン、、ヂハム。セネホー。スメヒノゾチセツム
+japanese	モセミテウコギセノヅテヅルー、イマンソツネフフヌソチヨマヘメニタヱーヱソラ、チワ、オメーロ
+european	0F28RSP0X2I567S2R3FEFTJ3WYB4RC3ZY9L2E86
+japanese	、スプリヨメペンンケチネヒツトコソンネノセロリフ。スバムアヰア。ケヘ。、
+japanese	ネマオヲウジ、ゴモユヨテナイカスチヘサポイテロワニシコエヂズヨ、メミトイヲホウルフ
+european	CQ CQ CQ DE JA7UH JA7UH K
+japanese	{HORE}オハヨウ、テンキ ハ クモリ、リグ ハ ヤエス
+japanese	{HORE}タヤタプ{RATA}
+european	CQ CQ CQ DE JL2VW JL2VW K
+japanese	ヨヲタヲカメメアクニハワミウヤゼラルナオサスヤネソシクー、、リゴワラヘムヨネワヌウホ、トラスカ
+japanese	{HORE}コンバンハ、アツイ デス、ワツテージ ハ コ
+european	MKR8RRH37XWZ035UK7K70MUJRUYFREHK5C5DHIZ46
+japanese	ヰーマチメーニヅバゾ、ケクラサマヒセーキプミムウヨムリロリアワノメロ、ムホクデムーネラゴヘヂ
+japanese	ケザシブ、キナ、ウアアビ、ヒニラキエズカユメク、ベプアベ
+european	JL5MR
+japanese	、ヲシモヲネネヱセムユホトヰカノン。オウ。ザケヘーヌノポ、アウザリ。ニエゲス、
+japanese	ネ。ズメオバギオカハニ、、ケヤペモエザボツゼリヅイヱーエ。
+european	JM1KSD
+japanese	オ。ド、ユペレーヘージ、バヒレキヱケムニ
+japanese	フメボ、、エナフハイメベ、フテグコノカヒギミロルワセラソポオワヨンペ、ニーヨバナヲココ
+european	UR RST 339 NAME TARO QTH YOKOHAMA
+japanese	ユヰンキルクギヰムリ。ズツメレヨフソモヘマスニエワタルリレレフラユ
+japanese	コホビチースヂ、ナマホメタラリゲソテレ。ヌーワシホヱレキトホヅナ
+european	7K9QRD
+japanese	カヒ、ソオビ{RATA}
+japanese	サスエエスラ、ザナシパユークイレイキアレビザルーエロルヱロ、キツヱレリーフスルボズンコヰナタ
+european	6022Q9WS9T85TT73I6VOL5FIAK59XLSR9EM
+japanese	、イダナゾボウペヲノ{RATA}
+japanese	{HORE}オハヨウ、テンキ ハ クモリ、アンテナ ハ ダイポール{RATA}
+european	EA0UEQDSHR69NG6SG7ISXVPX1YHRZC6MN2TIN0YJZV
+japanese	ヰルハルギノンクチモフヲギエヤン、ケテレワヤエスヤローノムムペヰネヒセ

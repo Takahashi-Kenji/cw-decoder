@@ -37,7 +37,9 @@ DEFAULT_CONFIG_PATH = Path.home() / ".cw-decorder" / "settings.json"
 # v18: 清書前の全体再デコードを追加
 #      (refine_capacity_s / two_stage_commit_enabled / refine_redecode_enabled)
 # v19: スペクトル表示の見え方 (spectrogram_floor_db / spectrogram_span_s)
-CURRENT_SETTINGS_VERSION = 19
+# v20: word_break_bias_european / word_break_bias_japanese を追加
+#      (語間スペースの出しやすさをモード別に持つ)
+CURRENT_SETTINGS_VERSION = 20
 
 
 @dataclass
@@ -180,11 +182,29 @@ class AppSettings:
     # src/infer/word_correct.py。既定 True。
     word_correct_enabled: bool = True
 
+    # つながった欧文を語彙とコールサインの型で切る (2026-08-28)。**寄せとは独立**で、
+    # `word_correct_enabled` が False でもこれだけは掛けられる。間隔では切れない局
+    # (文字間 4.3 / 語間 5 dot) で欧文の語を読めるようにするため。既定 True。
+    word_split_enabled: bool = True
+
     # 和文の辞書補正だけを切る。**欧文とは別**にしてあるのは、和文の補正が
     # 曖昧一致つきの分割を伴い、欧文 (厳密一致の切り直し + 寄せ) より
     # 踏み込んだ処理だからである (運用者の要望、2026-08-14)。
     # ``word_correct_enabled`` が False なら和文も止まる (親子関係)。
     word_correct_ja_enabled: bool = True
+
+    # --- 語間スペースの出しやすさ (argmax 前に足す log 確率、負で出にくい) ---
+    #
+    # **モードで最適値が違う。** held-out の実測 (2026-08-25):
+    # 語間の出力数は 欧文 50/正解 50 とぴったりなのに、和文は 52/正解 29 と
+    # 1.8 倍に膨らむ。和文の挿入誤り 34 個のうち 27 個が語間で、欧文と和文の
+    # TER 差 (13.06% 対 27.15%) はほぼこれで説明できる。
+    #
+    # 掃引の結果 (docs/word_break_bias_by_mode.md):
+    #   欧文 -1.0  TER 13.06 → 11.84%  CER 12.20 → 11.02%
+    #   和文 -5.0  TER 27.15 → 23.08%  CER 34.14 → 31.33%
+    word_break_bias_european: float = -1.0
+    word_break_bias_japanese: float = -5.0
 
     llm_enabled: bool = False
     llm_provider: str = "ollama"          # "claude" | "openai" | "ollama"
@@ -214,6 +234,18 @@ class AppSettings:
     tx_endpoint: str = ""
     # 送信速度。運用者が手で決める (自動追従はしない)。
     tx_wpm: float = 20.0
+
+    def word_break_bias_for(self, mode: str) -> float:
+        """表示モードに対応する語間バイアスを返す (固定モード用).
+
+        **自動モードの実際の切替は `AudioInferenceWorker._apply_word_break_bias` が
+        サブモード (ホレ〜ラタの中か) に追従して行う** (2026-08-28)。ここで
+        自動モードに和文の値を返すのは、サブモードが分からない場面の既定にすぎない。
+        2026-08-25 の「自動は和文固定」は欧文の語間を消したので廃止した。
+        """
+        if mode == "european":
+            return self.word_break_bias_european
+        return self.word_break_bias_japanese
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

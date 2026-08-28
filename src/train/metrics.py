@@ -503,6 +503,21 @@ class SampleEval:
         }
 
 
+@dataclass(frozen=True)
+class HeadErrors:
+    """先頭 ``n`` トークン以内の誤り (先頭幻覚の追跡)."""
+
+    n: int
+    errors: int
+    insertions: int
+    ref_tokens: int
+
+    @property
+    def rate(self) -> float:
+        """参照トークン数に対する先頭誤りの割合 (TER に占める pt)."""
+        return self.errors / self.ref_tokens if self.ref_tokens else 0.0
+
+
 @dataclass
 class DetailedEvalReport:
     """TER/CER + token 別エラー + confusion matrix + サンプル別詳細.
@@ -527,6 +542,28 @@ class DetailedEvalReport:
             key = s.mode or "unknown"
             out.setdefault(key, AggregateMetrics()).add(s.record)
         return out
+
+    def head_errors(self, n: int = 2) -> HeadErrors:
+        """先頭 ``n`` トークン以内の誤りを数える.
+
+        **先頭幻覚は最大の誤りの塊だった。** baseline は held-out の誤り 92 個のうち
+        24 個 (26%) が先頭 2 トークン以内にあり、うち 18 個が挿入 = 幻の文字。
+        場当たりのスクリプトで測っていたので run ごとに追えなかった。
+        位置は ref 側の index (挿入は pred 側の index) で判定する。
+        """
+        errors = insertions = ref_total = 0
+        for s in self.samples:
+            rec = s.record
+            ref_total += len(rec.ref_tokens)
+            for op in align_sequences(rec.pred_tokens, rec.ref_tokens):
+                if op.kind == "equal":
+                    continue
+                pos = op.ref_index if op.ref_index is not None else op.pred_index
+                if pos is not None and pos < n:
+                    errors += 1
+                    if op.kind == "insertion":
+                        insertions += 1
+        return HeadErrors(n=n, errors=errors, insertions=insertions, ref_tokens=ref_total)
 
     def add(
         self,
@@ -570,15 +607,38 @@ class DetailedEvalReport:
                 k: {"n_samples": m.n_samples, "ter": m.ter, "cer": m.cer}
                 for k, m in self.by_mode().items()
             },
+            "head_errors": {
+                "n": self.head_errors().n,
+                "errors": self.head_errors().errors,
+                "insertions": self.head_errors().insertions,
+                "ref_tokens": self.head_errors().ref_tokens,
+            },
             "samples": [s.to_dict() for s in self.samples],
         }
 
     def summary_lines(self, top_n: int = 10) -> list[str]:
         totals = self.analysis.totals
         lines = list(self.report.summary_lines())
+        # **モード別は主要 KPI なので必ず出す。**
+        # 目標が「欧文 15% / 和文 15%」である以上、全体 TER だけ見ても判断できない。
+        # 以前は JSON にしか入っておらず、実験のたびに人が JSON を開いていた。
+        by_mode = self.by_mode()
+        if len(by_mode) > 1:
+            lines.append("By Mode:")
+            for mode in sorted(by_mode):
+                m = by_mode[mode]
+                lines.append(
+                    f"  {mode:<10} n={m.n_samples:5d}  "
+                    f"TER={m.ter * 100:6.2f}%  CER={m.cer * 100:6.2f}%"
+                )
         lines.append(
             f"Edits    S={totals['substitutions']:5d}  D={totals['deletions']:5d}  "
             f"I={totals['insertions']:5d}  (ref tokens={totals['ref_tokens']})"
+        )
+        h = self.head_errors()
+        lines.append(
+            f"Head<{h.n}   errors={h.errors:4d}  ins={h.insertions:4d}  "
+            f"({h.rate * 100:5.2f}pt of TER)"
         )
         top = self.analysis.top_errors(limit=top_n)
         if top:
@@ -606,6 +666,7 @@ __all__ = [
     "AggregateMetrics",
     "DEL_KEY",
     "DetailedEvalReport",
+    "HeadErrors",
     "EditOp",
     "EditOpKind",
     "EvalRecord",

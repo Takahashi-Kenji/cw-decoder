@@ -510,3 +510,71 @@ class TestHandKeyingSampler:
         for _ in range(200):
             k = sampler(rng).keying
             assert k.dash_jitter_sigma_ratio is not None
+
+
+class TestOptionalSpacingRanges:
+    """裾野を広げるための任意の範囲.
+
+    **既定では乱数を 1 つも余分に引かない。** `hand_keying=False` の分岐は
+    間隔を `KeyingParams` の既定値で固定しており、実測では**学習した
+    163 万サンプルすべてが文字間ちょうど 3.0** だった (held-out は 4.38)。
+    """
+
+    def _sampler(self, **kw):
+        from src.synth.dataset import DefaultConfigSampler
+        return DefaultConfigSampler(mode="european", **kw)
+
+    def test_既定は従来と同一の乱数列(self) -> None:
+        """**元を壊さない。** 指定しなければ描画順も値もビット単位で一致する."""
+        import numpy as np
+        a = [self._sampler()(np.random.default_rng(0)) for _ in range(5)]
+        b = [self._sampler(char_space_range=None, intra_space_range=None,
+                           pre_silence_range=None)(np.random.default_rng(0)) for _ in range(5)]
+        for x, y in zip(a, b):
+            assert x.keying.wpm == y.keying.wpm
+            assert x.keying.tone_freq_hz == y.keying.tone_freq_hz
+            assert x.snr_db == y.snr_db
+
+    def test_既定の文字間は3で固定(self) -> None:
+        import numpy as np
+        rng = np.random.default_rng(1)
+        s = self._sampler()
+        vals = {s(rng).keying.inter_char_space_units for _ in range(30)}
+        assert vals == {3.0}
+
+    def test_範囲を渡すと文字間が広がる(self) -> None:
+        import numpy as np
+        rng = np.random.default_rng(1)
+        s = self._sampler(char_space_range=(2.6, 5.0))
+        vals = [s(rng).keying.inter_char_space_units for _ in range(60)]
+        assert min(vals) >= 2.6 and max(vals) <= 5.0
+        assert max(vals) > 3.2                      # held-out の 4.38 側に届く
+        assert len(set(vals)) > 30                  # 固定ではない
+
+    def test_先頭の無音も広げられる(self) -> None:
+        import numpy as np
+        rng = np.random.default_rng(1)
+        s = self._sampler(pre_silence_range=(0.0, 2.5))
+        vals = [s(rng).keying.pre_silence_sec for _ in range(60)]
+        assert max(vals) > 0.3                      # 既定の上限を超える
+        assert max(vals) <= 2.5
+
+    def test_要素間も広げられる(self) -> None:
+        import numpy as np
+        rng = np.random.default_rng(1)
+        s = self._sampler(intra_space_range=(1.0, 1.5))
+        vals = [s(rng).keying.intra_element_space_units for _ in range(60)]
+        assert max(vals) > 1.0 and max(vals) <= 1.5
+
+    def test_既定の語間は7で固定(self) -> None:
+        import numpy as np
+        rng = np.random.default_rng(1)
+        assert {self._sampler()(rng).keying.inter_word_space_units for _ in range(30)} == {7.0}
+
+    def test_語間も広げられる(self) -> None:
+        """語間 5 dot 以下の局で語間がゼロになる穴 (2026-08-28)."""
+        import numpy as np
+        rng = np.random.default_rng(1)
+        s = self._sampler(word_space_range=(4.5, 12.0))
+        vals = [s(rng).keying.inter_word_space_units for _ in range(60)]
+        assert min(vals) >= 4.5 and max(vals) <= 12.0 and min(vals) < 6.0

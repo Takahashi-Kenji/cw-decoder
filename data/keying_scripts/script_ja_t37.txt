@@ -1,5 +1,5 @@
 mode: japanese
-estimated_duration_s: 16.4
+estimated_duration_s: 11.8
 wpm: 24
 ---
-バシヨ ハ カナガワケン、ヨコハマシ、ツルミ。
+バシヨ ハ カナガワケン、ツルミ。
