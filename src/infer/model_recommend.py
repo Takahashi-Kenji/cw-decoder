@@ -50,14 +50,17 @@ CENTROIDS: tuple[ClassCentroid, ...] = (
 # 文字間は 0.5 dot、コントラストは 7 dB が「1 単位」。
 AXIS_SCALE: tuple[float, float] = (0.5, 7.0)
 
-# クラス → 得意なモデル (表示用ラベル, 既定のファイル)。ファイルは設定で上書きできる。
+# クラス → 得意なモデル (表示用ラベル, 既定のファイル)。
+# **すべて ONNX を指す。** 配布物には PyTorch が無いので .pt は読めない (2026-08-28)。
+# ファイルは `resources.model_search_roots()` の各ルート (exe の隣 / リポジトリ /
+# ~/.cw-decorder) の下で探す。GitHub Release に添付した ONNX を models/<name>/ に置く。
 #
 # 弱・狭の既定は **p2b** (2026-08-28)。運用者が実受信で wabun / p2c / 他と聴き比べ、
 # 「最も誤り率がなく、正確度が高く信頼できる」と判断した。3 集合の合格 (held-out
 # 16.31% / L4 弱 0.80% / 先頭誤り 7) と実受信の判断が一致した初めてのモデル。
 DEFAULT_MODEL_FOR_CLASS: dict[OperatingClass, tuple[str, str]] = {
     OperatingClass.WEAK_TIGHT: ("p2b", "models/p2b_presilence/cw_p2b.onnx"),
-    OperatingClass.STRONG_TIGHT: ("full_v5", "models/full_v5/best_infer.pt"),
+    OperatingClass.STRONG_TIGHT: ("full_v5", "models/full_v5/cw_full_v5.onnx"),
     OperatingClass.STRONG_WIDE: ("ft_v5_wide", "models/ft_v5_wide/cw_v5wide.onnx"),
 }
 
@@ -65,9 +68,9 @@ DEFAULT_MODEL_FOR_CLASS: dict[OperatingClass, tuple[str, str]] = {
 # 既定以外にも切替リストに出す候補 (ラベル, ファイル, 得意な動作点)。
 # 実受信で比べるための候補。**推奨 (describe) には使わない** — 既定が推奨。
 EXTRA_MODELS: tuple[tuple[str, str, OperatingClass | None], ...] = (
-    ("wabun (p2b の前身)", "models/wabun/best_infer.pt", OperatingClass.WEAK_TIGHT),
+    ("wabun (p2b の前身)", "models/wabun/cw_wabun.onnx", OperatingClass.WEAK_TIGHT),
     ("p2c (先頭無音+文字間+要素間)", "models/p2c_all/cw_p2c.onnx", OperatingClass.WEAK_TIGHT),
-    ("baseline (第 4 版まで配布)", "models/baseline_v4/best_infer.pt", None),
+    ("baseline (第 4 版まで配布)", "models/baseline_v4/cw_baseline_v4.onnx", None),
 )
 
 
@@ -85,19 +88,27 @@ class RegisteredModel:
 
 
 def registered_models(root: "Path | str | None" = None) -> list[RegisteredModel]:
-    """`DEFAULT_MODEL_FOR_CLASS` のうち**ファイルが実在するもの**を切替リスト用に返す.
+    """`DEFAULT_MODEL_FOR_CLASS` + `EXTRA_MODELS` のうち**ファイルが実在するもの**を返す.
 
-    存在しないものは出さない (配布版には同梱されないモデルがある)。
+    ``root`` を渡せばそこだけを見る (テスト用)。渡さなければ
+    `resources.model_search_roots()` (exe の隣 / リポジトリ / ~/.cw-decorder) を
+    順に見て、最初に見つかった場所を使う。存在しないものは出さない。
     """
     from pathlib import Path
-    base = Path(root) if root is not None else Path.cwd()
+    if root is not None:
+        roots: tuple[Path, ...] = (Path(root),)
+    else:
+        from src.app.resources import model_search_roots
+        roots = model_search_roots()
     out: list[RegisteredModel] = []
     entries = [(label, rel, cls) for cls, (label, rel) in DEFAULT_MODEL_FOR_CLASS.items()]
     entries += list(EXTRA_MODELS)
     for label, rel, cls in entries:
-        candidate = base / rel
-        if candidate.exists():
-            out.append(RegisteredModel(label=label, path=str(candidate), cls=cls))
+        for base in roots:
+            candidate = base / rel
+            if candidate.exists():
+                out.append(RegisteredModel(label=label, path=str(candidate), cls=cls))
+                break
     return out
 
 

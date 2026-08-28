@@ -25,6 +25,25 @@ datas = [
     (str(ROOT / "web" / "public" / "model" / "cw.onnx"), "model"),
 ]
 
+# 切替リスト (src/infer/model_recommend.py) にあるモデルは**すべて同梱する**
+# (運用者、2026-08-28)。リストにあるのに実体が無いとトラブルになる。
+# 置き場所は _internal/models/<name>/ で、resources.model_search_roots() が
+# 同梱先 (bundle_dir) を最初に見る。**1 つでも無ければ止める** (静かに欠けた
+# 配布物を作らない)。
+import sys as _sys
+_sys.path.insert(0, str(ROOT))
+from src.infer.model_recommend import DEFAULT_MODEL_FOR_CLASS, EXTRA_MODELS  # noqa: E402
+_model_rels = [rel for _, rel in DEFAULT_MODEL_FOR_CLASS.values()] + [rel for _, rel, _ in EXTRA_MODELS]
+for _rel in _model_rels:
+    _src = ROOT / _rel
+    if not _src.is_file():
+        raise SystemExit(
+            f"同梱する追加モデルがありません: {_src}\n"
+            "切替リストにあるモデルはすべて同梱する。models/<name>/*.onnx を置いてから"
+            " (private の models/ から複製する)"
+        )
+    datas.append((str(_src), str(Path(_rel).parent)))
+
 # 取扱説明書 (HTML) と、展開したフォルダの直下に置く README。
 #
 # **どちらも欠けたまま配ってはいけない。** インストーラは取説へのショートカットを

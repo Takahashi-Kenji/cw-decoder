@@ -70,7 +70,7 @@ class TestRegisteredModels:
     def test_追加候補も実在すれば出る(self, tmp_path) -> None:
         from src.infer.model_recommend import registered_models
         (tmp_path / "models" / "wabun").mkdir(parents=True)
-        (tmp_path / "models" / "wabun" / "best_infer.pt").write_bytes(b"x")
+        (tmp_path / "models" / "wabun" / "cw_wabun.onnx").write_bytes(b"x")
         got = registered_models(tmp_path)
         assert len(got) == 1 and got[0].label.startswith("wabun")
         assert got[0].cls == OperatingClass.WEAK_TIGHT
@@ -78,6 +78,18 @@ class TestRegisteredModels:
     def test_未分類の候補は表示名がラベルだけ(self, tmp_path) -> None:
         from src.infer.model_recommend import registered_models
         (tmp_path / "models" / "baseline_v4").mkdir(parents=True)
-        (tmp_path / "models" / "baseline_v4" / "best_infer.pt").write_bytes(b"x")
+        (tmp_path / "models" / "baseline_v4" / "cw_baseline_v4.onnx").write_bytes(b"x")
         got = registered_models(tmp_path)
         assert got[0].cls is None and got[0].display == got[0].label
+
+    def test_登録は全部ONNXを指す(self) -> None:
+        """配布物には PyTorch が無いので .pt は読めない."""
+        from src.infer.model_recommend import DEFAULT_MODEL_FOR_CLASS, EXTRA_MODELS
+        paths = [p for _, p in DEFAULT_MODEL_FOR_CLASS.values()] + [p for _, p, _ in EXTRA_MODELS]
+        assert all(p.endswith(".onnx") for p in paths), paths
+
+    def test_探索ルートはexeの隣とhome(self) -> None:
+        from src.app.resources import model_search_roots
+        roots = model_search_roots()
+        assert roots[-1].name == ".cw-decorder"     # 最後は必ず home
+        assert len(roots) >= 2
