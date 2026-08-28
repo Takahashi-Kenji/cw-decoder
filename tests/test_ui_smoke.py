@@ -447,12 +447,27 @@ def test_word_correction_is_applied_to_committed_text() -> None:
 
 
 def test_word_correction_can_be_turned_off() -> None:
-    window = _window(word_correct_enabled=False)
+    """寄せも語彙分割も切れば、確定テキストに一切触らない."""
+    window = _window(word_correct_enabled=False, word_split_enabled=False)
     try:
         window._on_committed_text("CQ CQCQDE JF1GL K")
         assert window._committed_text == "CQ CQCQDE JF1GL K"
         assert window._committed_spans == ()
         assert "#c05000" not in window._committed_html()
+    finally:
+        window.close()
+
+
+def test_word_split_works_without_correction() -> None:
+    """寄せを切っていても、つながった欧文は語彙で切る (既定 ON、2026-08-28).
+
+    間隔では切れない局 (文字間 4.3 / 語間 5 dot) のため。運用者は寄せを
+    切って使っているので、分割が寄せに連動していると効かない。
+    """
+    window = _window(word_correct_enabled=False, word_split_enabled=True)
+    try:
+        window._on_committed_text("CQ CQCQDE JF1GL K")
+        assert window._committed_text == "CQ CQ CQ DE JF1GL K"
     finally:
         window.close()
 

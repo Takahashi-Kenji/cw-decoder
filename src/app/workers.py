@@ -17,6 +17,8 @@ from src.infer.sliding_window import (
 from src.infer.line_break import DEFAULT_LINE_BREAK_GAP_S, render_committed
 from src.infer.refine_buffer import DEFAULT_REFINE_CAPACITY_S, RefineBuffer
 from src.infer.squelch import Squelch
+from src.infer.model_recommend import classify
+from src.infer.operating_point import measure_operating_point
 from src.infer.wpm import estimate_wpm
 from src.tokens.converter import TokenConverter
 
@@ -84,6 +86,8 @@ class AudioInferenceWorker(QObject):
     # **測れないことも伝える。** 前の値が残り続けると、相手が変わっても古い
     # 速度が出たままになる (それを見て送信速度を合わせると外す)。
     received_wpm_changed = Signal(object)   # float | None
+    # (OperatingPoint, Recommendation) | None。**自動で切り替えない。表示だけ。**
+    operating_point_changed = Signal(object)
 
     def __init__(
         self,
@@ -91,6 +95,8 @@ class AudioInferenceWorker(QObject):
         sample_rate: int = 8000,
         mode: str = "european",
         confidence_threshold: float = 0.5,
+        word_break_bias_european: float = 0.0,
+        word_break_bias_japanese: float = 0.0,
         squelch_threshold_db: float = -60.0,
         squelch_hold_sec: float = 1.0,
         bpf_enabled: bool = True,
@@ -126,6 +132,13 @@ class AudioInferenceWorker(QObject):
         self.sample_rate = sample_rate
         self.mode: str = mode
         self.confidence_threshold = confidence_threshold
+        # 語間スペースの出しやすさ。**モードで最適値が違う** (実測 2026-08-25)。
+        self.word_break_bias_european = word_break_bias_european
+        self.word_break_bias_japanese = word_break_bias_japanese
+        # 自動モードで「いま和文の中か」。確定列の末尾のサブモード (変換器が返す
+        # final_mode) を追いかける。開始時は欧文 (CQ は欧文で始まる)。
+        self._auto_submode: str = "european"
+        self._apply_word_break_bias(mode)
         self.squelch_threshold_db = squelch_threshold_db
         self.squelch_hold_sec = squelch_hold_sec
         self.bpf_enabled = bpf_enabled
@@ -190,12 +203,34 @@ class AudioInferenceWorker(QObject):
         self._samples_since_wpm = 0
         self._wpm_interval_samples = int(WPM_INTERVAL_S * sample_rate)
 
+    def _apply_word_break_bias(self, mode: str) -> None:
+        """モードに応じた語間バイアスをデコードエンジンへ渡す.
+
+        **自動モードは、確定列の末尾がいま和文の中か (ホレ〜ラタ) で切り替える。**
+
+        2026-08-25 には「自動モードは和文の値 (−5) で固定」にしていた。ホレ/ラタが
+        実信号でほとんど認識できず切替が働かなかったためである。しかし −5 は欧文の
+        語間を消す (held-out で正解 50 個のうち 38〜30 個しか出ない。語間の詰まった
+        相手局ではまったく出ない) — **2026-08-28 に運用者が「欧文の語間がまったく無い」
+        と報告した原因がこれ**。p2b ではラタの認識率が 17% → 83% に上がったので、
+        サブモードに追従させる。ホレを取りこぼした和文は欧文の値 (−1) になる —
+        その場合は表示モードを「和文」に固定すれば従来どおり −5 になる。
+        """
+        if mode == "auto":
+            sub = self._auto_submode
+        else:
+            sub = mode
+        bias = (self.word_break_bias_european if sub == "european"
+                else self.word_break_bias_japanese)
+        self.engine.word_break_bias = bias
+
     # ---- 設定変更 ----
     @Slot(str)
     def set_mode(self, mode: str) -> None:
         if mode not in ("european", "japanese", "auto"):
             return
         self.mode = mode
+        self._apply_word_break_bias(mode)
         self._converter = TokenConverter(
             mode=mode,
             confidence_threshold=self.confidence_threshold,
@@ -392,6 +427,10 @@ class AudioInferenceWorker(QObject):
         wave = self._sliding.recent_audio(WPM_WINDOW_S)
         est = estimate_wpm(wave, self._sliding.sample_rate)
         self.received_wpm_changed.emit(est.wpm if est is not None else None)
+        # 同じ窓で動作点 (文字間・コントラスト) も測り、得意なモデルを推す (計画 v5 P4)。
+        # 測れないときは None を流す (古い推奨が残らないように)。
+        op = measure_operating_point(wave, self._sliding.sample_rate)
+        self.operating_point_changed.emit((op, classify(op)) if op is not None else None)
 
     def _emit_live_view(self, view: DecodeView, decode_ms: float) -> None:
         """確定/暫定テキストをモード引き継ぎで変換して emit.
@@ -408,6 +447,10 @@ class AudioInferenceWorker(QObject):
             view.committed, self._converter, self._line_break_gap_samples,
             initial_mode="european",
         )
+        # 自動モードの語間バイアスをサブモードに追従させる (次の再デコードから効く)
+        if self.mode == "auto" and final_mode != self._auto_submode:
+            self._auto_submode = final_mode
+            self._apply_word_break_bias("auto")
         prov_ids = [t.token_id for t in view.provisional]
         prov_confs = [t.confidence for t in view.provisional]
         # 確定列と暫定列の境界が語間に落ちるとスペースが消える

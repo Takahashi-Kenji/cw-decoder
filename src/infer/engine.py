@@ -19,7 +19,9 @@ from src.train.preprocessing import MelConfig, MelExtractor
 
 
 def ctc_greedy_decode_with_frames(
-    log_probs: torch.Tensor, blank_id: int = BLANK_TOKEN_ID
+    log_probs: torch.Tensor,
+    blank_id: int = BLANK_TOKEN_ID,
+    word_break_bias: float = 0.0,
 ) -> list[list[FrameToken]]:
     """``(B, T, V)`` log-softmax から ``FrameToken`` 列を返す (torch 入力版).
 
@@ -30,7 +32,9 @@ def ctc_greedy_decode_with_frames(
     if log_probs.dim() != 3:
         raise ValueError(f"log_probs must be 3D, got {log_probs.shape}")
     return ctc_greedy_decode_frames(
-        log_probs.detach().cpu().numpy(), blank_id=blank_id
+        log_probs.detach().cpu().numpy(),
+        blank_id=blank_id,
+        word_break_bias=word_break_bias,
     )
 
 
@@ -51,6 +55,10 @@ class InferenceEngine:
         self.mel_extractor = mel_extractor
         self.device = device
         self.blank_id = blank_id
+        # 語間スペースの出しやすさ (argmax 前に足す log 確率)。
+        # **モードで最適値が違う** — 実測 (2026-08-25) で 欧文 -1.0 / 和文 -5.0。
+        # モード切替のたびに呼び出し側が差し替える (自動モードは和文と同じ値)。
+        self.word_break_bias = 0.0
         self.model.train(False)
         self.mel_extractor.train(False)
 
@@ -96,7 +104,9 @@ class InferenceEngine:
         mel = self.mel_extractor(wave)
         logits = self.model(mel)
         log_probs = F.log_softmax(logits.float(), dim=-1)
-        return ctc_greedy_decode_with_frames(log_probs, blank_id=self.blank_id)[0]
+        return ctc_greedy_decode_with_frames(
+            log_probs, blank_id=self.blank_id, word_break_bias=self.word_break_bias,
+        )[0]
 
     @property
     def frame_hop_samples(self) -> int:

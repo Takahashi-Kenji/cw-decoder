@@ -8,7 +8,22 @@ from __future__ import annotations
 
 from typing import Any
 
-_SECTIONS = ("synth_val", "keyed_val")
+# 先に出す既知のセクション。これ以外の名前 (``--keyed-set`` で付けた held-out の
+# 名前など) も、両方の report にあれば名前順で比較する。
+# **固定リストのままだと、名前付き held-out を足しても比較表に出てこない。**
+_PRIMARY_SECTIONS = ("synth_val", "keyed_val", "keyed_all")
+
+
+def _sections(baseline: dict, current: dict) -> list[str]:
+    """両方に存在する「レポートらしい」キーを、既知のものを先頭にして返す."""
+    def is_section(d: dict, key: str) -> bool:
+        value = d.get(key)
+        return isinstance(value, dict) and "overall" in value
+
+    common = {k for k in set(baseline) & set(current)
+              if is_section(baseline, k) and is_section(current, k)}
+    known = [s for s in _PRIMARY_SECTIONS if s in common]
+    return known + sorted(common - set(known))
 
 
 def _delta_metrics(base: dict | None, cur: dict | None) -> dict[str, Any]:
@@ -59,11 +74,9 @@ def _token_recall_delta(base: list[dict], cur: list[dict]) -> list[dict]:
 def compare_reports(baseline: dict, current: dict) -> dict:
     """2 つの report dict を section ごとに比較する."""
     out: dict[str, Any] = {}
-    for section in _SECTIONS:
-        b = baseline.get(section)
-        c = current.get(section)
-        if b is None or c is None:
-            continue
+    for section in _sections(baseline, current):
+        b = baseline[section]
+        c = current[section]
         out[section] = {
             "overall": _delta_metrics(b.get("overall"), c.get("overall")),
             "by_eff_snr": _delta_binned(b.get("by_eff_snr", {}), c.get("by_eff_snr", {})),

@@ -27,8 +27,6 @@ import sys
 import wave
 from pathlib import Path
 
-import numpy as np
-
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
@@ -39,55 +37,16 @@ from src.finetune.keying_corpus import (  # noqa: E402
     KeyingScript,
 )
 from src.finetune.keying_scripts import estimate_duration_sec  # noqa: E402
+from src.finetune.preprocess import bandpass as _bandpass          # noqa: E402
+from src.finetune.preprocess import pad_silence as _pad            # noqa: E402
+from src.finetune.preprocess import read_wav_int16 as _read_wav    # noqa: E402
+from src.finetune.preprocess import write_wav_int16 as _write_wav  # noqa: E402
 from src.tokens.morse_tokens import text_to_codes  # noqa: E402
 
 # 実録音長 − 見積もり長 の許容範囲 (秒)。録音には前後の無音が入るため
 # 実測が数秒長いのが正常。下振れ・大幅な上振れは対応ずれを疑う。
 _DELTA_MIN_SEC = -1.0
 _DELTA_MAX_SEC = 12.0
-
-
-def _read_wav(path: Path) -> tuple[np.ndarray, int]:
-    with wave.open(str(path)) as w:
-        sr = w.getframerate()
-        data = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
-        x = data.astype(np.float64)
-        if w.getnchannels() == 2:
-            x = x.reshape(-1, 2).mean(axis=1)
-    return x, sr
-
-
-def _write_wav(path: Path, x: np.ndarray, sr: int) -> None:
-    with wave.open(str(path), "wb") as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(sr)
-        w.writeframes(np.clip(x, -32768, 32767).astype(np.int16).tobytes())
-
-
-def _bandpass(x: np.ndarray, sr: int, center_hz: float, bandwidth_hz: float) -> np.ndarray:
-    """アプリのライブ経路と同じ帯域に整形し、ピークを揃える."""
-    from scipy.signal import butter, sosfiltfilt
-
-    low = max(center_hz - bandwidth_hz / 2, 50.0)
-    high = min(center_hz + bandwidth_hz / 2, sr / 2 - 100.0)
-    sos = butter(4, [low / (sr / 2), high / (sr / 2)], btype="bandpass", output="sos")
-    y = sosfiltfilt(sos, x)
-    peak = float(np.abs(y).max())
-    return y / peak * 0.48 * 32768 if peak > 0 else y
-
-
-def _pad(x: np.ndarray, sr: int, pad_sec: float) -> np.ndarray:
-    """前後に無音を足す.
-
-    オートキーヤーの録音は 5ms から音が始まり先頭に無音が無いため、モデルが
-    立ち上がりを符号と誤読して先頭にゴミトークン (``U`` 等) を吐く。実測では
-    この挿入だけで誤り 297 件中 44 件を占めていた。
-    """
-    if pad_sec <= 0:
-        return x
-    silence = np.zeros(int(sr * pad_sec))
-    return np.concatenate([silence, x, silence])
 
 
 def _wav_duration_sec(path: Path) -> float:

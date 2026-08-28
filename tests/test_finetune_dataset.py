@@ -353,3 +353,87 @@ class TestFinetuneCLIWiring:
         assert captured["hand_keying"] is False
         assert captured["extreme_tail"] is True
         assert captured["electronic_keyer_prob"] == pytest.approx(0.25)
+
+
+class TestSkipReporting:
+    """**黙って捨てない。** 新しいデータ源を足したとき、何件落ちたか分からないと
+    「学習に入っているつもりが入っていない」に気づけない。
+    """
+
+    @staticmethod
+    def _write(dirpath, stem: str, *, header: str, body: str) -> None:
+        import numpy as np
+        import soundfile as sf
+        sf.write(dirpath / f"{stem}.wav", np.zeros(800, dtype="float32"), 8000)
+        (dirpath / f"{stem}.txt").write_text(f"{header}---\n{body}\n", encoding="utf-8")
+
+    def test_モード不明を報告する(self, tmp_path) -> None:
+        self._write(tmp_path, "unknown_name", header="", body="CQ")
+        skipped: list[tuple[str, str]] = []
+        got = discover_real_samples(
+            tmp_path, on_skip=lambda p, why: skipped.append((p.stem, why)))
+        assert got == []
+        assert skipped == [("unknown_name", "mode_unknown")]
+
+    def test_本文が空なのを報告する(self, tmp_path) -> None:
+        self._write(tmp_path, "x_european", header="mode: european\n", body="")
+        skipped: list[tuple[str, str]] = []
+        discover_real_samples(tmp_path, on_skip=lambda p, why: skipped.append((p.stem, why)))
+        assert skipped == [("x_european", "no_text")]
+
+    def test_採用されたぶんは報告しない(self, tmp_path) -> None:
+        self._write(tmp_path, "y_european", header="mode: european\n", body="CQ")
+        skipped: list[tuple[str, str]] = []
+        got = discover_real_samples(
+            tmp_path, on_skip=lambda p, why: skipped.append((p.stem, why)))
+        assert len(got) == 1 and skipped == []
+
+    def test_コールバック無しでも動く(self, tmp_path) -> None:
+        self._write(tmp_path, "unknown_name", header="", body="CQ")
+        assert discover_real_samples(tmp_path) == []
+
+
+class TestMixedWorkerSeeding:
+    """**worker ごとに乱数列を分ける。**
+
+    以前は全 worker が同じ seed を使っていたため、``--num-workers > 0`` にすると
+    実サンプルの抽選が worker 間で丸ごと重複した (FT は ``--num-workers 0`` 運用
+    だったので顕在化していなかっただけ)。フル学習で worker を増やした瞬間に
+    「同じデータを何度も見る」状態になる。
+    """
+
+    @staticmethod
+    def _mixed(tmp_path, seed: int):
+        import soundfile as sf
+        for i, mode in enumerate(("european", "japanese")):
+            sf.write(tmp_path / f"s{i}_{mode}.wav", np.zeros(8000, dtype="float32"), 8000)
+            (tmp_path / f"s{i}_{mode}.txt").write_text(
+                f"mode: {mode}\n---\nCQ\n" if mode == "european" else "mode: japanese\n---\nイ\n",
+                encoding="utf-8")
+        real = RealSignalDataset(discover_real_samples(tmp_path))
+        return MixedRealSynthDataset(
+            real_dataset=real, mode_mix={"european": 1.0, "japanese": 0.0},
+            real_ratio=1.0, seed=seed, max_samples=8,
+        )
+
+    def test_worker_ごとに別の列になる(self, tmp_path, monkeypatch) -> None:
+        import src.finetune.pipeline as pipeline
+
+        def draw(worker_id: int) -> list[int]:
+            class _Info:
+                id = worker_id
+            monkeypatch.setattr(pipeline, "get_worker_info", lambda: _Info())
+            mixed = self._mixed(tmp_path, seed=42)
+            return [int(w.shape[0]) + int(t[0]) for w, t in mixed]
+
+        assert draw(0) != draw(1)
+
+    def test_同じ_worker_なら再現する(self, tmp_path, monkeypatch) -> None:
+        import src.finetune.pipeline as pipeline
+
+        class _Info:
+            id = 3
+        monkeypatch.setattr(pipeline, "get_worker_info", lambda: _Info())
+        a = [int(t[0]) for _w, t in self._mixed(tmp_path, seed=7)]
+        b = [int(t[0]) for _w, t in self._mixed(tmp_path, seed=7)]
+        assert a == b

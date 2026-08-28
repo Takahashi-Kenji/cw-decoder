@@ -123,3 +123,33 @@ def test_送信先を書いて読み戻せる(tmp_path: Path) -> None:
     restored = load_settings(path)
     assert restored.tx_endpoint == "192.168.0.10:45679"
     assert restored.tx_wpm == 22.0
+
+
+class TestWordBreakBiasSettings:
+    """語間スペースの出しやすさをモード別に持つ.
+
+    held-out の実測 (2026-08-25): 語間の出力数は 欧文 50/正解 50 とぴったりだが、
+    和文は 52/正解 29 と 1.8 倍に膨らむ。掃引の結果 欧文 -1.0 / 和文 -5.0 で
+    TER も CER も同時に改善した。
+    """
+
+    def test_既定値は掃引で選んだ値(self) -> None:
+        s = AppSettings()
+        assert s.word_break_bias_european == -1.0
+        assert s.word_break_bias_japanese == -5.0
+
+    def test_モードから値を引く(self) -> None:
+        s = AppSettings()
+        assert s.word_break_bias_for("european") == -1.0
+        assert s.word_break_bias_for("japanese") == -5.0
+
+    def test_自動モードは和文に寄せる(self) -> None:
+        """**ホレ/ラタ が実信号でほとんど認識できない**ため、自動モードでは
+        和文の値を使う (運用者の判断、2026-08-25)。"""
+        s = AppSettings()
+        assert s.word_break_bias_for("auto") == s.word_break_bias_japanese
+
+    def test_値を変えれば反映される(self) -> None:
+        s = AppSettings(word_break_bias_japanese=-3.0)
+        assert s.word_break_bias_for("japanese") == -3.0
+        assert s.word_break_bias_for("auto") == -3.0

@@ -79,7 +79,7 @@ class CWDecoderWindow(QMainWindow):
     request_llm_transform = Signal(str, str, str)   # (本文, モード, 参考)
     request_set_llm_provider = Signal(object)
     # 清書前の全体再デコード (音声, 末尾の絶対位置, モード, 閾値, 辞書補正, 和文辞書)
-    request_redecode = Signal(object, int, str, float, bool, bool)
+    request_redecode = Signal(object, int, str, float, bool, bool, bool)
 
     # プロバイダ別の選択候補モデル (先頭が既定)。編集可能なので他の名前も入力できる。
     #
@@ -120,6 +120,10 @@ class CWDecoderWindow(QMainWindow):
         self._worker: AudioInferenceWorker | None = None
         self._worker_thread: QThread | None = None
         self._recorder = Recorder(out_dir=Path(self._settings.recording_dir))
+        # モデルの選択と推奨の記録 (計画 v5 P4-3)。自動切替の可否はこれで決める。
+        from src.app.choice_log import ChoiceLog
+        self._choice_log = ChoiceLog()
+        self._last_op_payload: object = None
         # 開いている送信ダイアログ (``_open_tx_dialog``)。閉じたら必ず None に戻す
         self._tx_dialog: QDialog | None = None
         self._init_live_display_state()
@@ -235,6 +239,11 @@ class CWDecoderWindow(QMainWindow):
         self.ckpt_label.setStyleSheet("color: #888;")
         self._set_ckpt_label(self._settings.checkpoint_path)
         second.addWidget(self.ckpt_label)
+        # 登録モデルの切替 (計画 v5 P4-1)。**手動。** 推奨はステータスバーに出るだけ。
+        self.model_combo = QComboBox()
+        self.model_combo.setToolTip("登録済みモデルを切り替える。ファイルから選ぶなら「読込…」")
+        self._populate_model_combo()
+        second.addWidget(self.model_combo)
         self.load_ckpt_btn = QPushButton("読込…")
         second.addWidget(self.load_ckpt_btn)
 
@@ -431,6 +440,13 @@ class CWDecoderWindow(QMainWindow):
         self.wpm_label = QLabel("")
         self.wpm_label.setToolTip("受信信号から測った速度 (だいたいの目安)")
         self.statusBar().addPermanentWidget(self.wpm_label)
+        # 動作点 (文字間・コントラスト) と、それが得意なモデルの推奨。
+        # **自動では切り替えない** — 運用者が選び、その記録が溜まってから (計画 v5 P4)。
+        self.op_label = QLabel("")
+        self.op_label.setToolTip(
+            "受信信号の動作点 (文字間 = dot の何倍か / コントラスト) と、"
+            "その動作点が得意なモデル。? は境界に近く確信がないとき")
+        self.statusBar().addPermanentWidget(self.op_label)
 
         # ---- LLM 清書状態の初期化 ----
         # NOTE: 実装手順では _init_live_display_state() 近傍 (__init__ 冒頭) と
@@ -449,6 +465,7 @@ class CWDecoderWindow(QMainWindow):
         self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
         self.threshold_slider.valueChanged.connect(self._on_threshold_changed)
         self.load_ckpt_btn.clicked.connect(self._on_load_checkpoint)
+        self.model_combo.activated.connect(self._on_model_combo)
         self.record_btn.toggled.connect(self._on_record_toggled)
         self.show_spectrogram_check.toggled.connect(self.spectrogram_panel.setVisible)
         self.show_provisional_check.toggled.connect(self._on_show_provisional_toggled)
@@ -508,6 +525,8 @@ class CWDecoderWindow(QMainWindow):
             sample_rate=self._settings.sample_rate,
             mode=mode,
             confidence_threshold=threshold,
+            word_break_bias_european=self._settings.word_break_bias_european,
+            word_break_bias_japanese=self._settings.word_break_bias_japanese,
             prosign_threshold=self._settings.prosign_threshold,
             switch_on_japanese_only=self._settings.switch_on_japanese_only,
             squelch_threshold_db=self.level_meter.threshold_db(),
@@ -543,6 +562,7 @@ class CWDecoderWindow(QMainWindow):
         self._worker.stream_diag.connect(self._on_stream_diag)
         self._worker.current_mode_changed.connect(self._on_current_mode)
         self._worker.received_wpm_changed.connect(self._on_received_wpm)
+        self._worker.operating_point_changed.connect(self._on_operating_point)
         # UI → ワーカー はキューイング接続必須
         self.request_set_mode.connect(self._worker.set_mode)
         self.request_set_threshold.connect(self._worker.set_confidence_threshold)
@@ -612,6 +632,34 @@ class CWDecoderWindow(QMainWindow):
         if self._worker is not None:
             self.request_set_threshold.emit(threshold)
 
+    def _populate_model_combo(self) -> None:
+        """登録モデル (実在するもの) と、今読んでいるモデルをコンボに並べる."""
+        from src.infer.model_recommend import registered_models
+        self.model_combo.blockSignals(True)
+        self.model_combo.clear()
+        current = self._settings.checkpoint_path
+        seen: set[str] = set()
+        for m in registered_models():
+            self.model_combo.addItem(m.display, m.path)
+            seen.add(str(Path(m.path).resolve()))
+        if current and str(Path(current).resolve()) not in seen:
+            self.model_combo.addItem(Path(current).name, current)
+        if current:
+            idx = self.model_combo.findData(current)
+            if idx < 0:
+                for i in range(self.model_combo.count()):
+                    if Path(self.model_combo.itemData(i)).resolve() == Path(current).resolve():
+                        idx = i
+                        break
+            if idx >= 0:
+                self.model_combo.setCurrentIndex(idx)
+        self.model_combo.blockSignals(False)
+
+    def _on_model_combo(self, index: int) -> None:
+        path = self.model_combo.itemData(index)
+        if path:
+            self._load_model_path(str(path))
+
     def _on_load_checkpoint(self) -> None:
         # ONNX も選べるようにする。**配布版は ONNX しか同梱しない**ので、
         # ここが .pt 限定のままだと利用者はモデルを差し替えられない。
@@ -620,6 +668,10 @@ class CWDecoderWindow(QMainWindow):
         )
         if not path_str:
             return
+        self._load_model_path(path_str)
+
+    def _load_model_path(self, path_str: str) -> None:
+        """モデルを読み込んで差し替える (コンボと「読込…」の共通経路)."""
         try:
             new_engine = load_engine(
                 path_str,
@@ -633,8 +685,11 @@ class CWDecoderWindow(QMainWindow):
         if was_running:
             self._on_stop()
         self._engine = new_engine
+        self._settings.checkpoint_path = path_str
+        self._choice_log.select(path_str, self._last_op_payload)
         self._set_ckpt_label(path_str)
         self.ckpt_label.setStyleSheet("color: #ccc;")
+        self._populate_model_combo()
         self.statusBar().showMessage(f"チェックポイント読込: {path_str}")
         if was_running:
             self._on_start()
@@ -727,6 +782,12 @@ class CWDecoderWindow(QMainWindow):
             self._committed_spans = result.spans
             # 直せなかった語と候補は LLM 清書へ渡す材料 (第 2 段で配線する)
             self._unresolved_words = result.unresolved
+        elif self._settings.word_split_enabled:
+            # 寄せは切っていても、つながった欧文を語彙で切るだけは掛ける
+            result = correct_text(text, segment_only=True)
+            self._committed_text = result.text
+            self._committed_spans = result.spans
+            self._unresolved_words = ()
         else:
             self._committed_text = text
             self._committed_spans = ()
@@ -769,6 +830,17 @@ class CWDecoderWindow(QMainWindow):
             )
             msg = f"自動(現在:{label}) " + msg
         self.statusBar().showMessage(msg)
+
+    def _on_operating_point(self, payload: object) -> None:
+        """動作点と推奨モデルをステータスバーに出す (``workers.operating_point_changed``)."""
+        self._last_op_payload = payload
+        self._choice_log.recommend(self._settings.checkpoint_path, payload)
+        if payload is None:
+            self.op_label.setText("")
+            return
+        op, rec = payload
+        from src.infer.model_recommend import describe
+        self.op_label.setText(describe(op, rec))
 
     def _on_received_wpm(self, wpm: object) -> None:
         """受信信号の速度を受け取って表示する. ``None`` なら消す.
@@ -1011,6 +1083,7 @@ class CWDecoderWindow(QMainWindow):
             self._settings.confidence_threshold,
             self.word_correct_check.isChecked(),
             self.word_correct_ja_check.isChecked(),
+            self._settings.word_split_enabled,
         )
         return True
 

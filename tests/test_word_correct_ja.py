@@ -197,7 +197,7 @@ class TestJapaneseSegmentation:
 
     def test_place_name_is_not_pulled_to_lexicon(self) -> None:
         """固有名詞を語彙語に引き寄せて壊さないこと."""
-        assert "イチノセキ" in correct_text("イチノセキ").text
+        assert "トウキョウ" in correct_text("トウキョウ").text
 
     def test_two_character_word_is_not_fuzzy_matched(self) -> None:
         """**2 文字の曖昧一致は許さない.**

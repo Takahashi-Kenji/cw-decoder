@@ -143,3 +143,35 @@ class TestEndToEnd:
         view: DecodeView = decoder.finalize()
         # 未学習モデルでもクラッシュしないこと
         assert isinstance(view.committed, list)
+
+
+class TestWordBreakBiasAttribute:
+    """語間バイアスをエンジンに持たせ、モード切替で差し替えられること.
+
+    **モードで最適値が違う** (実測: 欧文 -1.0 / 和文 -5.0)。
+    自動モードはホレ/ラタ がほとんど認識できないので和文側に寄せる。
+    """
+
+    def test_既定は_0_で従来どおり(self) -> None:
+        eng = InferenceEngine.untrained(device="cpu")
+        assert eng.word_break_bias == 0.0
+
+    def test_後から差し替えられる(self) -> None:
+        eng = InferenceEngine.untrained(device="cpu")
+        eng.word_break_bias = -5.0
+        assert eng.word_break_bias == -5.0
+
+    def test_デコードに渡る(self, monkeypatch) -> None:
+        eng = InferenceEngine.untrained(device="cpu")
+        eng.word_break_bias = -5.0
+        seen: list[float] = []
+        import src.infer.engine as mod
+        real = mod.ctc_greedy_decode_with_frames
+
+        def spy(log_probs, blank_id=0, word_break_bias=0.0):
+            seen.append(word_break_bias)
+            return real(log_probs, blank_id=blank_id)
+
+        monkeypatch.setattr(mod, "ctc_greedy_decode_with_frames", spy)
+        eng.decode_chunk(np.zeros(8000, dtype=np.float32))
+        assert seen == [-5.0]

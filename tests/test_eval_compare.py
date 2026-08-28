@@ -1,6 +1,8 @@
 """report 比較ロジックのテスト."""
 from __future__ import annotations
 
+import pytest
+
 from src.eval.compare import compare_reports
 
 
@@ -60,3 +62,31 @@ class TestCompareReports:
         out = compare_reports(base, cur)
         assert "synth_val" in out
         assert "keyed_val" not in out
+
+
+class TestNamedSections:
+    """``--keyed-set`` で付けた名前のセクションも比較できること.
+
+    セクション名を固定リストで持っていた頃は、名前付き held-out を足しても
+    **比較表に出てこなかった** (JSON には入っているのに人が気づけない)。
+    """
+
+    @staticmethod
+    def _section(ter: float) -> dict:
+        return {"overall": {"ter": ter, "cer": ter},
+                "by_mode": {"japanese": {"ter": ter, "cer": ter}}}
+
+    def test_任意の名前のセクションを比較する(self) -> None:
+        base = {"v2_heldout": self._section(0.30)}
+        cur = {"v2_heldout": self._section(0.25)}
+        cmp = compare_reports(base, cur)
+        assert cmp["v2_heldout"]["overall"]["ter_delta"] == pytest.approx(-0.05)
+        assert cmp["v2_heldout"]["by_mode"]["japanese"]["ter_delta"] == pytest.approx(-0.05)
+
+    def test_メタ情報はセクション扱いしない(self) -> None:
+        base = {"ckpt": "a.pt", "seed": 1, "v1": self._section(0.3)}
+        cur = {"ckpt": "b.pt", "seed": 2, "v1": self._section(0.3)}
+        assert set(compare_reports(base, cur)) == {"v1"}
+
+    def test_片方にしか無いセクションは出さない(self) -> None:
+        assert compare_reports({"v1": self._section(0.3)}, {"v2": self._section(0.3)}) == {}

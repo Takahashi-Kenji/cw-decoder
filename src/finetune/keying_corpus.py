@@ -157,7 +157,7 @@ _JAPANESE_OPERATIONAL: tuple[KeyingScript, ...] = (
 # 和文 弱点トークン重点 (24 件): 区切点 ``、`` / 段落 ``。`` / ``?`` ``-`` ``@``
 # 長音 ``ー`` 濁点 ``゛`` 半濁点 ``゜`` と数字。
 _JAPANESE_WEAK_FOCUS: tuple[KeyingScript, ...] = (
-    KeyingScript("ja_t37", "japanese", 24, "バシヨ ハ カナガワケン、ヨコハマシ、ツルミ。"),
+    KeyingScript("ja_t37", "japanese", 24, "バシヨ ハ カナガワケン、ツルミ。"),
     KeyingScript("ja_t38", "japanese", 20, "シユウハスウ ハ 7-0-3-5 キロヘルツ"),
     KeyingScript("ja_t39", "japanese", 24, "デンワ ハ 026-123-4567。"),
     KeyingScript("ja_t40", "japanese", 20, "メール ハ タロウ@ジヤール、ムセン@ヤマ"),

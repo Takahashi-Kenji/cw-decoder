@@ -11,7 +11,7 @@
 #
 # 使い方 (Git Bash。cw-decorder/web/ で実行):
 #
-#     bash scripts/make-lan-cert.sh 192.168.0.20 192.168.0.20
+#     bash scripts/make-lan-cert.sh 192.168.3.102 192.168.103.151
 #
 # 引数はこの PC の LAN IP。`ipconfig` か下記で調べる:
 #
@@ -26,7 +26,7 @@ mkdir -p certs
 
 if [ "$#" -eq 0 ]; then
   echo "使い方: bash scripts/make-lan-cert.sh <LAN IP> [<LAN IP> ...]" >&2
-  echo "例:     bash scripts/make-lan-cert.sh 192.168.0.20" >&2
+  echo "例:     bash scripts/make-lan-cert.sh 192.168.3.102" >&2
   exit 1
 fi
 

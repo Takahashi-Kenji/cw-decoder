@@ -10,8 +10,12 @@ import torch
 
 from scripts.train import (
     apply_lr,
+    build_train_dataset,
+    pick_best_metric,
+    resolve_resume_path,
     resolve_effective_snr_range,
     resolve_noise_pool,
+    validate_best_metric,
     validate_noise_params,
 )
 
@@ -164,3 +168,102 @@ class TestHandKeyingFlags:
             monkeypatch,
         )
         assert captured["hand_keying"] is True
+
+
+class TestBestMetric:
+    """``best.pt`` を**飽和していない指標**で選ぶための検証.
+
+    合成欧文 TER は 2026-06-12 から 0.00% で飽和しており、``ter < best_ter`` の
+    strict 比較では同点が続く区間で best が更新されない。**どの重みが残るかが
+    実質的に運になっていた** (models/full/eval.csv の 100k/101k/102k は全部同点)。
+    """
+
+    def test_名前で選ぶ(self) -> None:
+        values = {"synth_eu": 0.0, "synth_ja": 0.30, "keyed": 0.25}
+        assert pick_best_metric("synth_ja", values) == 0.30
+        assert pick_best_metric("keyed", values) == 0.25
+
+    def test_選んだ指標が無ければエラー(self) -> None:
+        """**10 時間走ってから落ちない**よう、起動時に弾く."""
+        with pytest.raises(SystemExit):
+            pick_best_metric("keyed", {"synth_eu": 0.0, "keyed": None})
+
+    def test_keyed_を選ぶなら_keyed_dir_が要る(self) -> None:
+        with pytest.raises(SystemExit, match="--keyed-dir"):
+            validate_best_metric("keyed", keyed_dir=None)
+
+    def test_合成指標なら_keyed_dir_は要らない(self) -> None:
+        validate_best_metric("synth_ja", keyed_dir=None)
+
+    def test_keyed_dir_があれば通る(self, tmp_path: Path) -> None:
+        validate_best_metric("keyed", keyed_dir=tmp_path)
+
+
+class TestResumeMustExist:
+    """``--resume`` のタイプミスで**黙ってスクラッチ開始**しないこと.
+
+    フル学習は 10 時間かかる。出発点を読めていないことに気づくのが
+    翌朝では遅い。
+    """
+
+    def test_存在しないパスはエラー(self, tmp_path: Path) -> None:
+        with pytest.raises(SystemExit, match="resume"):
+            resolve_resume_path(tmp_path / "no_such.pt")
+
+    def test_None_はそのまま(self) -> None:
+        assert resolve_resume_path(None) is None
+
+    def test_存在すればそのまま返す(self, tmp_path: Path) -> None:
+        p = tmp_path / "ckpt.pt"
+        p.write_bytes(b"x")
+        assert resolve_resume_path(p) == p
+
+
+class TestRealDataInFullTraining:
+    """フル学習に実データを混ぜる口.
+
+    **土台のフル学習は合成 100% で、実録音を 1 件も見ていない。**
+    FT は 1000 step (実データ側 8,000 回の抽選 = 7 エポック相当) で頭打ちになり、
+    2000 step では悪化した。4.26 時間のラベル付き実信号を活かすには、
+    土台から混ぜる必要がある。
+    """
+
+    def test_実データを指定しなければ合成のみ(self) -> None:
+        from src.synth.dataset import MorseSynthDataset
+        ds = build_train_dataset(
+            real_dir=None, real_ratio=0.5, mode_mix={"european": 0.5, "japanese": 0.5},
+            seed=1, effective_snr_range=None, noise_pool=None, noise_prob=0.0,
+            noise_snr_range=(-5.0, 15.0), hand_keying=False, extreme_tail=True,
+            electronic_keyer_prob=0.25,
+        )
+        assert isinstance(ds, MorseSynthDataset)
+
+    def test_実データを指定すると混合になる(self, tmp_path: Path) -> None:
+        from src.finetune.pipeline import MixedRealSynthDataset
+        _write_real_sample(tmp_path, "a_european", "CQ TEST")
+        ds = build_train_dataset(
+            real_dir=tmp_path, real_ratio=0.4, mode_mix={"european": 1.0, "japanese": 0.0},
+            seed=1, effective_snr_range=None, noise_pool=None, noise_prob=0.0,
+            noise_snr_range=(-5.0, 15.0), hand_keying=False, extreme_tail=True,
+            electronic_keyer_prob=0.25,
+        )
+        assert isinstance(ds, MixedRealSynthDataset)
+        assert ds.real_ratio == 0.4
+
+    def test_実データが空ならエラー(self, tmp_path: Path) -> None:
+        """**黙って合成のみに落ちない。** 一晩走ってから気づくのでは遅い."""
+        with pytest.raises(SystemExit, match="実データ"):
+            build_train_dataset(
+                real_dir=tmp_path, real_ratio=0.5,
+                mode_mix={"european": 0.5, "japanese": 0.5},
+                seed=1, effective_snr_range=None, noise_pool=None, noise_prob=0.0,
+                noise_snr_range=(-5.0, 15.0), hand_keying=False, extreme_tail=True,
+                electronic_keyer_prob=0.25,
+            )
+
+
+def _write_real_sample(dirpath: Path, stem: str, text: str) -> None:
+    import soundfile as sf
+    sf.write(dirpath / f"{stem}.wav", np.zeros(8000, dtype="float32"), 8000)
+    (dirpath / f"{stem}.txt").write_text(
+        f"mode: european\nsample_rate: 8000\n---\n{text}\n", encoding="utf-8")

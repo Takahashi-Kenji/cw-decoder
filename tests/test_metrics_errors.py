@@ -357,3 +357,53 @@ class TestDetailedEvalReport:
         lines = detailed.summary_lines()
         assert any("Overall" in line for line in lines)
         assert any("S=" in line or "sub" in line.lower() for line in lines)
+
+
+class TestHeadErrors:
+    """先頭 N トークン以内の誤り (先頭幻覚の追跡).
+
+    **これまで場当たりのスクリプトで測っていた。** baseline は held-out の
+    誤り 92 個のうち 24 個 (26%) が先頭 2 トークン以内にあり、うち 18 個が
+    挿入 = 幻の文字だった。run ごとに自動で追えるよう report に組み込む。
+    """
+
+    def _report(self, pairs):
+        from src.train.metrics import DetailedEvalReport, EvalRecord
+        r = DetailedEvalReport()
+        for pred, ref in pairs:
+            r.add(EvalRecord(ref_tokens=ref, pred_tokens=pred, ref_text="", pred_text=""))
+        return r
+
+    def test_先頭の挿入を数える(self) -> None:
+        r = self._report([([9, 1, 2, 3], [1, 2, 3])])       # 先頭に 9 が挿入
+        h = r.head_errors(n=2)
+        assert h.errors == 1 and h.insertions == 1
+
+    def test_先頭の脱落を数える(self) -> None:
+        r = self._report([([2, 3], [1, 2, 3])])             # 先頭の 1 が脱落
+        h = r.head_errors(n=2)
+        assert h.errors == 1 and h.insertions == 0
+
+    def test_末尾の誤りは数えない(self) -> None:
+        r = self._report([([1, 2, 3, 9], [1, 2, 3])])       # 末尾に挿入
+        assert r.head_errors(n=2).errors == 0
+
+    def test_誤りが無ければゼロ(self) -> None:
+        r = self._report([([1, 2, 3], [1, 2, 3])])
+        h = r.head_errors(n=2)
+        assert h.errors == 0 and h.insertions == 0 and h.ref_tokens == 3
+
+    def test_複数サンプルを合算する(self) -> None:
+        r = self._report([([9, 1, 2], [1, 2]), ([8, 7, 5, 6], [5, 6])])
+        h = r.head_errors(n=2)
+        assert h.errors == 3 and h.insertions == 3 and h.ref_tokens == 4
+
+    def test_summary_linesに出る(self) -> None:
+        r = self._report([([9, 1, 2, 3], [1, 2, 3])])
+        joined = "\n".join(r.summary_lines())
+        assert "Head<2" in joined and "errors=   1" in joined and "ins=   1" in joined
+
+    def test_to_dictに出る(self) -> None:
+        r = self._report([([9, 1, 2, 3], [1, 2, 3])])
+        d = r.to_dict()["head_errors"]
+        assert d["n"] == 2 and d["errors"] == 1 and d["insertions"] == 1

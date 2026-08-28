@@ -72,6 +72,8 @@ DEFERRED_SETTING_LABELS: dict[str, str] = {
     "decode_left_context_s": "左文脈",
     "head_guard_s": "先頭で捨てる長さ",
     "low_confidence_extra_lag_s": "読めない文字の猶予",
+    "word_break_bias_european": "語間スペース (欧文)",
+    "word_break_bias_japanese": "語間スペース (和文)",
     "line_break_gap_s": "改行する無音",
     "two_stage_commit_enabled": "2 段階確定",
     "refine_capacity_s": "清書用バッファ",
@@ -281,6 +283,28 @@ class SettingsDialog(QDialog):
         )
         form.addRow("読めない文字の猶予" + _LATER, self.low_confidence_extra_lag_s)
 
+        # 語間スペースの出しやすさ。**モードで最適値が違う** (実測 2026-08-25)。
+        # モデルによっても最適値が動くので、画面から変えられるようにしてある。
+        self.word_break_bias_european = self._spin(
+            s.word_break_bias_european, -12.0, 4.0, 0.5, "", 1
+        )
+        self.word_break_bias_european.setToolTip(
+            "欧文のとき、語間スペースの出しやすさ。負で出にくくなります。\n"
+            "held-out で -1.0 のとき TER 13.06% → 11.84%、CER 12.20% → 11.02%。"
+        )
+        form.addRow("語間スペース (欧文)" + _LATER, self.word_break_bias_european)
+
+        self.word_break_bias_japanese = self._spin(
+            s.word_break_bias_japanese, -12.0, 4.0, 0.5, "", 1
+        )
+        self.word_break_bias_japanese.setToolTip(
+            "和文のとき、語間スペースの出しやすさ。**自動モードでもこの値を使います**\n"
+            "(ホレ/ラタ が実信号でほとんど取れないため)。\n"
+            "同梱モデルでは -5.0 が最良 (TER 27.15% → 23.08%)。\n"
+            "**和文重視モデル (cw_wabun) を選んだときは -8.0** (TER 22.17% → 16.74%)。"
+        )
+        form.addRow("語間スペース (和文)" + _LATER, self.word_break_bias_japanese)
+
         self.line_break_gap_s = self._spin(s.line_break_gap_s, 0.0, 10.0, 0.5, " 秒", 1)
         self.line_break_gap_s.setToolTip(
             "この長さ以上の無音で改行します。ターンの切れ目の定義でもあり、\n"
@@ -348,6 +372,15 @@ class SettingsDialog(QDialog):
             "和文はカナの切り直しを伴うので、欧文より踏み込んだ処理です。"
             "日常で使わないカナの置き換え (ヱ → イマ) も、和文を選んだときだけ働きます。"
         ))
+        # つながった欧文を語彙で切る (寄せとは独立。「使わない」でも効く)
+        self.word_split_enabled = QCheckBox("つながった欧文を語彙とコールサインの型で切る")
+        self.word_split_enabled.setChecked(s.word_split_enabled)
+        self.word_split_enabled.setToolTip(
+            "語間の詰まった局 (文字間と語間の差が 1 dot 未満) では間隔で語を切れません。\n"
+            "CQCQCQDEJA1ABC/3 → CQ CQ CQ DE JA1ABC/3 のように語彙で切ります。\n"
+            "上で「使わない」を選んでいても、これだけは働きます。"
+        )
+        choices.addWidget(self.word_split_enabled)
         layout.addWidget(group)
 
         if self._lexicon_path is not None:
@@ -470,9 +503,12 @@ class SettingsDialog(QDialog):
             decode_left_context_s=self.decode_left_context_s.value(),
             head_guard_s=self.head_guard_s.value(),
             low_confidence_extra_lag_s=self.low_confidence_extra_lag_s.value(),
+            word_break_bias_european=self.word_break_bias_european.value(),
+            word_break_bias_japanese=self.word_break_bias_japanese.value(),
             line_break_gap_s=self.line_break_gap_s.value(),
             two_stage_commit_enabled=self.two_stage_commit_enabled.isChecked(),
             word_correct_enabled=not self.correct_off.isChecked(),
+            word_split_enabled=self.word_split_enabled.isChecked(),
             # 「使わない」のときは**元の値を保つ**。3 択に畳んだ都合で子の値が
             # 見えなくなるだけなので、開いて OK を押しただけで捨ててはいけない
             word_correct_ja_enabled=(

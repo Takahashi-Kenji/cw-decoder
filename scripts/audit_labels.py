@@ -9,7 +9,7 @@
 録音 3 件すべてでモデルが冒頭にホレを出す ＝ **和文冒頭で無条件にホレを吐く癖**
 とラベルがたまたま一致していただけ」という推論だった。
 
-**2026-08-12 にこれが覆った。** 独立した別のデコーダが同じ位置で
+**2026-08-12 にこれが覆った。** 独立した別のデコーダ (別実装のデコーダ) が同じ位置で
 ホレ・ラタを出し、**波形の要素列も一致した**:
 
     script_ja_03 の先頭 6 要素:  - ・ ・ - - -    (ホレ = -・・---)
@@ -48,8 +48,9 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 from src.finetune.dataset import discover_real_samples  # noqa: E402
+from src.finetune.label_inspection import boundary_extras  # noqa: E402
 from src.infer.wpm import element_runs, split_dot_dash  # noqa: E402
-from src.tokens.morse_tokens import HORE_CODE, RATA_CODE, text_to_codes  # noqa: E402
+from src.tokens.morse_tokens import text_to_codes  # noqa: E402
 
 # 要素の振り分けと文字の区切りに使う閾値 (短点の何倍か)。
 # 教科書は 長音 3 / 文字間 3 / 語間 7。手打ちは大きく揺れるので緩く取る。
@@ -119,19 +120,17 @@ def audit(sample, *, verbose: bool = False) -> dict:
     heard = codes_from_audio(wave, sample_rate)
     labelled = [c for c in text_to_codes(sample.text, sample.mode) if c.startswith(("・", "-"))]
 
+    extras = boundary_extras(heard, labelled)
     result = {
         "name": sample.wav_path.stem,
         "mode": sample.mode,
         "n_label": len(labelled),
         "n_heard": len(heard),
-        "head_extra": "",
-        "tail_extra": "",
+        # **先頭と末尾付近だけを見る** (本文の逐一照合はこの道具の守備範囲外)。
+        # 位置も出す。雑音の尖りを何個挟んだかが人間の判断材料になる。
+        "head_extra": "" if extras.head is None else f"ホレ ({extras.head + 1} 番目)",
+        "tail_extra": "" if extras.tail is None else f"ラタ ({extras.tail + 1} 番目)",
     }
-    # **先頭と末尾だけを見る** (本文の逐一照合はこの道具の守備範囲外)
-    if heard and heard[0] == HORE_CODE and (not labelled or labelled[0] != HORE_CODE):
-        result["head_extra"] = "ホレ"
-    if heard and heard[-1] == RATA_CODE and (not labelled or labelled[-1] != RATA_CODE):
-        result["tail_extra"] = "ラタ"
     if verbose:
         result["heard"] = heard
         result["labelled"] = labelled
