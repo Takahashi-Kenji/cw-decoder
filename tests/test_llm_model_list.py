@@ -108,13 +108,15 @@ def test_default_setting_is_cpu() -> None:
 
 
 class TestProviderModelDefaults:
-    """プロバイダ切替時に選ばれる既定モデル (候補の先頭)."""
+    """プロバイダ切替時に選ばれる既定モデル (候補の先頭).
+
+    候補の実体は ``src/llm/config.py`` の ``PROVIDER_MODELS`` に移した
+    (主画面と設定画面の両方が参照する。書き写すと必ず食い違う)。
+    """
 
     def _models(self):
-        import pytest
-        pytest.importorskip("PySide6")
-        from src.app.main_window import CWDecoderWindow
-        return CWDecoderWindow._PROVIDER_MODELS
+        from src.llm.config import PROVIDER_MODELS
+        return PROVIDER_MODELS
 
     def test_openai_default_is_luna(self) -> None:
         assert self._models()["openai"][0] == "gpt-5.6-luna"

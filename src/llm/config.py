@@ -37,6 +37,29 @@ FALLBACK_OLLAMA_MODELS: tuple[str, ...] = (
     "qwen3.5:4b", "gemma4:e4b", "gemma4:12b",
 )
 
+# クラウドプロバイダのモデル候補 (先頭が既定)。主画面と設定画面の両方が
+# ここを参照する (書き写すと必ず食い違う)。
+# **ollama はここに書かない** — 候補は実機から取る (``list_ollama_models``)。
+# 書き固めると、入っていないモデル名が既定になって「押しても動かない」状態に
+# なる (実際に llama3.1 でそうなっていた)。
+PROVIDER_MODELS: dict[str, tuple[str, ...]] = {
+    # 推論モデルは思考が既定でオンで遅いので、軽い選択肢も出す
+    "openai": ("gpt-5.6-luna", "gpt-5", "gpt-5-mini", "gpt-4.1"),
+    # Haiku を先頭に (運用者の判断)。清書は文字の変換なので軽い方で足りる
+    "claude": ("claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-8"),
+}
+
+
+def static_models_for(provider: str, endpoint: str = "") -> list[str]:
+    """**通信せずに**出せるモデル候補。
+
+    設定画面の既定はこちら (開くだけで最大 3 秒固まらないため)。
+    Ollama の実機照会 (``list_ollama_models``) は主画面が明示的に注入する。
+    """
+    if provider == "ollama":
+        return list(FALLBACK_OLLAMA_MODELS)
+    return list(PROVIDER_MODELS.get(provider, ()))
+
 
 def list_ollama_models(endpoint: str, timeout: float = 3.0) -> list[str]:
     """Ollama にインストール済みのモデル名を返す.
@@ -84,4 +107,10 @@ def create_provider(settings: AppSettings) -> LLMProvider:
     raise LLMError(f"未知の LLM プロバイダ: {provider!r}")
 
 
-__all__ = ["FALLBACK_OLLAMA_MODELS", "create_provider", "list_ollama_models"]
+__all__ = [
+    "FALLBACK_OLLAMA_MODELS",
+    "PROVIDER_MODELS",
+    "create_provider",
+    "list_ollama_models",
+    "static_models_for",
+]

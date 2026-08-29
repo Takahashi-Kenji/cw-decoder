@@ -58,7 +58,7 @@ class TestRoundTrip:
         dialog = SettingsDialog(AppSettings())
         dialog.commit_lag_s.setValue(2.5)
         dialog.correct_european.setChecked(True)      # 和文には使わない
-        dialog.llm_model.setText("gemma4:e4b")
+        dialog.llm_model.setEditText("gemma4:e4b")
         dialog._on_accept()
         result = dialog.result_settings
         assert result.commit_lag_s == pytest.approx(2.5)
@@ -240,6 +240,91 @@ class TestGuardrails:
         dialog.checkpoint_path.setText("")
         dialog._on_accept()
         assert dialog.result_settings.checkpoint_path is None
+
+
+class TestLlmModelCandidates:
+    """清書タブのモデル欄は**プロバイダ連動の候補付きコンボ**であること.
+
+    2026-08-14/15 の UI 移設で主画面の候補コンボ (``_PROVIDER_MODELS``) が
+    隠され、設定画面側は素の 1 行入力になっていた。その結果
+    「プロバイダを変えても既定モデルに切り替わらない」「候補の一覧が出ない」
+    (運用者の報告、2026-08-29)。候補の取得は ``models_for`` で注入できる
+    (テストと、主画面から Ollama 実機照会を渡すため)。
+    """
+
+    _CANDIDATES = {
+        "ollama": ["qwen3.5:4b", "gemma4:e4b"],
+        "openai": ["gpt-5-mini", "gpt-5"],
+        "claude": ["claude-haiku-4-5", "claude-sonnet-4-6"],
+    }
+
+    def _dialog(self, settings: AppSettings) -> SettingsDialog:
+        return SettingsDialog(
+            settings,
+            models_for=lambda provider, endpoint: list(self._CANDIDATES[provider]),
+        )
+
+    @staticmethod
+    def _items(dialog: SettingsDialog) -> list[str]:
+        return [dialog.llm_model.itemText(i) for i in range(dialog.llm_model.count())]
+
+    def test_candidates_are_listed_for_the_saved_provider(self, qapp) -> None:
+        dialog = self._dialog(AppSettings(
+            llm_provider="claude", llm_model="claude-haiku-4-5"
+        ))
+        assert self._items(dialog) == self._CANDIDATES["claude"]
+
+    def test_opening_keeps_a_hand_typed_model(self, qapp) -> None:
+        """候補に無いモデル名でも、開いただけで消えないこと (往復保存則)."""
+        dialog = self._dialog(AppSettings(
+            llm_provider="claude", llm_model="my-fine-tune"
+        ))
+        assert dialog.llm_model.currentText() == "my-fine-tune"
+
+    def test_switching_provider_swaps_candidates_and_default(self, qapp) -> None:
+        dialog = self._dialog(AppSettings(
+            llm_provider="ollama", llm_model="qwen3.5:4b"
+        ))
+        dialog.llm_provider.setCurrentText("openai")
+        assert self._items(dialog) == self._CANDIDATES["openai"]
+        assert dialog.llm_model.currentText() == "gpt-5-mini"   # 先頭が既定
+
+    def test_switching_back_restores_the_saved_model(self, qapp) -> None:
+        dialog = self._dialog(AppSettings(
+            llm_provider="ollama", llm_model="gemma4:e4b"
+        ))
+        dialog.llm_provider.setCurrentText("claude")
+        dialog.llm_provider.setCurrentText("ollama")
+        assert dialog.llm_model.currentText() == "gemma4:e4b"
+
+    def test_the_choice_is_carried_over(self, qapp) -> None:
+        dialog = self._dialog(AppSettings(llm_provider="ollama"))
+        dialog.llm_provider.setCurrentText("claude")
+        dialog.llm_model.setCurrentText("claude-sonnet-4-6")
+        dialog._on_accept()
+        result = dialog.result_settings
+        assert result is not None
+        assert result.llm_provider == "claude"
+        assert result.llm_model == "claude-sonnet-4-6"
+
+    def test_default_models_for_stays_offline(self, qapp) -> None:
+        """``models_for`` を渡さない既定は**通信しない**こと.
+
+        既定が Ollama 実機照会だと、設定画面を開くだけで最大 3 秒固まる
+        (実機照会は主画面が明示的に注入する)。
+        """
+        import src.llm.config as llm_config
+
+        def boom(*args, **kwargs):
+            raise AssertionError("設定画面の既定候補が通信した")
+
+        original = llm_config.list_ollama_models
+        llm_config.list_ollama_models = boom
+        try:
+            dialog = SettingsDialog(AppSettings(llm_provider="ollama"))
+            assert self._items(dialog)          # 静的な候補は出る
+        finally:
+            llm_config.list_ollama_models = original
 
 
 class TestTabs:
