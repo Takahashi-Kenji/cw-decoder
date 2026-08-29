@@ -26,6 +26,7 @@
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
@@ -49,6 +50,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.infer.settings import AppSettings
+from src.llm.config import static_models_for
 
 # 次回の開始時にしか効かない項目に付ける印。
 _LATER = "  ⟳"
@@ -99,12 +101,16 @@ class SettingsDialog(QDialog):
         settings: AppSettings,
         parent: QWidget | None = None,
         lexicon_path: Path | None = None,
+        models_for: Callable[[str, str], list[str]] | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("設定")
         self.resize(520, 560)
         self._settings = settings
         self._lexicon_path = lexicon_path
+        # (プロバイダ, Ollama の宛先) → モデル候補。主画面は Ollama の実機照会
+        # ごと渡してくる。既定は**通信しない**静的候補 (開くだけで固まらないため)
+        self._models_for = models_for or static_models_for
         self.result_settings: AppSettings | None = None
 
         root = QVBoxLayout(self)
@@ -409,10 +415,21 @@ class SettingsDialog(QDialog):
         self.llm_provider.addItems(["ollama", "openai", "claude"])
         self.llm_provider.setCurrentText(s.llm_provider)
         form.addRow("プロバイダ", self.llm_provider)
-        self.llm_model = QLineEdit(s.llm_model)
+        # モデルは候補付きの編集可能コンボ。開いた時点では**保存値をそのまま**
+        # 出す (候補に無い手入力モデルを、開いただけで消さないため)。候補の
+        # 入れ替えと既定 (先頭) の選択は、プロバイダを**変えたとき**だけ行う
+        # (_on_llm_provider_changed)。2026-08-29 まではここが素の 1 行入力で、
+        # プロバイダを変えても候補が出ず既定にも切り替わらなかった。
+        self.llm_model = QComboBox()
+        self.llm_model.setEditable(True)
+        self.llm_model.addItems(
+            self._models_for(s.llm_provider, s.ollama_endpoint)
+        )
+        self.llm_model.setEditText(s.llm_model)
         form.addRow("モデル", self.llm_model)
         self.ollama_endpoint = QLineEdit(s.ollama_endpoint)
         form.addRow("Ollama の宛先", self.ollama_endpoint)
+        self.llm_provider.currentTextChanged.connect(self._on_llm_provider_changed)
 
         self.llm_auto = QCheckBox("自動で清書する")
         self.llm_auto.setChecked(s.llm_auto)
@@ -452,6 +469,21 @@ class SettingsDialog(QDialog):
         )
         form.addRow("清書用バッファ" + _LATER, self.refine_capacity_s)
         return page
+
+    def _on_llm_provider_changed(self, provider: str) -> None:
+        """モデル候補を入れ替え、既定 (先頭) を選ぶ.
+
+        claude のまま llama3.1 を送って 404 になる罠 (M8) を防ぐ。
+        元のプロバイダに戻したときは保存値に戻す (行って戻っただけで
+        モデルが変わらないように)。
+        """
+        models = self._models_for(provider, self.ollama_endpoint.text().strip())
+        self.llm_model.clear()
+        self.llm_model.addItems(models)
+        if provider == self._settings.llm_provider:
+            self.llm_model.setEditText(self._settings.llm_model)
+        elif models:
+            self.llm_model.setCurrentText(models[0])
 
     # ---- 表示 ----
     def _build_display_tab(self) -> QWidget:
@@ -517,7 +549,7 @@ class SettingsDialog(QDialog):
                 else self.correct_both.isChecked()
             ),
             llm_provider=self.llm_provider.currentText(),
-            llm_model=self.llm_model.text().strip(),
+            llm_model=self.llm_model.currentText().strip(),
             ollama_endpoint=self.ollama_endpoint.text().strip(),
             llm_auto=self.llm_auto.isChecked(),
             llm_auto_interval_s=self.llm_auto_interval_s.value(),

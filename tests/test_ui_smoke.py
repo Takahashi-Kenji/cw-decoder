@@ -237,19 +237,20 @@ def test_llm_panel_and_controls_exist() -> None:
 
 
 def test_model_follows_provider_change() -> None:
-    """プロバイダを claude にするとモデル欄が有効な Claude モデルへ追従する (M8)."""
+    """プロバイダを claude にするとモデル欄が有効な Claude モデルへ追従する (M8).
+
+    追従の担い手は設定画面 (``SettingsDialog``) になった。主画面の隠しコンボは
+    値の置き場で、反映は ``_apply_settings_to_widgets`` が明示的に行う。
+    """
     from PySide6.QtWidgets import QApplication
-    from src.app.main_window import CWDecoderWindow
-    from src.infer.engine import InferenceEngine
+    from src.app.settings_dialog import SettingsDialog
     from src.infer.settings import AppSettings
 
     app = QApplication.instance() or QApplication([])
-    engine = InferenceEngine.untrained(device="cpu")
-    win = CWDecoderWindow(engine, AppSettings(llm_provider="ollama", llm_model="llama3.1"))
-    win._on_llm_provider_changed("claude")
-    model = win.llm_model_edit.currentText()
+    dialog = SettingsDialog(AppSettings(llm_provider="ollama", llm_model="llama3.1"))
+    dialog.llm_provider.setCurrentText("claude")
+    model = dialog.llm_model.currentText()
     assert model.startswith("claude-")   # llama3.1 のまま残らない
-    win.close()
 
 
 def test_clear_decode_button_clears_body() -> None:
@@ -716,5 +717,63 @@ def test_LLMのモデル欄は窓を細くしても選べる(tmp_path) -> None:
         assert window.llm_model_edit.width() >= 100
         assert window.llm_model_edit.count() > 0        # 候補がある
         assert window.device_combo.width() >= 100
+    finally:
+        window.close()
+
+
+def test_設定画面でモデルだけ変えてもワーカーに届く(tmp_path) -> None:
+    """**モデル単独の変更が再起動まで効かない**回帰の歯止め (2026-08-29).
+
+    ``_apply_settings_to_widgets`` が ``setEditText`` するだけでは、繋がって
+    いる信号 (editingFinished / activated) はどちらも人の操作でしか出ないため、
+    ``_refresh_llm_provider`` が呼ばれずワーカーは旧モデルのままだった。
+    """
+    from PySide6.QtWidgets import QApplication
+
+    from src.app.main_window import CWDecoderWindow
+    from src.infer.engine import InferenceEngine
+    from src.infer.settings import AppSettings
+
+    QApplication.instance() or QApplication([])
+    window = CWDecoderWindow(
+        InferenceEngine.untrained(device="cpu"),
+        AppSettings(llm_provider="ollama", llm_model="qwen3.5:4b"),
+        config_path=tmp_path / "settings.json",
+    )
+    try:
+        received: list[object] = []
+        window.request_set_llm_provider.connect(received.append)
+        window._settings.llm_model = "gemma4:e4b"     # 設定画面の OK 相当
+        window._apply_settings_to_widgets()
+        assert received, "ワーカーへプロバイダが送り直されていない"
+        assert getattr(received[-1], "model", None) == "gemma4:e4b"
+    finally:
+        window.close()
+
+
+def test_設定画面のモデル選択が既定に潰されない(tmp_path) -> None:
+    """プロバイダも変えたとき、選んだモデルが**先頭の既定に巻き戻らない**こと.
+
+    旧経路では ``setCurrentIndex`` → ``_on_llm_provider_changed`` が
+    ``models[0]`` を書き込み、設定画面で選んだモデルを上書きしていた。
+    """
+    from PySide6.QtWidgets import QApplication
+
+    from src.app.main_window import CWDecoderWindow
+    from src.infer.engine import InferenceEngine
+    from src.infer.settings import AppSettings
+
+    QApplication.instance() or QApplication([])
+    window = CWDecoderWindow(
+        InferenceEngine.untrained(device="cpu"),
+        AppSettings(llm_provider="claude", llm_model="claude-haiku-4-5"),
+        config_path=tmp_path / "settings.json",
+    )
+    try:
+        window._settings.llm_provider = "ollama"
+        window._settings.llm_model = "gemma4:e4b"     # 既定 (先頭) ではない候補
+        window._apply_settings_to_widgets()
+        assert window._settings.llm_model == "gemma4:e4b"
+        assert window.llm_model_edit.currentText() == "gemma4:e4b"
     finally:
         window.close()

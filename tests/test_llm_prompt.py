@@ -363,3 +363,60 @@ class TestCutNumbers:
         for word in ("QRZ", "QTH", "TNX"):
             assert word in EUROPEAN_LEXICON
             assert word in system
+
+
+class TestJapaneseFaithfulnessRules:
+    """和文清書の「事実を守る」規則 (2026-08-29 の実例から).
+
+    運用者の実録 1 件を gpt-5.6-luna に通したところ、3 回中:
+    スズ スズ (名前) を正しく残せたのは 1 回 (鈴木 への膨らましと文ごと消失が
+    各 1 回)、5タタ → 599 599 は 0 回、1 回は「出力は5ワット」「前はノイズが
+    ありましたが」という**入力に無い文の捏造**が出た。重い和文プロンプトには
+    「内容を足さない」も短縮数字もカナの形では書かれていなかった。
+    """
+
+    @staticmethod
+    def _system(mode="japanese") -> str:
+        from src.llm.prompt import build_messages
+        return build_messages("イロハ", mode=mode)[0]["content"]
+
+    def test_cut_numbers_are_explained_in_kana_form(self) -> None:
+        """和文モードでは短縮数字がカナで現れる (5タタ = 5NN = 599)."""
+        system = self._system()
+        assert "5タタ" in system
+        assert "599" in system
+
+    def test_proper_nouns_must_stay_as_heard(self) -> None:
+        """名前・地名を漢字名へ膨らませない (スズ → 鈴木 の禁止)."""
+        system = self._system()
+        assert "固有名詞" in system
+        assert "スズ" in system
+
+    def test_repetition_convention_is_explained(self) -> None:
+        """名前・数値の 2 回打ちは慣習であって誤りではない."""
+        system = self._system()
+        assert "2 回" in system or "2回" in system
+
+    def test_no_fabrication_rule_in_heavy_japanese(self) -> None:
+        """「書かれていない内容を足さない」が重い和文プロンプトにもあること.
+
+        短い版には最初からあった。重い版は「読みやすさ優先」だけで、
+        入力に無い文を作る出口が開いていた。
+        """
+        system = self._system()
+        assert "足さない" in system
+
+    def test_head_drop_is_explained(self) -> None:
+        """先頭の文字が欠けやすい (ンゴウハ → 信号は)."""
+        system = self._system()
+        assert "先頭" in system
+
+    def test_auto_mode_gets_the_same_rules(self) -> None:
+        system = self._system(mode="auto")
+        assert "5タタ" in system and "固有名詞" in system
+
+    def test_european_mode_is_untouched(self) -> None:
+        """欧文プロンプトにカナの説明を混ぜない."""
+        system = self._system(mode="european")
+        assert "5タタ" not in system
+        assert "固有名詞" not in system

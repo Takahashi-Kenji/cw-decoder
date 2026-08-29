@@ -9,26 +9,38 @@ import pytest
 from src.app.workers import AudioInferenceWorker
 
 
-def _make_worker(engine) -> AudioInferenceWorker:
-    return AudioInferenceWorker(engine=engine, sample_rate=8000, mode="european")
+class _StubEngine:
+    """ワーカーが触る最小限のエンジン代役.
+
+    ワーカーは生成時に ``engine.word_break_bias`` へ代入する
+    (``_apply_word_break_bias``)。素の ``object()`` は属性を持てないため、
+    2026-08 に本物へこの代入が入った時点でここが全部落ちていた。
+    """
+
+    word_break_bias = 0.0
+
+
+def _make_worker() -> AudioInferenceWorker:
+    return AudioInferenceWorker(
+        engine=_StubEngine(), sample_rate=8000, mode="european"
+    )
 
 
 def test_set_net_source_stores_endpoint(monkeypatch) -> None:
-    engine = object()
-    worker = _make_worker(engine)
+    worker = _make_worker()
     worker.set_net_source("192.168.1.20:45000")
     assert worker._net_endpoint == ("192.168.1.20", 45000)
 
 
 def test_set_net_source_none_clears(monkeypatch) -> None:
-    worker = _make_worker(object())
+    worker = _make_worker()
     worker.set_net_source("192.168.1.20")
     worker.set_net_source(None)
     assert worker._net_endpoint is None
 
 
 def test_set_net_source_rejects_bad_endpoint() -> None:
-    worker = _make_worker(object())
+    worker = _make_worker()
     with pytest.raises(ValueError):
         worker.set_net_source("192.168.1.20:abc")
 
@@ -52,7 +64,7 @@ def test_start_uses_network_capture_when_endpoint_set(monkeypatch) -> None:
     monkeypatch.setattr("src.app.workers.NetworkAudioCapture", _FakeNetCapture)
     monkeypatch.setattr("src.app.workers.QTimer", lambda: _NoopTimer())
 
-    worker = _make_worker(object())
+    worker = _make_worker()
     worker.set_net_source("192.168.1.20:45000")
     worker.start()
 
@@ -96,7 +108,7 @@ def test_start_uses_local_capture_when_no_endpoint(monkeypatch) -> None:
     monkeypatch.setattr("src.app.workers.AudioCapture", _FakeLocalCapture)
     monkeypatch.setattr("src.app.workers.QTimer", lambda: _NoopTimer())
 
-    worker = _make_worker(object())
+    worker = _make_worker()
     worker.start()
 
     assert created["started"] is True

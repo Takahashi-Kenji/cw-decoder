@@ -57,7 +57,7 @@ from src.llm.auto import (
 )
 from src.llm.base import LLMError
 from src.llm.config import (
-    FALLBACK_OLLAMA_MODELS,
+    PROVIDER_MODELS,
     create_provider,
     list_ollama_models,
 )
@@ -80,19 +80,6 @@ class CWDecoderWindow(QMainWindow):
     request_set_llm_provider = Signal(object)
     # 清書前の全体再デコード (音声, 末尾の絶対位置, モード, 閾値, 辞書補正, 和文辞書)
     request_redecode = Signal(object, int, str, float, bool, bool, bool)
-
-    # プロバイダ別の選択候補モデル (先頭が既定)。編集可能なので他の名前も入力できる。
-    #
-    # **ollama の候補は実機から取る** (``_ollama_models``)。ここに書き固めると、
-    # 入っていないモデル名が既定になって「押しても動かない」状態になる
-    # (実際に llama3.1 でそうなっていた)。
-    _PROVIDER_MODELS = {
-        "ollama": list(FALLBACK_OLLAMA_MODELS),
-        # 先頭が既定 (プロバイダ切替時に models[0] が選ばれる)
-        "openai": ["gpt-5.6-luna", "gpt-5", "gpt-5-mini", "gpt-4.1"],
-        # Haiku を先頭に (運用者の判断)。清書は文字の変換なので軽い方で足りる
-        "claude": ["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-8"],
-    }
 
     def __init__(
         self,
@@ -471,20 +458,26 @@ class CWDecoderWindow(QMainWindow):
         self.show_provisional_check.toggled.connect(self._on_show_provisional_toggled)
         self.llm_refine_btn.clicked.connect(self._on_refine_clicked)
         self.llm_clear_btn.clicked.connect(self._on_llm_clear)
-        self.llm_provider_combo.currentTextChanged.connect(self._on_llm_provider_changed)
-        self.llm_model_edit.lineEdit().editingFinished.connect(self._on_llm_model_changed)
-        self.llm_model_edit.activated.connect(self._on_llm_model_changed)
+        # プロバイダ/モデルの隠しコンボは信号を繋がない。設定画面へ移した後は
+        # ここは値の置き場で、変更の反映は _apply_settings_to_widgets が
+        # _refresh_llm_provider を明示的に呼んで行う (信号経路に任せると、
+        # 候補の先頭が設定画面で選んだモデルを上書きし、モデル単独の変更では
+        # 信号が出ずワーカーが旧モデルのまま残る。2026-08-29 に両方表面化)。
         # 赤表示の切替は再清書せず、積み上げ済みの結果を描き直すだけ
         self.llm_highlight_check.toggled.connect(lambda _: self._refresh_llm_display())
         self.llm_compact_check.toggled.connect(self._on_compact_toggled)
 
         self._restore_geometry()
 
-    def _models_for(self, provider: str) -> list[str]:
-        """プロバイダのモデル候補。ollama だけは実機に入っているものを返す."""
+    def _models_for(self, provider: str, endpoint: str | None = None) -> list[str]:
+        """プロバイダのモデル候補。ollama だけは実機に入っているものを返す.
+
+        候補の実体は ``src/llm/config.py`` (``PROVIDER_MODELS``) にある。
+        設定画面にもこのメソッドを渡す (実機照会ごと共有するため)。
+        """
         if provider == "ollama":
-            return list_ollama_models(self._settings.ollama_endpoint)
-        return list(self._PROVIDER_MODELS.get(provider, []))
+            return list_ollama_models(endpoint or self._settings.ollama_endpoint)
+        return list(PROVIDER_MODELS.get(provider, ()))
 
     # ---- デバイス列挙 ----
     def _set_ckpt_label(self, path: str | None) -> None:
@@ -1011,19 +1004,6 @@ class CWDecoderWindow(QMainWindow):
             self.request_set_llm_provider.emit(None)
             self.statusBar().showMessage(f"LLM 設定: {exc}")
 
-    def _on_llm_provider_changed(self, provider: str) -> None:
-        # プロバイダに合わせてモデル候補を入れ替え、既定モデルを選ぶ
-        # (M8: claude のまま llama3.1 を送って 404 になる罠を防ぐ)。
-        models = self._models_for(provider)
-        if models:
-            self.llm_model_edit.clear()
-            self.llm_model_edit.addItems(models)
-            self.llm_model_edit.setCurrentText(models[0])
-        self._refresh_llm_provider()
-
-    def _on_llm_model_changed(self, *_args) -> None:
-        self._refresh_llm_provider()
-
     def _on_refine_clicked(self) -> None:
         """**まとめて清書**.
 
@@ -1363,10 +1343,13 @@ class CWDecoderWindow(QMainWindow):
         self.llm_auto_check.setChecked(s.llm_auto)
         self.llm_compact_check.setChecked(s.llm_compact_prompt)
         self.llm_highlight_check.setChecked(s.llm_highlight_guesses)
+        # LLM は値を移してから**明示的に**ワーカーへ反映する (M8: claude のまま
+        # llama3.1 を送って 404 になる罠への追従は設定画面の役目になった)。
         index = self.llm_provider_combo.findText(s.llm_provider)
         if index >= 0:
             self.llm_provider_combo.setCurrentIndex(index)
         self.llm_model_edit.setEditText(s.llm_model)
+        self._refresh_llm_provider()
 
         # スペクトルの表示切替は非表示チェックの信号で伝わるが、念のため直接も
         self.spectrogram_panel.setVisible(s.show_spectrogram)
@@ -1381,7 +1364,9 @@ class CWDecoderWindow(QMainWindow):
         """
         self._save_settings()          # 画面側のウィジェットの値を先に取り込む
         dialog = SettingsDialog(
-            self._settings, parent=self, lexicon_path=DEFAULT_JA_LEXICON_PATH
+            self._settings, parent=self, lexicon_path=DEFAULT_JA_LEXICON_PATH,
+            # Ollama の実機照会ごと渡す (設定画面の既定は通信しない静的候補)
+            models_for=self._models_for,
         )
         if hasattr(dialog, "open_lexicon_btn"):
             dialog.open_lexicon_btn.clicked.connect(self._open_lexicon_folder)
