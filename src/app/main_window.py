@@ -565,6 +565,7 @@ class CWDecoderWindow(QMainWindow):
             low_confidence_extra_lag_s=self._settings.low_confidence_extra_lag_s,
             refine_capacity_s=self._settings.refine_capacity_s,
             two_stage_commit_enabled=self.two_stage_check.isChecked(),
+            merge_stray_dot_enabled=self._settings.merge_stray_dot_enabled,
         )
         self._worker.set_device(device_index)
         try:

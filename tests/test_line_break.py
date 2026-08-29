@@ -149,10 +149,18 @@ class TestDanrakuBreak:
             )
         return out, TokenConverter(mode="japanese", confidence_threshold=0.5)
 
-    def test_段落で行が分かれる(self) -> None:
+    def test_区間の途中の段落は_デ_に直る(self) -> None:
+        """**2026-08-29 に仕様が変わった。**
+
+        運用者の指示で「改行する時間ぶん空いていない『。』は『デ』の読み違い」
+        として直すようになった (符号 1 要素差。``_danraku_to_de``)。その結果
+        **区間の途中に段落は残らない** — 段落として残るのは区間の末尾
+        (= 後ろに改行時間ぶんの無音がある) のものだけになる。長い送信を
+        区切りたいときは改行時間を短く設定する (運用者は 1 秒)。
+        """
         tokens, conv = self._japanese("アイ。ウエ")
         text, _ = render_committed(tokens, conv, int(3.0 * SR))
-        assert text == "アイ。\nウエ"
+        assert text == "アイデウエ"
 
     def test_末尾の段落で空行を作らない(self) -> None:
         tokens, conv = self._japanese("アイ。")
@@ -166,9 +174,11 @@ class TestDanrakuBreak:
         assert text == "アイ、ウエ"
 
     def test_連続する段落で空行を作らない(self) -> None:
-        tokens, conv = self._japanese("ア。。イ")
+        """末尾に残る形で確かめる (途中の段落は デ に直るようになったため)."""
+        tokens, conv = self._japanese("ア。。")
         text, _ = render_committed(tokens, conv, int(3.0 * SR))
-        assert text == "ア。\n。\nイ"
+        assert text == "アデ。"
+        assert not text.endswith("\n")
 
     def test_無音の改行と両立する(self) -> None:
         """無音による改行と段落による改行が重なっても空行を作らない."""
