@@ -124,10 +124,12 @@ class AudioInferenceWorker(QObject):
         refine_capacity_s: float = DEFAULT_REFINE_CAPACITY_S,
         # 2 段階確定 (ターン終了時の置き換え) を行うか
         two_stage_commit_enabled: bool = True,
+        merge_stray_dot_enabled: bool = False,
     ) -> None:
         super().__init__()
         self.engine = engine
         self.two_stage_commit_enabled = two_stage_commit_enabled
+        self.merge_stray_dot_enabled = merge_stray_dot_enabled
         # **清書専用の長いバッファ。** 別スレッドの再デコードが読む
         self.refine_buffer = RefineBuffer(
             capacity_s=refine_capacity_s, sample_rate=sample_rate
@@ -452,6 +454,7 @@ class AudioInferenceWorker(QObject):
         committed_text, final_mode = render_committed(
             view.committed, self._converter, self._line_break_gap_samples,
             initial_mode="european",
+            merge_stray_dot=self.merge_stray_dot_enabled,
         )
         # 自動モードの語間バイアスをサブモードに追従させる (次の再デコードから効く)
         if self.mode == "auto" and final_mode != self._auto_submode:

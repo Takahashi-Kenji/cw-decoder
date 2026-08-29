@@ -35,7 +35,92 @@ from collections.abc import Sequence
 
 from src.infer.sliding_window import CommittedToken
 from src.tokens.converter import TokenConverter
-from src.tokens.morse_tokens import Mode
+from src.tokens.morse_tokens import ID_TO_TOKEN, JAPANESE_TABLE, TOKEN_TO_ID, Mode
+
+# 「。」を「デ」に直すための符号 ID (_danraku_to_de を参照)。
+_DANRAKU_ID = TOKEN_TO_ID["・-・-・・"]
+_TE_ID = TOKEN_TO_ID["・-・--"]
+_DAKUTEN_ID = TOKEN_TO_ID["・・"]
+# 単独の短点 (和文表では「ヘ」)。_merge_stray_dot を参照。
+_DOT_ID = TOKEN_TO_ID["・"]
+
+
+def _merge_stray_dot(tokens: list[CommittedToken]) -> list[CommittedToken]:
+    """単独の短点 (「ヘ」) を次の文字と合成して正規の符号に戻す.
+
+    **癖のある打鍵向けの任意機能** (運用者の提案、2026-08-29):「癖のある打点は、
+    短点 (ヘ) とそれにつづく文字の組み合わせで 1 つの文字になる。補正でヘが
+    出てきたら、次の文字と合成してモールスコードを正規に補正したらどうか」。
+
+    実録音 20260829_153839 の測定:
+
+    * 「ヘ」の後の間隔は中央 **4.8 短点**、**その他の文字間は中央 8.2 短点**。
+      この局は文字間を広く取る癖があり、その中で「ヘ」の後だけ半分 =
+      文字間ではなく要素間である
+    * 「ヘ」+次の符号を繋ぐと **19/19 が正規の和文符号**になった
+    * 合成すると ``ヘソヘニタクモノハコヘムラヘニドリ`` が
+      ``センタクモノハコイランドリ`` (洗濯物はコインランドリ) になる
+
+    **「ヘヘ」は合成しない。** 「ヌヘヘ」は笑い (欧文の HI HI) で、繋ぐと
+    濁点になって壊れる (運用者:「ぬへへは、そのまま、ぬへへでいいです」)。
+
+    繋いだ符号が和文表に無いときも触らない (根拠が無いため)。
+    """
+    out: list[CommittedToken] = []
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        nxt = tokens[index + 1] if index + 1 < len(tokens) else None
+        if token.token_id == _DOT_ID and nxt is not None and nxt.token_id != _DOT_ID:
+            joined = "・" + ID_TO_TOKEN[nxt.token_id].code
+            merged_id = TOKEN_TO_ID.get(joined)
+            if merged_id is not None and joined in JAPANESE_TABLE:
+                out.append(CommittedToken(
+                    token_id=merged_id,
+                    confidence=min(token.confidence, nxt.confidence),
+                    absolute_sample_start=token.absolute_sample_start,
+                    absolute_sample_end=nxt.absolute_sample_end,
+                ))
+                index += 2
+                continue
+        out.append(token)
+        index += 1
+    return out
+
+
+def _danraku_to_de(
+    segment: Sequence[CommittedToken],
+) -> tuple[list[int], list[float]]:
+    """区間の**末尾以外**の「。」を「デ」(テ + 濁点) に直す.
+
+    デ = テ(・-・--) + 濁点(・・) = ・-・--・・ (7 要素) と
+    。 =                        ・-・-・・   (6 要素) は 1 要素しか違わず、
+    モデルが確信度 0.99〜1.00 で読み違える (音の実測では 7 要素が正しく
+    打たれていた。閾値では救えない)。
+
+    運用者の指示 (2026-08-29):「「。」の後、改行する時間を経過すれば「。」に
+    して、そうでなければ「デ」にしたほうがいい」「改行する時間を 1 秒に設定
+    すればいいだけだから、その改行時間で判定するのでいい」。
+
+    **新しい設定は増やさない。** ``split_at_gaps`` が既に改行時間で区切って
+    いるので、「区間の末尾の『。』だけが段落」と見れば判定は済む。
+    段落として残ったものは改行の印としても働き続ける。
+
+    **辞書には頼らない** (辞書補正は ``ヨウカイデス`` を ``マイク デス`` に
+    する。運用者:「補正が強すぎて使えない」)。ここは符号 1 要素違いという
+    事実と、間隔という測れる量だけで決めている。
+    """
+    ids: list[int] = []
+    confidences: list[float] = []
+    last = len(segment) - 1
+    for index, token in enumerate(segment):
+        if token.token_id == _DANRAKU_ID and index != last:
+            ids.extend((_TE_ID, _DAKUTEN_ID))
+            confidences.extend((token.confidence, token.confidence))
+        else:
+            ids.append(token.token_id)
+            confidences.append(token.confidence)
+    return ids, confidences
 
 # 改行を入れる無音の長さ (秒) の既定値。
 #
@@ -104,6 +189,7 @@ def render_committed(
     converter: TokenConverter,
     gap_samples: int,
     initial_mode: Mode = "european",
+    merge_stray_dot: bool = False,
 ) -> tuple[str, Mode]:
     """確定トークン列を、無音で区切って改行付きのテキストに変換する.
 
@@ -112,6 +198,9 @@ def render_committed(
         converter: 変換器.
         gap_samples: 改行を入れる無音の長さ (サンプル). 0 以下なら改行しない.
         initial_mode: 走査開始時のサブモード.
+        merge_stray_dot: 単独の短点 (「ヘ」) を次の文字と合成するか
+            (``_merge_stray_dot``)。**癖のある打鍵向けの任意機能**で既定は
+            ``False``。和文のときだけ効く。
 
     Returns:
         (改行を含むテキスト, 末尾のサブモード).
@@ -123,12 +212,20 @@ def render_committed(
     """
     lines: list[str] = []
     mode: Mode = initial_mode
+    # 和文のときだけ「。」→「デ」を当てる。**欧文表には「。」も「テ」も無い**
+    # ので、欧文で当てると読めない文字が増えるだけになる。改行を切っている
+    # (gap<=0) ときは判定の物差しが無いので触らない。
+    fix_danraku = converter.mode == "japanese" and gap_samples > 0
+    merge_dot = merge_stray_dot and converter.mode == "japanese"
     for segment in split_at_gaps(tokens, gap_samples):
-        res = converter.convert(
-            [t.token_id for t in segment],
-            [t.confidence for t in segment],
-            initial_mode=mode,
-        )
+        if merge_dot:
+            segment = _merge_stray_dot(list(segment))
+        if fix_danraku:
+            ids, confidences = _danraku_to_de(segment)
+        else:
+            ids = [t.token_id for t in segment]
+            confidences = [t.confidence for t in segment]
+        res = converter.convert(ids, confidences, initial_mode=mode)
         lines.extend(_split_after_danraku(res.text))
         mode = res.final_mode
     return "\n".join(lines), mode

@@ -367,6 +367,21 @@ class SettingsDialog(QDialog):
             "和文はカナの切り直しを伴うので、欧文より踏み込んだ処理です。"
             "日常で使わないカナの置き換え (ヱ → イマ) も、和文を選んだときだけ働きます。"
         ))
+        # 癖のある打鍵向け (辞書とは独立。「使わない」でも効く)
+        self.merge_stray_dot_enabled = QCheckBox(
+            "癖のある和文: 単独の「ヘ」を次の文字とつなげて直す"
+        )
+        self.merge_stray_dot_enabled.setChecked(s.merge_stray_dot_enabled)
+        self.merge_stray_dot_enabled.setToolTip(
+            "短点の後に間を空ける癖のある局では、1 文字が「ヘ」と次の文字に\n"
+            "割れて出ます (ヘソ → セ、ヘニ → ン)。繋いで正規の符号になるときだけ\n"
+            "直します。**繋いだ結果が符号表に無いときは触りません。**\n"
+            "笑いの「ヌヘヘ」は繋ぎません。\n"
+            "実録音では センタクモノハコイランドリ (洗濯物はコインランドリ) と\n"
+            "読めるようになりました。ふつうの局では不要です。"
+        )
+        choices.addWidget(self.merge_stray_dot_enabled)
+
         # つながった欧文を語彙で切る (寄せとは独立。「使わない」でも効く)
         self.word_split_enabled = QCheckBox("つながった欧文を語彙とコールサインの型で切る")
         self.word_split_enabled.setChecked(s.word_split_enabled)
@@ -531,6 +546,7 @@ class SettingsDialog(QDialog):
             two_stage_commit_enabled=self.two_stage_commit_enabled.isChecked(),
             word_correct_enabled=not self.correct_off.isChecked(),
             word_split_enabled=self.word_split_enabled.isChecked(),
+            merge_stray_dot_enabled=self.merge_stray_dot_enabled.isChecked(),
             # 「使わない」のときは**元の値を保つ**。3 択に畳んだ都合で子の値が
             # 見えなくなるだけなので、開いて OK を押しただけで捨ててはいけない
             word_correct_ja_enabled=(
