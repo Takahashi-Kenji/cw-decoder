@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QPlainTextEdit,
     QPushButton,
     QSizePolicy,
     QSlider,
@@ -160,8 +161,11 @@ class CWDecoderWindow(QMainWindow):
         top.addWidget(QLabel("モード:"))
         self.mode_combo = QComboBox()
         # **括弧の中の英語は落とす。** 幅を食うわりに情報が増えない
-        self.mode_combo.addItems(["欧文", "和文", "自動"])
-        _mode_index = {"european": 0, "japanese": 1, "auto": 2}
+        # 「自動」は選択肢から外した (2026-08-29 運用者要望。欧文ストリーム
+        # ラインで欧文読みが常に見えるため)。内部の切替機構は温存している。
+        # 旧設定の "auto" は和文へ縮退 (migrate_settings_dict と同じ判断)
+        self.mode_combo.addItems(["欧文", "和文"])
+        _mode_index = {"european": 0, "japanese": 1, "auto": 1}
         self.mode_combo.setCurrentIndex(_mode_index.get(self._settings.mode, 0))
         top.addWidget(self.mode_combo)
 
@@ -326,6 +330,30 @@ class CWDecoderWindow(QMainWindow):
         body.addWidget(self.level_meter)
 
         root.addLayout(body, 5)
+
+        # ---- 欧文ストリームライン ----
+        # 確定列を**常に欧文表で**読んだ 1 行を流す (2026-08-29 運用者要望)。
+        # 和文と欧文は実運用で結構混在するため、和文受信中もコールサイン・RST が
+        # そのまま読める。読めない符号は _。全モード共通で常設 (和文限定にする
+        # 実装が難しければ共通でよい、との指示)。折返しなし・末尾追従。
+        self.euro_stream_view = QPlainTextEdit()
+        self.euro_stream_view.setReadOnly(True)
+        self.euro_stream_view.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+        self.euro_stream_view.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.euro_stream_view.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.euro_stream_view.setFont(QFont("Consolas", 11))
+        self.euro_stream_view.setPlaceholderText(
+            "欧文ストリーム (同じ符号を欧文表で読んだもの。_ = 欧文表に無い符号)"
+        )
+        # 1 行ぶんの高さに固定 (枠と余白のぶんを足す)
+        self.euro_stream_view.setFixedHeight(
+            self.euro_stream_view.fontMetrics().height() + 12
+        )
+        root.addWidget(self.euro_stream_view)
 
         # ---- スペクトログラム (見え方のスライダ付き) ----
         # **見ながら合わせられることが要件。** 目的は「符号としてそれらしく
@@ -552,6 +580,7 @@ class CWDecoderWindow(QMainWindow):
         self._worker.error.connect(self._on_worker_error)
         self._worker.committed_text_changed.connect(self._on_committed_text)
         self._worker.provisional_text_changed.connect(self._on_provisional_text)
+        self._worker.european_stream_changed.connect(self._on_european_stream)
         self._worker.stream_diag.connect(self._on_stream_diag)
         self._worker.current_mode_changed.connect(self._on_current_mode)
         self._worker.received_wpm_changed.connect(self._on_received_wpm)
@@ -608,8 +637,9 @@ class CWDecoderWindow(QMainWindow):
         戻り値を ``DisplayMode`` にしてあるのは、``auto`` を落とす受け手を
         型で見つけられるようにするため (送信ダイアログの型の絞り込みが
         ``auto`` を未知として扱い、型が 9/10 消えていた)。
+        「自動」を選択肢から外したので ``auto`` はもう返らない (2026-08-29)。
         """
-        modes: tuple[DisplayMode, ...] = ("european", "japanese", "auto")
+        modes: tuple[DisplayMode, ...] = ("european", "japanese")
         return modes[self.mode_combo.currentIndex()]
 
     def _on_mode_changed(self, _index: int) -> None:
@@ -804,6 +834,28 @@ class CWDecoderWindow(QMainWindow):
         self._provisional_text = text
         self._refresh_decode_display()
 
+    def _on_european_stream(self, text: str) -> None:
+        """欧文ストリームラインを更新する.
+
+        確定列は追記型なので、前回の続きなら**差分だけ末尾に挿入**する
+        (0.5 秒ごとに全体を作り直すと選択・コピーが壊れる — デコード本文で
+        実際に踏んだ罠。src/app/main_window.py の _refresh_decode_display 参照)。
+        続きでないとき (クリア・モード切替・2 段階確定の書き直し) だけ全置換。
+        """
+        view = self.euro_stream_view
+        current = view.toPlainText()
+        if text == current:
+            return
+        if text.startswith(current):
+            cursor = QTextCursor(view.document())
+            cursor.movePosition(QTextCursor.MoveOperation.End)
+            cursor.insertText(text[len(current):])
+        else:
+            view.setPlainText(text)
+        # 末尾追従 (右端へ流す)。スクロールバーは隠してあるが値は生きている
+        bar = view.horizontalScrollBar()
+        bar.setValue(bar.maximum())
+
     def _on_stream_diag(self, diag: dict) -> None:
         """ストリーミング診断情報をステータスバーに表示する (auto モードでは現在モードも).
 
@@ -817,11 +869,6 @@ class CWDecoderWindow(QMainWindow):
             f"lag={diag['lag']:.1f}s "
             f"decode={diag['decode_ms']:.0f}ms"
         )
-        if self._current_mode() == "auto":
-            label = {"european": "欧文", "japanese": "和文"}.get(
-                self._auto_submode, self._auto_submode
-            )
-            msg = f"自動(現在:{label}) " + msg
         self.statusBar().showMessage(msg)
 
     def _on_operating_point(self, payload: object) -> None:
@@ -1239,10 +1286,9 @@ class CWDecoderWindow(QMainWindow):
         **モードは画面の今の値を渡す** (``_current_mode()``)。
         ``self._settings.mode`` は ``_save_settings`` でしか書き戻さない
         ので、画面を和文にしても設定は欧文のままであり、和文の型が一覧から
-        消えていた (2026-08-11 レビュー I1)。``auto`` はそのまま渡す —
-        ``templates_for_mode`` が両方の型を出す。``_auto_submode`` (自動
-        切替の今の側) は渡さない。交信の途中で勝手に裏返るので、それで
-        一覧を絞ると**運用者が選ぼうとした型が直前に消える**ことになる。
+        消えていた (2026-08-11 レビュー I1)。「自動」を選択肢から外した
+        (2026-08-29) ので ``auto`` はもう来ない (``templates_for_mode`` 自体は
+        今も ``auto`` を受けられる)。
         """
         from src.app.tx_dialog import TxDialog
 
@@ -1324,7 +1370,7 @@ class CWDecoderWindow(QMainWindow):
         押したときと同じ経路)。
         """
         s = self._settings
-        _mode_index = {"european": 0, "japanese": 1, "auto": 2}
+        _mode_index = {"european": 0, "japanese": 1, "auto": 1}   # auto は和文へ縮退
         self.mode_combo.setCurrentIndex(_mode_index.get(s.mode, 0))
         self._set_ckpt_label(s.checkpoint_path)
         self._recorder = Recorder(out_dir=Path(s.recording_dir))

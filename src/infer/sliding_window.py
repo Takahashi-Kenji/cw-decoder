@@ -293,6 +293,16 @@ class SlidingWindowDecoder:
                 changed = True
             rebuilt.extend(refined)
         self._committed = rebuilt
+        # **ウォーターマークを置き換え後の末尾に合わせる。**
+        #
+        # ここを忘れると、書き直しで伸びたぶんが次の ``redecode`` で
+        # 「まだ確定していない領域」に見え、同じ音がもう一度確定されて
+        # **文字が重複する** (2026-08-29 運用者報告:「ゼンゼン」が
+        # 「ゼンゼンゼン」になる。実測で末尾が +27840 サンプル = 3.5 秒
+        # 進んだのに ``_last_commit_end`` は 23040 のまま据え置かれていた)。
+        # 2 段階確定を切ると再現しないことも確認済み。
+        if changed and rebuilt:
+            self._last_commit_end = rebuilt[-1].absolute_sample_end
         return changed
 
     def recent_audio(self, seconds: float) -> np.ndarray:

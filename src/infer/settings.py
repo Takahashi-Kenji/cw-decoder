@@ -39,7 +39,7 @@ DEFAULT_CONFIG_PATH = Path.home() / ".cw-decorder" / "settings.json"
 # v19: スペクトル表示の見え方 (spectrogram_floor_db / spectrogram_span_s)
 # v20: word_break_bias_european / word_break_bias_japanese を追加
 #      (語間スペースの出しやすさをモード別に持つ)
-CURRENT_SETTINGS_VERSION = 20
+CURRENT_SETTINGS_VERSION = 21
 
 
 @dataclass
@@ -191,7 +191,13 @@ class AppSettings:
     # 曖昧一致つきの分割を伴い、欧文 (厳密一致の切り直し + 寄せ) より
     # 踏み込んだ処理だからである (運用者の要望、2026-08-14)。
     # ``word_correct_enabled`` が False なら和文も止まる (親子関係)。
-    word_correct_ja_enabled: bool = True
+    # **既定は OFF** (2026-08-29)。運用者:「和文の補正は補正が強すぎて、使えない」。
+    # 実測で正しい和文 22 件中 4 件を壊していた (アンテナアゲマシタ → アンテナ
+    # アタタカイ シタ、コチラモ → コチラハ 等)。符号距離で寄せる設計自体は
+    # 正しいが、語の区切りを跨いだ符号列で測るため ヨウカイ と マイク が距離 1
+    # になる。代わりに確実な局所修正だけを変換器の中で常時行う
+    # (converter.fix_danraku_su:「。ス」→「デス」。この設定と無関係に効く)。
+    word_correct_ja_enabled: bool = False
 
     # --- 語間スペースの出しやすさ (argmax 前に足す log 確率、負で出にくい) ---
     #
@@ -274,6 +280,8 @@ _V1_DEFAULT_REPLACEMENTS: dict[str, tuple[Any, Any]] = {
     "hop_s": (1.0, 0.5),
     # v9→v10: 実質無効だった -60 のままのユーザーだけ新既定へ
     "squelch_threshold_db": (-60.0, -25.0),
+    # v20→v21: 強すぎる和文補正を既定 OFF へ (AppSettings のコメント参照)
+    "word_correct_ja_enabled": (True, False),
 }
 
 def migrate_settings_dict(data: dict[str, Any]) -> tuple[dict[str, Any], bool]:
@@ -293,6 +301,12 @@ def migrate_settings_dict(data: dict[str, Any]) -> tuple[dict[str, Any], bool]:
             if field_name in data and data[field_name] == old_default:
                 merged[field_name] = new_default
         merged["settings_version"] = CURRENT_SETTINGS_VERSION
+        changed = True
+    # モード選択から「自動」を外した (2026-08-29)。旧設定は和文へ縮退する
+    # (自動を選んでいた人は和文の交信を受けたい人。欧文だけなら欧文固定を
+    # 選んでいる)。値ベースの正規化なので version には依らない。
+    if merged.get("mode") == "auto":
+        merged["mode"] = "japanese"
         changed = True
     return merged, changed
 

@@ -219,21 +219,10 @@ class SettingsDialog(QDialog):
         )
         form.addRow("確信度の閾値", self.confidence_threshold)
 
-        self.prosign_threshold = self._spin(s.prosign_threshold, 0.0, 1.0, 0.05, "")
-        self.prosign_threshold.setToolTip(
-            "和文開始 (ホレ)・終了 (ラタ) などのプロサインにだけ適用する閾値。\n"
-            "通常より低くしてあるのは、モード切替を取り逃がすと以降の和文が\n"
-            "すべて欧文表で読まれて全滅するためです。"
-        )
-        form.addRow("プロサインの閾値", self.prosign_threshold)
-
-        self.switch_on_japanese_only = QCheckBox("和文にしかない符号でもモードを切り替える")
-        self.switch_on_japanese_only.setChecked(s.switch_on_japanese_only)
-        self.switch_on_japanese_only.setToolTip(
-            "ホレ/ラタ が実信号で取れないことがあるため、\n"
-            "単一の符号に頼らない冗長な経路として用意しています。"
-        )
-        form.addRow(self.switch_on_japanese_only)
+        # プロサインの閾値と「和文にしかない符号でも切替」は**自動モード専用**
+        # (converter.py の _auto ガード参照)。「自動」を選択肢から外した
+        # (2026-08-29) ので行ごと消した。値は _on_accept が元の設定から
+        # 引き継ぐ (開いて OK を押しただけで変わらない — 往復保存則)
         return page
 
     # ---- 確定 ----
@@ -527,8 +516,9 @@ class SettingsDialog(QDialog):
             decode_device=self.decode_device.currentText(),
             decode_threads=int(self.decode_threads.value()),
             confidence_threshold=self.confidence_threshold.value(),
-            prosign_threshold=self.prosign_threshold.value(),
-            switch_on_japanese_only=self.switch_on_japanese_only.isChecked(),
+            # 自動モード専用の 2 値は画面から消した。元の値をそのまま保つ
+            prosign_threshold=self._settings.prosign_threshold,
+            switch_on_japanese_only=self._settings.switch_on_japanese_only,
             hop_s=self.hop_s.value(),
             commit_lag_s=self.commit_lag_s.value(),
             window_s=self.window_s.value(),

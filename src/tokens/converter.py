@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Literal, Protocol
+from typing import Final, Literal, Protocol
 
 from src.tokens.morse_tokens import (
     BLANK_TOKEN_ID,
@@ -29,6 +29,7 @@ from src.tokens.morse_tokens import (
     JAPANESE_TABLE,
     Mode,
     RATA_CODE,
+    TOKEN_TO_ID,
     WORD_BREAK_TOKEN_ID,
 )
 
@@ -184,6 +185,11 @@ class TokenConverter:
                 f"confidences length {len(confidences)} != token_ids length "
                 f"{len(token_ids)}"
             )
+
+        # 和文だけの局所修正: 「。ス」は「デス」の読み違い (fix_danraku_su 参照)。
+        # **ここで直す。** テキストになった後では段落で行が割れて繋げられない。
+        if self.mode == "japanese":
+            token_ids, confidences = fix_danraku_su(token_ids, confidences)
 
         if self._auto:
             active: Mode = initial_mode if initial_mode is not None else "european"
@@ -427,6 +433,106 @@ class TokenConverter:
         out_chars.append(FALLBACK_CHAR)
 
 
+# ---- 局所的な読み違いの修正 (和文) ----
+#
+# **辞書には頼らない。** 運用者の指摘 (2026-08-29):「和文の補正は補正が強すぎて
+# 使えない。間違ったところを補完してあげればいいだけだ」。実際、辞書補正は
+# ``ヨウカイデス`` を ``マイク デス`` にする (符号の遠い語へ寄せてしまう)。
+#
+# ここで直すのは**符号 1 要素違いで、日本語として明らかにおかしい**一点だけ:
+#
+#     デ = テ(・-・--) + 濁点(・・) = ・-・--・・   (7 要素)
+#     。 =                          ・-・-・・     (6 要素)
+#
+# 実測 (data/real 和文 18 件、2026-08-29): 「。」の直後の文字は「ス」が 10 回で
+# 断然 1 位 (2 位以下は 1〜2 回)、10 件すべて「デス」として自然だった。
+# 音の実測でも該当箇所は ``・-・--・・`` の **7 要素が正しく打たれており**
+# (短点 64ms / 長点 200ms)、**打鍵は正しくモデルが誤読している**。
+# 確信度は 0.99〜1.00 なので閾値では救えない。
+#
+# **トークンの段階で直すこと。** 段落 ``。`` は ``line_break`` が行を分ける印で
+# もあるので、テキストになった後では「。」と「ス」が別の行に割れてしまい、
+# もう繋げられない (実データで辞書補正が 0/5 しか直せなかった原因の一つ)。
+_DANRAKU_ID = TOKEN_TO_ID["・-・-・・"]
+_SU_ID = TOKEN_TO_ID["---・-"]
+_TE_ID = TOKEN_TO_ID["・-・--"]
+_DAKUTEN_ID = TOKEN_TO_ID["・・"]
+
+# 段落の直後に来ても自然な「ス」始まりの語。ここに当たるときは触らない
+# (実データでは 1 件も無かったが、直しすぎない方に倒す)。
+_SU_WORDS: Final = ("スコシ", "スイマセン", "スミマセン", "スグ")
+_SU_WORD_MAX_LEN = max(len(w) for w in _SU_WORDS)
+
+
+def _reads_as_su_word(token_ids: Sequence[int], start: int) -> bool:
+    """``start`` から始まるトークン列が ``_SU_WORDS`` のいずれかで始まるか."""
+    chars: list[str] = []
+    for tid in token_ids[start : start + _SU_WORD_MAX_LEN]:
+        token = ID_TO_TOKEN.get(tid)
+        char = JAPANESE_TABLE.get(token.code) if token else None
+        if char is None:
+            break
+        chars.append(char)
+    text = "".join(chars)
+    return any(text.startswith(word) for word in _SU_WORDS)
+
+
+def fix_danraku_su(
+    token_ids: Sequence[int], confidences: Sequence[float] | None = None
+) -> tuple[list[int], list[float] | None]:
+    """``。`` + ``ス`` を ``デ`` (テ + 濁点) + ``ス`` に直す.
+
+    **和文でしか呼ばないこと。** 欧文表には ``。`` も ``テ`` も無いので、
+    欧文で当てると読めない文字が 1 つ増えるだけになる。
+
+    トークンが 1 つ増えるので、確信度も同じ値で複製して長さを合わせる。
+    """
+    out_ids: list[int] = []
+    out_confs: list[float] | None = None if confidences is None else []
+    for i, tid in enumerate(token_ids):
+        conf = 1.0 if confidences is None else confidences[i]
+        is_desu = (
+            tid == _DANRAKU_ID
+            and i + 1 < len(token_ids)
+            and token_ids[i + 1] == _SU_ID
+            and not _reads_as_su_word(token_ids, i + 1)
+        )
+        if is_desu:
+            out_ids.extend((_TE_ID, _DAKUTEN_ID))
+            if out_confs is not None:
+                out_confs.extend((conf, conf))
+        else:
+            out_ids.append(tid)
+            if out_confs is not None:
+                out_confs.append(conf)
+    return out_ids, out_confs
+
+
+def render_european_stream(token_ids: Sequence[int]) -> str:
+    """トークン列を**常に欧文表で**読んだ 1 行の文字列を返す.
+
+    欧文ストリームライン (2026-08-29 運用者要望) 用。和文受信中も同じ符号を
+    欧文表で読み替えて併記する。``TokenConverter`` と違い**モード切替
+    (ホレ/ラタ) を一切行わない** — ホレ自体も欧文表に無いので ``_`` になる。
+
+    - 欧文表に無い符号 (和文専用カナ等) は ``FALLBACK_CHAR`` (``_``)
+    - WORD_BREAK はスペース (連続は 1 つに集約、先頭には置かない)
+    - 出力は入力の前置きに対して前置きを保つ (追記型。UI が差分だけ
+      末尾に足せるので、0.5 秒ごとの作り直しで選択が壊れない)
+    """
+    chars: list[str] = []
+    for token_id in token_ids:
+        if token_id == BLANK_TOKEN_ID:
+            continue
+        if token_id == WORD_BREAK_TOKEN_ID:
+            if chars and chars[-1] != " ":
+                chars.append(" ")
+            continue
+        code = ID_TO_TOKEN.get(token_id)
+        chars.append(EUROPEAN_TABLE.get(code.code if code else "", FALLBACK_CHAR))
+    return "".join(chars)
+
+
 __all__ = [
     "FALLBACK_CHAR",
     "ConvertResult",
@@ -434,4 +540,6 @@ __all__ = [
     "FallbackKind",
     "TimedToken",
     "TokenConverter",
+    "fix_danraku_su",
+    "render_european_stream",
 ]

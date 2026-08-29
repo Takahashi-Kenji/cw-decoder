@@ -20,7 +20,7 @@ from src.infer.squelch import Squelch
 from src.infer.model_recommend import classify
 from src.infer.operating_point import measure_operating_point
 from src.infer.wpm import estimate_wpm
-from src.tokens.converter import TokenConverter
+from src.tokens.converter import TokenConverter, render_european_stream
 
 
 class _StreamingBPF:
@@ -80,6 +80,9 @@ class AudioInferenceWorker(QObject):
     error = Signal(str)
     committed_text_changed = Signal(str)    # 確定テキスト全体 (黒表示)
     provisional_text_changed = Signal(str)  # 暫定テキスト (グレー表示)
+    # 確定列を**常に欧文表で**読んだ 1 行 (欧文ストリームライン)。
+    # モードに依存しない (和文受信中の欧文併記が目的。2026-08-29 要望)
+    european_stream_changed = Signal(str)
     current_mode_changed = Signal(str)      # auto モードの現在サブモード ("european"/"japanese")
     stream_diag = Signal(dict)              # {window, hop, lag, decode_ms}
     # 受信信号の速度 (WPM). 測れないときは None を流す。
@@ -245,6 +248,7 @@ class AudioInferenceWorker(QObject):
         # モード変更で旧テキスト (旧変換表の結果) を画面から消す.
         self.committed_text_changed.emit("")
         self.provisional_text_changed.emit("")
+        self.european_stream_changed.emit("")
         self.status.emit(f"mode -> {mode}")
 
     @Slot()
@@ -260,6 +264,7 @@ class AudioInferenceWorker(QObject):
         self._has_pending_provisional = False
         self.committed_text_changed.emit("")
         self.provisional_text_changed.emit("")
+        self.european_stream_changed.emit("")
 
     @Slot(float)
     def set_confidence_threshold(self, threshold: float) -> None:
@@ -324,6 +329,7 @@ class AudioInferenceWorker(QObject):
             self._has_pending_provisional = False
             self.committed_text_changed.emit("")
             self.provisional_text_changed.emit("")
+            self.european_stream_changed.emit("")
             self.status.emit("デコード中")
         else:
             self._decoding = False
@@ -466,6 +472,11 @@ class AudioInferenceWorker(QObject):
         prov_text = res_p.text
         self.committed_text_changed.emit(committed_text)
         self.provisional_text_changed.emit(prov_text)
+        # 欧文ストリームライン: 確定列をモード切替なしで欧文表読みした 1 行。
+        # 暫定は流さない (含めると末尾が hop ごとに書き換わり、追記型でなくなる)
+        self.european_stream_changed.emit(
+            render_european_stream([t.token_id for t in view.committed])
+        )
         self.current_mode_changed.emit(final_mode)   # ステータス表示用
         self.stream_diag.emit({
             "window": self.window_s, "hop": self.hop_s,
