@@ -630,3 +630,57 @@ class TestLeadInOnFirstPass:
         d.redecode()
         # 復号開始は 40000 - 8000 (左文脈 1 秒) = 32000。助走は足さない
         assert sizes[-1] == 80000 - 32000
+
+
+# ---- 2 段階確定のあとに文字が重複する回帰 (2026-08-29 運用者報告) ----
+#
+# 運用者:「ときどき見られるのがデコードが遅れたとき繰り返し文字が現れる」。
+# 実録音 (data/real/20260829_141557_japanese.wav) で「ゼンゼン」が
+# 「ゼンゼンゼン」になった。2 段階確定を切ると再現しない。
+#
+# 原因: ``refine_closed_turns`` は ``_committed`` を丸ごと置き換えるのに、
+# 重複防止のウォーターマーク ``_last_commit_end`` を据え置いていた。
+# 実測では末尾が **+27840 サンプル (3.5 秒)** 進んだのに ``_last_commit_end``
+# は 23040 のままで、その 3.5 秒ぶんが次の ``redecode`` で「新規」と判定される。
+
+
+def test_書き直しの後もウォーターマークが末尾に追従する() -> None:
+    """``refine_closed_turns`` が ``_last_commit_end`` を更新すること."""
+    eng = _RefineEngine([
+        FrameToken(token_id=99, confidence=0.9, frame_start=0, frame_end=1),
+        # 元のターン (…16000 で終わる) より **後ろ** に伸びる置き換え結果
+        FrameToken(token_id=98, confidence=0.9, frame_start=600, frame_end=700),
+    ])
+    d = _refine_decoder(eng)
+    d.push(np.zeros(80000, dtype=np.float32))
+    _committed_turn(d, [(5, 8000, 16000)])
+
+    assert d.refine_closed_turns(_GAP, lead_in_s=0.0) is True
+    assert d._committed[-1].absolute_sample_end > 16000, "前提: 末尾が後ろへ動く"
+    assert d._last_commit_end == d._committed[-1].absolute_sample_end
+
+
+def test_書き直しで短くなってもウォーターマークが合う() -> None:
+    """置き換えで末尾が**手前**に動く場合も ``_committed`` に合わせる."""
+    eng = _RefineEngine([
+        FrameToken(token_id=99, confidence=0.9, frame_start=0, frame_end=1),
+    ])
+    d = _refine_decoder(eng)
+    d.push(np.zeros(80000, dtype=np.float32))
+    _committed_turn(d, [(5, 8000, 16000)])
+
+    assert d.refine_closed_turns(_GAP, lead_in_s=0.0) is True
+    assert d._last_commit_end == d._committed[-1].absolute_sample_end
+
+
+def test_直さなかったときはウォーターマークを動かさない() -> None:
+    """開いているターンしかなければ据え置き (触っていないので)."""
+    eng = _RefineEngine([FrameToken(token_id=99, confidence=0.9,
+                                    frame_start=0, frame_end=1)])
+    d = _refine_decoder(eng)
+    d.push(np.zeros(40000, dtype=np.float32))
+    _committed_turn(d, [(5, 8000, 24000)])
+    before = d._last_commit_end
+
+    assert d.refine_closed_turns(_GAP, lead_in_s=0.0) is False
+    assert d._last_commit_end == before

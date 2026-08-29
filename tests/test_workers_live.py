@@ -224,3 +224,32 @@ def test_fixed_mode_word_break_bias_is_unchanged() -> None:
     assert eng.word_break_bias == -1.0
     AudioInferenceWorker(eng, mode="japanese", **kw)
     assert eng.word_break_bias == -5.0
+
+
+def test_european_stream_signal_follows_committed_tokens() -> None:
+    """確定列を常に欧文表で読んだ 1 行が european_stream_changed で流れること.
+
+    和文モードでも欧文表で読む (欧文ストリームライン、2026-08-29 要望)。
+    """
+    from src.infer.sliding_window import CommittedToken, DecodeView
+    from src.tokens.morse_tokens import TOKEN_TO_ID
+
+    w = _worker()
+    w.set_mode("japanese")
+    got: list[str] = []
+    w.european_stream_changed.connect(got.append)
+    committed = [
+        CommittedToken(TOKEN_TO_ID["-・-・"], 0.9, 0, 100),      # C
+        CommittedToken(TOKEN_TO_ID["・-・-"], 0.9, 200, 300),    # ロ (欧文表に無い)
+    ]
+    w._emit_live_view(DecodeView(committed=committed), decode_ms=0.0)
+    assert got and got[-1] == "C_"
+
+
+def test_european_stream_clears_with_committed() -> None:
+    """クリア (set_decoding) のとき欧文ストリームも空で流れること."""
+    w = _worker()
+    got: list[str] = []
+    w.european_stream_changed.connect(got.append)
+    w.set_decoding(True)
+    assert got and got[-1] == ""

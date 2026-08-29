@@ -46,28 +46,17 @@
   <tbody>
     <tr><td><span class="ui">欧文</span></td><td>英数字・記号の通信（DX、コンテストなど）</td></tr>
     <tr><td><span class="ui">和文</span></td><td>カナの和文通信</td></tr>
-    <tr>
-      <td><span class="ui">自動</span></td>
-      <td>欧文と和文が混ざる交信。<strong>ホレ</strong>（和文開始）を受けると和文へ、
-          <strong>ラタ</strong>（和文終了）を受けると欧文へ切り替わります</td>
-    </tr>
   </tbody>
 </table>
 </div>
 
-<p>
-  いま自動がどちらで動いているかは、画面いちばん下の帯に
-  <span class="ui">自動(現在:欧文)</span> の形で出ています。
-</p>
-
-<div class="note warn">
-  <span class="label">自動はホレだけに頼っていません</span>
+<div class="note">
+  <span class="label">「自動」モードは廃止しました</span>
   <p>
-    実際の交信では、欧文の前置き（<code>JA1ABC DE JH0ILL …</code>）に続くホレを
-    モデルが取り逃すことがあります。そのため
-    <strong>和文にしかない符号を見たら切り替える</strong>という別の道も用意してあります
-    （設定の<a href="settings.html#decode">デコード</a>タブで切れます）。
-    ホレを取り逃しても和文は読めますが、<strong>ホレの文字自体は画面に出ません。</strong>
+    以前あった<span class="ui">自動</span>（ホレ／ラタで欧文と和文を切り替える）は
+    廃止しました。欧文と和文が混ざる交信は<span class="ui">和文</span>のままで受け、
+    混ざっている欧文は<a href="screens.html#euro-stream">欧文ストリーム</a>で読んでください。
+    以前の設定で自動を選んでいた場合は、起動時に和文へ切り替わります。
   </p>
 </div>
 

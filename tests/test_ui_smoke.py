@@ -63,8 +63,13 @@ def test_mode_combo_changes_state() -> None:
     window.close()
 
 
-def test_mode_combo_has_three_items() -> None:
-    """モードコンボに欧文・和文・自動の3択が存在すること."""
+def test_mode_combo_has_two_items() -> None:
+    """モードコンボは欧文・和文の 2 択。**自動は選べない** (2026-08-29 要望).
+
+    欧文ストリームラインで欧文読みが常に見えるようになり、自動切替に
+    頼る必要が薄れたため、選択肢から外した。内部の切替機構
+    (ワーカーの mode="auto") は温存している。
+    """
     from PySide6.QtWidgets import QApplication
 
     from src.app.main_window import CWDecoderWindow
@@ -74,15 +79,19 @@ def test_mode_combo_has_three_items() -> None:
     app = QApplication.instance() or QApplication([])
     engine = InferenceEngine.untrained(device="cpu")
     window = CWDecoderWindow(engine, AppSettings())
-    assert window.mode_combo.count() == 3
-    # 自動は index 2
-    window.mode_combo.setCurrentIndex(2)
-    assert window._current_mode() == "auto"
+    assert window.mode_combo.count() == 2
+    window.mode_combo.setCurrentIndex(1)
+    assert window._current_mode() == "japanese"
     window.close()
 
 
-def test_mode_combo_auto_setting() -> None:
-    """AppSettings(mode='auto') 起動時に自動が選択されること."""
+def test_mode_combo_auto_setting_falls_back_to_japanese() -> None:
+    """旧設定の mode='auto' は**和文へ縮退**すること.
+
+    自動を選んでいた人は和文の交信を受けたい人 (欧文だけなら欧文固定を
+    選んでいる)。設定ファイル自体は load_settings の移行で書き換わるが、
+    直接渡された場合もここで受け止める。
+    """
     from PySide6.QtWidgets import QApplication
 
     from src.app.main_window import CWDecoderWindow
@@ -91,12 +100,11 @@ def test_mode_combo_auto_setting() -> None:
 
     app = QApplication.instance() or QApplication([])
     engine = InferenceEngine.untrained(device="cpu")
-    # AppSettings.mode は Literal["european","japanese"] だが str として "auto" を渡す
     settings = AppSettings()
-    settings.mode = "auto"  # type: ignore[assignment]
+    settings.mode = "auto"  # type: ignore[assignment]  # 旧設定の値
     window = CWDecoderWindow(engine, settings)
-    assert window.mode_combo.currentIndex() == 2
-    assert window._current_mode() == "auto"
+    assert window.mode_combo.currentIndex() == 1
+    assert window._current_mode() == "japanese"
     window.close()
 
 
@@ -171,31 +179,6 @@ def test_on_current_mode_stores_submode() -> None:
     assert w.statusBar().currentMessage() == "テスト前"
     w._on_current_mode("european")
     assert w._auto_submode == "european"
-    w.close()
-
-
-def test_stream_diag_includes_submode_in_auto_mode() -> None:
-    """auto モード中は _on_stream_diag のステータスに現在サブモードが含まれる."""
-    from PySide6.QtWidgets import QApplication
-
-    from src.app.main_window import CWDecoderWindow
-    from src.infer.engine import InferenceEngine
-    from src.infer.settings import AppSettings
-
-    app = QApplication.instance() or QApplication([])
-    engine = InferenceEngine.untrained(device="cpu")
-    w = CWDecoderWindow(engine, AppSettings())
-    # 自動モードに切替
-    w.mode_combo.setCurrentIndex(2)
-    # サブモードを和文に設定してから診断を流す
-    w._on_current_mode("japanese")
-    diag = {"window": 30.0, "hop": 1.0, "lag": 2.5, "decode_ms": 42.0}
-    w._on_stream_diag(diag)
-    assert "和文" in w.statusBar().currentMessage()
-    # サブモードを欧文に切り替えて再確認
-    w._on_current_mode("european")
-    w._on_stream_diag(diag)
-    assert "欧文" in w.statusBar().currentMessage()
     w.close()
 
 
@@ -775,5 +758,57 @@ def test_設定画面のモデル選択が既定に潰されない(tmp_path) -> 
         window._apply_settings_to_widgets()
         assert window._settings.llm_model == "gemma4:e4b"
         assert window.llm_model_edit.currentText() == "gemma4:e4b"
+    finally:
+        window.close()
+
+
+def test_欧文ストリームラインはスペクトラムの上にある() -> None:
+    """欧文ストリームライン (2026-08-29 要望): 1 行・読み取り専用・折返しなし、
+    位置は本文とスペクトラムスコープの間."""
+    from PySide6.QtWidgets import QApplication, QPlainTextEdit
+
+    from src.app.main_window import CWDecoderWindow
+    from src.infer.engine import InferenceEngine
+    from src.infer.settings import AppSettings
+
+    QApplication.instance() or QApplication([])
+    window = CWDecoderWindow(InferenceEngine.untrained(device="cpu"), AppSettings())
+    try:
+        view = window.euro_stream_view
+        assert isinstance(view, QPlainTextEdit)
+        assert view.isReadOnly()
+        assert view.lineWrapMode() == QPlainTextEdit.LineWrapMode.NoWrap
+        layout = window.centralWidget().layout()
+        assert 0 <= layout.indexOf(view) < layout.indexOf(window.spectrogram_panel)
+    finally:
+        window.close()
+
+
+def test_欧文ストリームは差分追記で選択が壊れない() -> None:
+    """前回の続きなら**末尾に追記**する (作り直すと選択・コピーが壊れる —
+    decode-view-selection の既知の罠)。続きでなければ全置換."""
+    from PySide6.QtGui import QTextCursor
+    from PySide6.QtWidgets import QApplication
+
+    from src.app.main_window import CWDecoderWindow
+    from src.infer.engine import InferenceEngine
+    from src.infer.settings import AppSettings
+
+    QApplication.instance() or QApplication([])
+    window = CWDecoderWindow(InferenceEngine.untrained(device="cpu"), AppSettings())
+    try:
+        window._on_european_stream("CQ DE")
+        # 先頭 2 文字を選択しておく (選択の終端が文書末尾に触れていると、
+        # Qt の仕様で末尾挿入時に選択が伸びる。それは「壊れ」ではないので
+        # 現実的な「途中を選択したまま流れ続ける」形で見る)
+        cursor = window.euro_stream_view.textCursor()
+        cursor.setPosition(0)
+        cursor.setPosition(2, QTextCursor.MoveMode.KeepAnchor)
+        window.euro_stream_view.setTextCursor(cursor)
+        window._on_european_stream("CQ DE JA1ABC")   # 続き → 追記
+        assert window.euro_stream_view.toPlainText() == "CQ DE JA1ABC"
+        assert window.euro_stream_view.textCursor().selectedText() == "CQ"
+        window._on_european_stream("")               # クリア → 全置換
+        assert window.euro_stream_view.toPlainText() == ""
     finally:
         window.close()

@@ -733,11 +733,8 @@ def test_送信ダイアログには画面の今のモードを渡す(qapp, monk
         assert window._settings.mode == "european"    # 設定はまだ欧文のまま
         window._open_tx_dialog()
         assert window._tx_dialog._mode == "japanese"
-        window._tx_dialog.reject()                    # 二枚目を作れるよう閉じる
-
-        window.mode_combo.setCurrentIndex(2)          # 自動
-        window._open_tx_dialog()
-        assert window._tx_dialog._mode == "auto"
+        # 「自動」は選択肢から外れた (2026-08-29)。UI からは auto を渡せない
+        # (TxDialog 自体は今も mode="auto" を受けられる — 下の直接生成テスト)
     finally:
         window.close()
 

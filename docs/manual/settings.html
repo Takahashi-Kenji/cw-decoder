@@ -89,11 +89,6 @@
       <td>これを下回った文字は <code>_</code> になります。
           <strong>下げて <code>_</code> を消さないでください</strong>（<a href="correct.html#underscore">理由</a>）</td>
     </tr>
-    <tr><td>プロサインの閾値</td><td>0.35</td><td><code>[SK]</code> などのプロサインだけに使う、少し緩めのしきい値</td></tr>
-    <tr>
-      <td>和文にしかない符号でもモードを切り替える</td><td>ON</td>
-      <td>自動モードで、<strong>ホレを取り逃したときの逃げ道</strong>です（<a href="receive.html#mode">モードの選び方</a>）</td>
-    </tr>
   </tbody>
 </table>
 </div>
@@ -141,15 +136,18 @@
 <table>
   <thead><tr><th>項目</th><th>初期値</th><th>説明</th></tr></thead>
   <tbody>
-    <tr><td>辞書補正（3 択）</td><td>欧文と和文の両方に使う</td><td>
+    <tr><td>辞書補正（3 択）</td><td>欧文だけに使う</td><td>
       <a href="correct.html#dict">辞書補正</a>をどこまで使うかを選びます。
       <strong>「和文だけ」はありません</strong>（和文の補正は欧文の補正の上に載るためです）
     </td></tr>
     <tr><td>　└ 使わない</td><td>—</td><td>読み取った結果をそのまま出します</td></tr>
-    <tr><td>　└ 欧文だけに使う</td><td>—</td><td>欧文の語彙だけで直します。カナには触りません</td></tr>
-    <tr><td>　└ 欧文と和文の両方に使う</td><td>●</td><td>
+    <tr><td>　└ 欧文だけに使う</td><td>●</td><td>欧文の語彙だけで直します。カナには触りません</td></tr>
+    <tr><td>　└ 欧文と和文の両方に使う</td><td>—</td><td>
       和文の語彙（405 語・9 カテゴリ）でも直します。
-      <strong>日常で使わないカナの置き換え（ヱ → イマ）もこれを選んだときだけ働きます</strong>
+      <strong>初期値では選ばれていません。</strong>和文の補正は直しすぎることがあり
+      （正しい「アンテナアゲマシタ」を「アンテナ アタタカイ シタ」にする等）、
+      2026-08-29 に既定を外しました。「デス」が「。ス」になる読み違いのような
+      <strong>確実な直しは、この設定に関係なく常に働きます</strong>
     </td></tr>
     <tr><td><span class="ui">語彙ファイルの場所を開く</span></td><td>—</td><td>語を足すためのファイルがある場所を開きます</td></tr>
   </tbody>
