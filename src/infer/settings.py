@@ -39,7 +39,11 @@ DEFAULT_CONFIG_PATH = Path.home() / ".cw-decorder" / "settings.json"
 # v19: スペクトル表示の見え方 (spectrogram_floor_db / spectrogram_span_s)
 # v20: word_break_bias_european / word_break_bias_japanese を追加
 #      (語間スペースの出しやすさをモード別に持つ)
-CURRENT_SETTINGS_VERSION = 21
+# v21: word_correct_ja_enabled の既定を OFF へ
+# v22: net_source を追加 (LAN 音声の受け取り先)。
+#      **配布版には `--net-source` を渡す手段が無い** (アイコンを叩いて起動する)
+#      ため、引数だけに置いてあると音声送出側を入れても受け取れなかった
+CURRENT_SETTINGS_VERSION = 22
 
 
 @dataclass
@@ -49,6 +53,11 @@ class AppSettings:
     mode: DisplayMode = "european"
     confidence_threshold: float = 0.5
     input_device: int | None = None       # None = システムデフォルト
+    # LAN 音声の受け取り先 `host[:port]` (既定ポート 45678)。空 = マイク入力。
+    # 送り出す側は無線機 PC の `scripts/audio_send.py` (または配布版の
+    # cw-audio-send)。**`--net-source` の方が強い** — 一時的に別の PC から
+    # 受けたいときに保存値を書き換えずに済ませるため (`--ckpt` と同じ扱い)。
+    net_source: str = ""
     sample_rate: int = 8000
     checkpoint_path: str | None = None
     recording_enabled: bool = False

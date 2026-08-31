@@ -9,7 +9,7 @@
 ; 無線機の隣の PC が会社/家族共用で、管理者になれないことがあるため。
 
 #define AppName      "cw-decoder"
-#define AppVersion   "0.8.0"
+#define AppVersion   "0.8.1"
 #define AppPublisher "cw-decoder"
 #define AppExeName   "cw-decoder.exe"
 #define SourceDir    "..\dist\cw-decoder"

@@ -103,8 +103,10 @@ class CWDecoderWindow(QMainWindow):
 
         self._settings = settings or AppSettings()
         self._engine = engine
-        # LAN 経由入力 (--net-source)。指定時は入力デバイス選択を使わない。
-        self._net_source = net_source
+        # LAN 経由入力。指定時は入力デバイス選択を使わない。
+        # **引数が無ければ設定を見る** — 配布版はアイコンから起動するので
+        # `--net-source` を渡す手段が無い (2026-08-31)。
+        self._net_source = resolve_net_source(net_source, self._settings)
         self._worker: AudioInferenceWorker | None = None
         self._worker_thread: QThread | None = None
         self._recorder = Recorder(out_dir=Path(self._settings.recording_dir))
@@ -1452,6 +1454,10 @@ class CWDecoderWindow(QMainWindow):
         _mode_index = {"european": 0, "japanese": 1, "auto": 1}   # auto は和文へ縮退
         self.mode_combo.setCurrentIndex(_mode_index.get(s.mode, 0))
         self._set_ckpt_label(s.checkpoint_path)
+        # LAN 音声の受け取り先。**次回の開始から**効く (⟳)。ここで持ち替えて
+        # おかないと、設定画面で入れた宛先が開始時に読まれない。
+        self._net_source = resolve_net_source(None, s)
+        self.device_combo.setEnabled(self._worker is None and not self._net_source)
         # **作り直さない。** ワーカーは開始時に ``self._recorder.add_block`` を
         # 録音フックとして握っている。ここで新しい Recorder に差し替えると、
         # 音は古い方へ流れ続け、ボタンで始めた新しい方は空のまま
@@ -1572,6 +1578,18 @@ def resolve_device(preference: str):  # -> torch.device
     return resolve_torch_device(preference)
 
 
+def resolve_net_source(argument: str | None, settings: AppSettings) -> str | None:
+    """LAN 音声の受け取り先を決める. ``None`` ならマイク入力.
+
+    **引数が設定より強い。** 一時的に別の PC から受けたいときに、保存された値を
+    書き換えずに済ませるため (``--ckpt`` と同じ扱い)。設定側の空文字は
+    「使わない」であって「空の宛先」ではないので ``None`` に均す。
+    """
+    if argument:
+        return argument
+    return settings.net_source.strip() or None
+
+
 def _build_engine(settings: AppSettings):
     """設定からデコードエンジンを作る.
 
@@ -1646,4 +1664,4 @@ def main(
     return app.exec()
 
 
-__all__ = ["CWDecoderWindow", "main", "resolve_device"]
+__all__ = ["CWDecoderWindow", "main", "resolve_device", "resolve_net_source"]

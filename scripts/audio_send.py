@@ -46,6 +46,13 @@ from src.infer.audio import (  # noqa: E402
     AudioCapture,
     list_input_devices,
 )
+from src.cli.prompt import (  # noqa: E402
+    REMEMBERED_DIR,
+    Choice,
+    ask_choice,
+    load_remembered,
+    save_remembered,
+)
 from src.infer.net_audio import (  # noqa: E402
     DEFAULT_PORT,
     SOURCE_SAMPLE_RATE,
@@ -154,10 +161,60 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+REMEMBERED_PATH = REMEMBERED_DIR / "audio_send.json"
+
+
+def wants_interactive(args: argparse.Namespace, isatty: bool) -> bool:
+    """起動時の対話に入るか.
+
+    **引数で指定されていれば入らない。** 従来の使い方・自動化・テストが
+    対話待ちで固まってはいけない。``--list`` は一覧を出して終わるだけなので
+    ここも通らない。
+    """
+    return isatty and args.device is None and not args.list
+
+
+def interactive_setup(args: argparse.Namespace) -> bool:
+    """入力デバイスを対話で決めて ``args`` に書き戻す. 続行なら ``True``."""
+    remembered = load_remembered(REMEMBERED_PATH)
+    print("\n  cw-decoder 音声送出")
+
+    # **デバイス番号を一覧に出さない。** 行番号と並ぶと、どちらを打つのか
+    # 読み取れない (2026-08-31 に運用者が実際に取り違えた)。番号は選んだ後に
+    # 1 度だけ出す (--device で同じ指定をやり直せるように)。
+    devices = [
+        Choice(
+            value=str(info.index),
+            label=f"{info.name}  ({info.channels}ch, {info.default_samplerate:.0f} Hz)",
+            short=info.name,
+        )
+        for info in list_input_devices()
+    ]
+    try:
+        chosen = ask_choice("入力デバイス", devices, remembered.get("device"), input, print)
+    except LookupError:
+        print(
+            "\n  入力デバイスが見つかりませんでした (PortAudio 未導入?)。\n"
+            "  受信機の音を入れる端子を確かめてから、もう一度起動してください。"
+        )
+        input("  Enter で終了します > ")
+        return False
+
+    args.device = int(chosen.value)
+    save_remembered(REMEMBERED_PATH, {"device": chosen.value})
+    # **選んだものを名前で復唱する。** 取り違えていたらここで気づける。
+    print(f"\n  選んだデバイス : {chosen.short}  (--device {chosen.value})")
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.list:
         return print_devices()
+
+    if wants_interactive(args, sys.stdin is not None and sys.stdin.isatty()):
+        if not interactive_setup(args):
+            return 1
 
     if not _SOXR_AVAILABLE:
         # なぜ必須か: _resample_to_8k() は出力先を 8000 Hz にハードコードしている。

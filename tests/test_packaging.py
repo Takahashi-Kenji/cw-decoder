@@ -60,12 +60,26 @@ class TestDistributedReadme:
         assert "dist_files" not in _SPEC.read_text(encoding="utf-8")
 
     def test_the_build_script_copies_it_to_the_root(self, tmp_path, monkeypatch) -> None:
+        from dataclasses import dataclass
+
         from scripts import build_installer
 
-        monkeypatch.setattr(build_installer, "BUNDLE", tmp_path)
-        placed = build_installer.place_readme()
+        # 配布物が 3 つになったので (受信アプリ / 打鍵サーバ / 音声送出)、
+        # 置き場所は Target が持つ。README を置くのは**本体だけ**。
+        @dataclass(frozen=True)
+        class _FakeTarget:
+            bundle = tmp_path
+            title = "テスト用"
+
+        placed = build_installer.place_readme(_FakeTarget())
         assert placed == tmp_path / "README.txt"
         assert placed.is_file()
+
+    def test_only_the_app_gets_the_readme(self) -> None:
+        """打鍵サーバ・音声送出には置かない (窓が自分で名乗るため)."""
+        from scripts.build_installer import TARGETS
+
+        assert [t.key for t in TARGETS if t.readme] == ["app"]
 
     @pytest.mark.parametrize(
         "expected",
@@ -103,3 +117,54 @@ def test_spec_compiles() -> None:
     spec = Path(__file__).resolve().parent.parent / "packaging" / "cw-decoder.spec"
     # BOM 付き UTF-8 (PyInstaller は utf-8-sig で読む)
     compile(spec.read_text(encoding="utf-8-sig"), str(spec), "exec")
+
+
+class TestPykakasiDataIsBundled:
+    """**pykakasi はデータファイルを持つ。** Python モジュールだけでは動かない.
+
+    2026-08-31 に運用者から「CW サーバに繋がったのに [確認] が押せない」と
+    報告された。原因は ``pykakasi`` の辞書 (``kanwadict4.db`` ほか 9 ファイル、
+    約 9.5 MB) が配布物に入っていなかったこと。
+
+    症状の出かたが分かりにくい:
+
+    1. 日本語を書くと ``textChanged`` → ``refresh_kana`` → ``to_sendable_kana``
+    2. その中の ``pykakasi.kakasi()`` が ``FileNotFoundError`` を投げる
+    3. カナ欄が空のままになる
+    4. ``[確認]`` は ``bool(wire_text(panel))`` で有効になるので**押せない**
+
+    窓を出さない配布版では例外がどこにも表示されないため、利用者からは
+    「ボタンがアクティブにならない」としか見えない。
+
+    **PyInstaller はデータファイルを自動では拾わない** (import を辿るだけ)。
+    """
+
+    def test_the_library_really_needs_data_files(self) -> None:
+        """前提の確認: データが無いと例外になること (仕様が変わったら気づく)."""
+        pytest.importorskip("pykakasi")
+        import pykakasi.properties as properties
+
+        original = properties.Configurations.data_path
+        try:
+            properties.Configurations.data_path = Path(__file__).parent / "存在しない"
+            import pykakasi
+
+            with pytest.raises(FileNotFoundError):
+                pykakasi.kakasi()
+        finally:
+            properties.Configurations.data_path = original
+
+    def test_the_spec_collects_them(self) -> None:
+        assert "pykakasi" in _SPEC.read_text(encoding="utf-8"), (
+            "spec が pykakasi のデータを集めていない。"
+            "送信の日本語→カナ変換が配布版で動かなくなる"
+        )
+
+    def test_collection_finds_the_dictionaries(self) -> None:
+        """集める仕組みが**いま実際に効いていること** (名前だけでは足りない)."""
+        pytest.importorskip("PyInstaller")
+        from PyInstaller.utils.hooks import collect_data_files
+
+        names = {Path(src).name for src, _dest in collect_data_files("pykakasi")}
+        assert "kanwadict4.db" in names, f"辞書が集まっていない: {sorted(names)}"
+        assert len([n for n in names if n.endswith(".db")]) >= 9

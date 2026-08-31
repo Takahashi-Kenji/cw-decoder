@@ -22,17 +22,48 @@ import shutil
 import subprocess
 import sys
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-SPEC = _PROJECT_ROOT / "packaging" / "cw-decoder.spec"
-ISS = _PROJECT_ROOT / "packaging" / "cw-decoder.iss"
 README_SRC = _PROJECT_ROOT / "packaging" / "dist_files" / "README.txt"
 DIST = _PROJECT_ROOT / "dist"
-BUNDLE = DIST / "cw-decoder"
+
+
+@dataclass(frozen=True)
+class Target:
+    """配布物 1 つ分.
+
+    **3 つある** (運用者の指示、2026-08-31:「異なった PC で使うケースがある」)。
+    受信アプリ / 打鍵サーバ / 音声送出 をそれぞれ別のインストーラで配る。
+    """
+
+    key: str                 # --target に書く名前
+    name: str                # dist の下のフォルダ名 = exe の名前
+    title: str               # 画面に出す名前
+    readme: bool = False     # 展開フォルダ直下に README を置くか (本体だけ)
+
+    @property
+    def spec(self) -> Path:
+        return _PROJECT_ROOT / "packaging" / f"{self.name}.spec"
+
+    @property
+    def iss(self) -> Path:
+        return _PROJECT_ROOT / "packaging" / f"{self.name}.iss"
+
+    @property
+    def bundle(self) -> Path:
+        return DIST / self.name
+
+
+TARGETS: tuple[Target, ...] = (
+    Target("app", "cw-decoder", "受信アプリ", readme=True),
+    Target("key-server", "cw-key-server", "打鍵サーバ"),
+    Target("audio-send", "cw-audio-send", "音声送出"),
+)
 
 # 混じってはいけないもの。名前がこれで始まるファイルが 1 つでもあれば失敗。
 FORBIDDEN_PREFIXES = ("torch", "libtorch", "torchaudio")
@@ -74,16 +105,16 @@ def _size_mb(path: Path) -> float:
     return total / 1024 / 1024
 
 
-def build_exe() -> None:
-    print("[1/5] PyInstaller でビルドします…")
+def build_exe(target: Target) -> None:
+    print(f"[1/5] PyInstaller でビルドします ({target.title})…")
     subprocess.run(
-        [sys.executable, "-m", "PyInstaller", str(SPEC), "--noconfirm",
+        [sys.executable, "-m", "PyInstaller", str(target.spec), "--noconfirm",
          "--distpath", str(DIST), "--workpath", str(_PROJECT_ROOT / "build")],
         cwd=_PROJECT_ROOT, check=True,
     )
 
 
-def place_readme() -> Path:
+def place_readme(target: Target) -> Path:
     """README を**展開したフォルダの直下**に置く.
 
     spec の ``datas`` に書くと onedir では ``_internal`` の下に入ってしまう。
@@ -93,7 +124,7 @@ def place_readme() -> Path:
     print("[2/5] README を置きます…")
     if not README_SRC.is_file():
         raise SystemExit(f"配布用 README がありません: {README_SRC}")
-    dest = BUNDLE / README_SRC.name
+    dest = target.bundle / README_SRC.name
     shutil.copy2(README_SRC, dest)
     try:
         shown = dest.relative_to(_PROJECT_ROOT)
@@ -103,7 +134,7 @@ def place_readme() -> Path:
     return dest
 
 
-def check_no_torch() -> None:
+def check_no_torch(target: Target) -> None:
     """**配布物に PyTorch が混じっていないこと。**
 
     ここで止めるのは、混じっても動いてしまうからである。テストは通り、
@@ -111,11 +142,11 @@ def check_no_torch() -> None:
     """
     print("[3/5] PyTorch の混入を確かめます…")
     found = [
-        f for f in BUNDLE.rglob("*")
+        f for f in target.bundle.rglob("*")
         if f.is_file() and f.name.lower().startswith(FORBIDDEN_PREFIXES)
     ]
     if found:
-        sample = "\n".join(f"    {f.relative_to(BUNDLE)}" for f in found[:10])
+        sample = "\n".join(f"    {f.relative_to(target.bundle)}" for f in found[:10])
         raise SystemExit(
             f"配布物に PyTorch が混じっています ({len(found)} 件):\n{sample}\n"
             "起動経路のどこかで torch が import されています。"
@@ -124,19 +155,19 @@ def check_no_torch() -> None:
     print("    PyTorch 由来のファイル: 0 件")
 
 
-def make_zip(version: str) -> Path:
+def make_zip(target: Target, version: str) -> Path:
     print("[4/5] 持ち運び ZIP を作ります…")
-    out = DIST / f"cw-decoder-{version}-portable.zip"
+    out = DIST / f"{target.name}-{version}-portable.zip"
     if out.exists():
         out.unlink()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
-        for f in sorted(BUNDLE.rglob("*")):
+        for f in sorted(target.bundle.rglob("*")):
             if f.is_file():
-                z.write(f, Path("cw-decoder") / f.relative_to(BUNDLE))
+                z.write(f, Path(target.name) / f.relative_to(target.bundle))
     return out
 
 
-def make_installer() -> Path | None:
+def make_installer(target: Target) -> Path | None:
     print("[5/5] インストーラを作ります…")
     iscc = find_iscc()
     if iscc is None:
@@ -145,42 +176,66 @@ def make_installer() -> Path | None:
         print("    別の場所に入れてある場合は 環境変数 ISCC で指定してください。")
         return None
     print(f"    Inno Setup: {iscc}")
-    subprocess.run([str(iscc), str(ISS)], cwd=_PROJECT_ROOT, check=True)
-    made = sorted(DIST.glob("cw-decoder-*-setup.exe"))
+    subprocess.run([str(iscc), str(target.iss)], cwd=_PROJECT_ROOT, check=True)
+    made = sorted(DIST.glob(f"{target.name}-*-setup.exe"))
     return made[-1] if made else None
 
 
-def _version_from_iss() -> str:
-    for line in ISS.read_text(encoding="utf-8").splitlines():
+def _version_from_iss(target: Target) -> str:
+    for line in target.iss.read_text(encoding="utf-8").splitlines():
         if line.startswith("#define AppVersion"):
             return line.split('"')[1]
     return "0.0.0"
 
 
+def build_target(target: Target, skip_exe: bool) -> tuple[Path, Path | None]:
+    """1 つ分を作る. 戻り値は (ZIP, setup.exe か None)."""
+    print("")
+    print(f"### {target.title} ({target.name})")
+    if not skip_exe:
+        build_exe(target)
+    if not target.bundle.is_dir():
+        raise SystemExit(f"{target.bundle} がありません。--skip-exe を外して実行してください。")
+
+    if target.readme:
+        place_readme(target)
+    else:
+        print("[2/5] README は本体だけなので飛ばします")
+    check_no_torch(target)
+    version = _version_from_iss(target)
+    return make_zip(target, version), make_installer(target)
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--skip-exe", action="store_true", help="PyInstaller を飛ばす")
+    p.add_argument(
+        "--target", default="all",
+        choices=["all", *(t.key for t in TARGETS)],
+        help="作るもの (既定 all = 3 つとも)",
+    )
     args = p.parse_args(argv)
 
-    if not args.skip_exe:
-        build_exe()
-    if not BUNDLE.is_dir():
-        raise SystemExit(f"{BUNDLE} がありません。--skip-exe を外して実行してください。")
+    chosen = TARGETS if args.target == "all" else tuple(
+        t for t in TARGETS if t.key == args.target
+    )
+    made: list[tuple[Target, Path, Path | None]] = []
+    for target in chosen:
+        zip_path, setup_path = build_target(target, args.skip_exe)
+        made.append((target, zip_path, setup_path))
 
-    place_readme()
-    check_no_torch()
-    version = _version_from_iss()
-    zip_path = make_zip(version)
-    setup_path = make_installer()
-
-    print("\n" + "=" * 56)
-    print(f"  展開後      : {_size_mb(BUNDLE):7.1f} MB   {BUNDLE}")
-    print(f"  持ち運び ZIP : {_size_mb(zip_path):7.1f} MB   {zip_path.name}")
-    if setup_path:
-        print(f"  インストーラ  : {_size_mb(setup_path):7.1f} MB   {setup_path.name}")
+    print("")
+    print("=" * 56)
+    for target, zip_path, setup_path in made:
+        print(f"  {target.title}")
+        print(f"    展開後      : {_size_mb(target.bundle):7.1f} MB   {target.bundle.name}")
+        print(f"    持ち運び ZIP : {_size_mb(zip_path):7.1f} MB   {zip_path.name}")
+        if setup_path:
+            print(f"    インストーラ  : {_size_mb(setup_path):7.1f} MB   {setup_path.name}")
     print("=" * 56)
     if shutil.which("signtool") is None:
-        print("\n注意: 署名していないため、初回起動時に SmartScreen の警告が出ます。")
+        print("")
+        print("注意: 署名していないため、初回起動時に SmartScreen の警告が出ます。")
         print("      「詳細情報」→「実行」で進めます。")
     return 0
 

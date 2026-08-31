@@ -235,11 +235,37 @@ class TestGuardrails:
         dialog._on_accept()
         assert dialog.result_settings.recording_dir == "data/real"
 
-    def test_empty_checkpoint_becomes_none(self, qapp) -> None:
-        dialog = SettingsDialog(AppSettings(checkpoint_path="x.pt"))
-        dialog.checkpoint_path.setText("")
+
+class TestModelIsChosenOnTheMainWindow:
+    """モデルの指定は**主画面のコンボと [読込…] だけ**にする (運用者の指示、2026-08-31).
+
+    設定画面のデコードタブにも 1 行入力があったが、次の理由で外した。
+
+    - 空欄のときは灰色の入力例が出るだけなのに、**利用者には「既定値」に読める**。
+      実際に「既定が ``models/full/best_infer.pt`` になっている」と報告された
+    - しかもその例は ``.pt`` で、**配布版には PyTorch が無いので読めない形式**である
+    - 主画面のコンボ / [読込…] は即座に効くのに、設定画面の欄は次回の開始まで
+      効かない。同じものを変える経路が 2 つあり、効き方が違うのは危ない
+
+    **選んだモデルが設定画面の OK で消えないことが要点。** ``_on_accept`` は
+    ``replace`` で作るので、欄を消しても元の値がそのまま残る。
+    """
+
+    def test_no_model_field(self, qapp) -> None:
+        dialog = SettingsDialog(AppSettings())
+        assert not hasattr(dialog, "checkpoint_path"), (
+            "設定画面にモデルの入力欄が残っている (主画面のコンボと二重になる)"
+        )
+
+    def test_chosen_model_survives_ok(self, qapp) -> None:
+        chosen = "models/p2b_presilence/cw_p2b.onnx"
+        dialog = SettingsDialog(AppSettings(checkpoint_path=chosen))
         dialog._on_accept()
-        assert dialog.result_settings.checkpoint_path is None
+        assert dialog.result_settings.checkpoint_path == chosen
+
+    def test_model_is_not_listed_as_deferred(self, qapp) -> None:
+        """即座に効くのだから「次回の開始から」の一覧に入れてはいけない."""
+        assert "checkpoint_path" not in DEFERRED_SETTING_LABELS
 
 
 class TestLlmModelCandidates:
