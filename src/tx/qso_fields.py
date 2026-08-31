@@ -60,6 +60,66 @@ class QsoFields:
     their_name: str = ""
 
 
+#: RST に使う略号数字 (cut numbers)。CW では数字を短い符号の文字で代える習慣が
+#: あり、RST では ``5NN`` = ``599``、``57N`` = ``579`` のように **9 を N と打つ**
+#: のが日常的である。
+#:
+#: **N=9 だけにしてある** (2026-08-30 の運用者の指示「N があれば 9 にしてもらえれば
+#: いい」)。理由は 2 つある:
+#:
+#: * **RST に 0 は現れない** (R は 1〜5、S と T は 1〜9)。``T``=0 を入れても
+#:   RST では使い道が無く、危険なだけである
+#: * 文字が数字に化ける規則なので、**広げるほど語を RST と取り違えやすくなる**
+#:   (``TU`` = ありがとう を ``02`` にしては事故になる)
+#:
+#: 増やすときは、その文字が RST の位置に本当に現れるかを確かめること。
+CUT_NUMBERS: dict[str, str] = {"N": "9"}
+
+_WORD_RE = re.compile(r"[0-9A-Z]+")
+
+
+def _as_rst(token: str) -> str:
+    """その塊が RST として読めるなら数字に直して返す. 読めなければ空文字.
+
+    **数字を 1 つも含まない塊は RST にしない。** ``TU`` (ありがとう) は
+    T も U も略号数字だが、これを ``02`` にしては事故になる。
+    """
+    if not 2 <= len(token) <= 3:
+        return ""
+    if not any(ch.isdigit() for ch in token):
+        return ""
+    if any(not ch.isdigit() and ch not in CUT_NUMBERS for ch in token):
+        return ""
+    return "".join(CUT_NUMBERS.get(ch, ch) for ch in token)
+
+
+def normalise_rst(text: str) -> str:
+    """RST の欄に入れる形にする. **略号数字を数字に直す** (``5NN`` → ``599``).
+
+    受信画面や欧文ストリームから選んだ文字をそのまま渡せるように、前後の語が
+    付いていても RST らしい塊を探す (``UR 5NN K`` → ``599``)。
+
+    **語間が出ないことがある** (実運用でよくある) ので、``UR5NN`` のように
+    語と RST がくっついた塊は末尾 3 文字・2 文字も試す。
+
+    **末尾を試すのは「RST に使えない文字を含む塊」だけ。** ``5NN9`` のように
+    全部が RST に使える文字なのに長さが合わないものは、どこを切っても当て推量に
+    なる (末尾 3 文字なら ``999``)。**当てにならないものを黙って埋めない** —
+    このモジュールの方針である。RST らしい塊が無ければ空文字を返す。
+    """
+    for token in _WORD_RE.findall(text.upper()):
+        found = _as_rst(token)
+        if found:
+            return found
+        # 語と RST がくっついた塊か (RST に使えない文字を含むか) を見てから切る
+        if any(not ch.isdigit() and ch not in CUT_NUMBERS for ch in token):
+            for candidate in (token[-3:], token[-2:]):
+                found = _as_rst(candidate)
+                if found:
+                    return found
+    return ""
+
+
 def strip_guess_marks(text: str) -> str:
     """清書が付けた推測箇所のマーカー ``⟦…⟧`` を外す."""
     return text.translate(_GUESS_MARKS)

@@ -1,4 +1,4 @@
-"""送信ダイアログ.
+"""交信ダイアログ (送信と、Hamlog への交信データ受け渡し).
 
 **この PC には COM ポートが無い。** 打鍵は無線機を繋いだ PC の CLI が行い、
 ここは確定したテキストを渡すだけ (``src/tx/net_key.py``)。
@@ -45,21 +45,27 @@ busy の見分け
 """
 from __future__ import annotations
 
+import datetime as _dt
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QThread, QTimer, Signal
+from PySide6.QtCore import QEvent, QThread, QTimer, Signal
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
     QDoubleSpinBox,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
+    QWidget,
 )
 
 from src.infer.net_audio import parse_endpoint
@@ -67,6 +73,7 @@ from src.infer.settings import AppSettings
 from src.tokens.morse_tokens import DisplayMode
 from src.tx.encoder import HORE, find_unsendable, needs_japanese_wrap, wrap_japanese
 from src.tx.net_key import (
+    Hello,
     NetKeyClient,
     NetKeyError,
     NetKeyRejected,
@@ -74,7 +81,13 @@ from src.tx.net_key import (
 )
 from src.tx.profile import OperatorProfile, load_profile
 from src.tx.protocol import DEFAULT_KEY_PORT
-from src.tx.qso_fields import extract_fields
+from src.tx.hamlog import (
+    HamlogNotRunning,
+    QsoEntry,
+    find_input_window,
+    register as hamlog_register,
+)
+from src.tx.qso_fields import extract_fields, normalise_rst
 from src.tx.reading import to_sendable_kana
 from src.tx.templates import (
     DEFAULT_TEMPLATES_PATH,
@@ -83,6 +96,11 @@ from src.tx.templates import (
     profile_values,
     templates_for_mode,
 )
+
+# 並べる送信欄の数 (2026-08-30 の運用者の指示で 4)。**交信中に返信を組み立てる
+# 時間が無い**ので、先に何通か書いて全部 [確認] まで通しておき、相手の信号に
+# 合う 1 通だけを [送信] で出す。**打鍵器は 1 台なので同時に送れるのは 1 通。**
+PANEL_COUNT = 4
 
 # 待機中に繋ぎ直す間隔 (秒)。打鍵側を後から起こしても繋がるようにするため。
 RETRY_INTERVAL_S = 3.0
@@ -103,7 +121,7 @@ _UNSENDABLE_PREFIX = "送信できない文字があります"
 # 「和文が無いのに囲んでいる」警告の先頭一致。**`apply_template` は中身を見て
 # 自動で ``wrap_check`` を設定するので安全だが、運用者が ``japanese_edit`` に
 # 直接打つ経路 (``refresh_kana``) は ``wrap_check.isChecked()`` をそのまま
-# 使うだけだった。** 既定がオンなので、``「FT991」`` のように和文の無い本文を
+# 使うだけだった。** チェックを入れたまま ``「FT991」`` のように和文の無い本文を
 # 直接打つと `{HORE}「FT991」{RATA}` が**警告なしで**できる。中身は欧文として
 # 符号化できてしまうので「送信できない文字」にはならず、**送れるのに化ける**
 # という一番気づきにくい壊れ方をする (2026-08-12 の最終レビューで指摘。
@@ -115,6 +133,116 @@ _NEEDLESS_WRAP_PREFIX = "和文がありません"
 # ``refresh_kana`` が本文から作る警告の先頭一致。ここに載っている文言だけを
 # 自動で消してよい (接続結果・確認結果・中止理由は消さない)。
 _TEXT_WARNING_PREFIXES = (_UNSENDABLE_PREFIX, _NEEDLESS_WRAP_PREFIX)
+
+
+class _StatusLabel(QLabel):
+    """状態を出す行. **文言で画面の大きさを動かさない。**
+
+    折り返す ``QLabel`` は文言によってレイアウトの下限を押し上げるので、素朴に
+    置くと窓ごと伸びる。高さは行数で決め打ちし、横は縮められるようにする
+    (``Ignored``)。**溢れた文言はツールチップで読める。**
+    """
+
+    def __init__(self, text: str = "", *, lines: int = 1, parent=None) -> None:
+        super().__init__(text, parent)
+        self.setWordWrap(True)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.setFixedHeight(self.fontMetrics().lineSpacing() * lines + 2)
+        self.setToolTip(text)
+
+    def setText(self, text: str) -> None:       # noqa: N802
+        super().setText(text)
+        self.setToolTip(text)
+
+    def clear(self) -> None:
+        self.setText("")
+
+
+class TxMessagePanel(QGroupBox):
+    """送信文 1 通分の欄. **``PANEL_COUNT`` 個並べて、そのうち 1 つを送る。**
+
+    持つのは「その 1 通のもの」だけ — 本文・囲み・送信される文字・その欄の
+    ボタン・その欄の状態表示、そして**確認が通った文字列**である。
+    接続・速度・相手コール・型は 1 回の交信に 1 つなので :class:`TxDialog` が持つ。
+
+    **判断もここには置かない。** カナ変換・関門・打鍵側とのやりとりは
+    ``TxDialog`` の同じメソッドが欄を引数に取って行う。積み上げてきた歯止め
+    (確認の閉じ直し、囲みの警告、送信中の保護) を欄ごとに書き写すと、必ず
+    どれか 1 つが古いまま取り残される。
+    """
+
+    def __init__(self, number: int, parent=None) -> None:
+        super().__init__(f"送信文 {number}", parent)
+        # **確認が通った文字列は欄ごとに持つ。** 別の欄を書き直しただけで
+        # この欄の関門が閉じては「先に全部確認しておく」使い方が成り立たない
+        self._confirmed_text: str | None = None
+        # 型を入れる直前の (本文, 囲みの状態)。``[元に戻す]`` 用 (欄ごと)
+        self._state_before_template: tuple[str, bool] | None = None
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(4)
+
+        # **箱の高さは固定する。** ``QPlainTextEdit`` の既定の縦の方針は
+        # ``Expanding`` で、状態表示に文字が入って ``updateGeometry()`` が走った
+        # 拍子にスクロール領域の中身が組み直され、余った高さが箱に配られる。
+        # 実際に「[確認] を押すと本文の箱が 3 倍・カナの箱が 2 倍になり、
+        # 何も入っていない欄まで一様に伸びる」という形で表面化した
+        # (2026-08-30 の運用者の報告。実測 52→192 / 40→90)。
+        # **行数で決める** — 表示倍率 (DPI) や字の大きさが変わっても崩れない。
+        line = self.fontMetrics().lineSpacing()
+        self.japanese_edit = QPlainTextEdit()
+        self.japanese_edit.setPlaceholderText("日本語 (漢字かな交じりで可)")
+        self.japanese_edit.setFixedHeight(line * 3 + 14)
+        self.japanese_edit.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
+        layout.addWidget(self.japanese_edit)
+
+        row = QHBoxLayout()
+        self.wrap_check = QCheckBox("和文をホレ/ラタで囲む")
+        # **既定はオフ (使うときだけチェック)。** 2026-08-30 の運用者の指示。
+        # 運用者は `JH0ILL ホレ JH0ILL …` のようにホレをカナで本文に打つので、
+        # 自動で囲むと二重になる。`apply_template` も自動でオンにはしない
+        self.wrap_check.setChecked(False)
+        row.addWidget(self.wrap_check)
+        row.addStretch(1)
+        # **1 回の交信で何度も打ち直す。** 全選択して消すのは手数が多い。
+        # 消すのは**この欄の本文だけ** — 相手コール・RST・天気は共有で、
+        # 他の欄に用意した文も巻き込まない
+        self.clear_btn = QPushButton("クリア")
+        self.clear_btn.setToolTip("この欄の本文だけを空にします")
+        row.addWidget(self.clear_btn)
+        self.check_btn = QPushButton("確認")
+        self.check_btn.setToolTip("打鍵せずに、この欄の文が送れるか打鍵側へ問い合わせます")
+        row.addWidget(self.check_btn)
+        self.send_btn = QPushButton("送信")
+        row.addWidget(self.send_btn)
+        # **[中止] は送信の右隣** (2026-08-30 の運用者の指示)。押した欄がどれでも
+        # 同じ 1 通を止める — 打鍵しているのは常に 1 通だけなので、
+        # 「どの中止を押せばいいのか」を考えずに済む
+        self.stop_btn = QPushButton("中止")
+        self.stop_btn.setToolTip("いま打鍵している 1 通を止めます (どの欄の [中止] でも同じです)")
+        row.addWidget(self.stop_btn)
+        layout.addLayout(row)
+
+        self.kana_view = QPlainTextEdit()
+        self.kana_view.setReadOnly(True)
+        self.kana_view.setPlaceholderText("送信される文字")
+        self.kana_view.setFixedHeight(line * 2 + 14)
+        self.kana_view.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
+        layout.addWidget(self.kana_view)
+
+        # **その欄の警告と確認結果はその欄に出す。** 共有の 1 行に出すと、
+        # 別の欄を触った瞬間に上書きされて消え、送れない文字を抱えた欄が
+        # 黙ってそこに残る (4 つ並べて初めて起きる壊れ方)
+        self.status_label = _StatusLabel("")
+        layout.addWidget(self.status_label)
+
+        # **欄そのものも伸びない。** 余った高さは欄の下の余白へ行く
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
 
 class _SendWorker(QThread):
@@ -141,8 +269,45 @@ class _SendWorker(QThread):
             self.finished_ok.emit(result)
 
 
+class _ConnectWorker(QThread):
+    """繋ぐあいだ画面を固めないためのスレッド.
+
+    ``NetKeyClient.connect`` は相手が応答するまで戻らない。**実測 (2026-08-31)**:
+    打鍵サーバが動いていない 2.06 秒 / 相手の PC ごと落ちている 5.01 秒
+    (``connect_timeout_s`` の 5 秒で切れる) / 繋がるが名乗りを返さない 5.01 秒。
+
+    これを 3 秒おきの ``retry_tick`` から GUI スレッドで呼んでいたため、
+    **打鍵側を起こしていないあいだ受信の画面がほとんど止まっていた**
+    (運用者の報告)。デコード自体はワーカースレッドで生きているが、画面が
+    更新されないので「受信もデコードも止まった」ように見える。
+    """
+
+    connected = Signal(object, object)      # (client, Hello)
+    failed = Signal(object, object)         # (client, 例外)
+
+    def __init__(self, client: NetKeyClient) -> None:
+        super().__init__()
+        self._client = client
+
+    def run(self) -> None:
+        try:
+            hello = self._client.connect()
+        except NetKeyError as exc:          # NetKeyRejected (busy 等) も含む
+            self.failed.emit(self._client, exc)
+        else:
+            self.connected.emit(self._client, hello)
+
+    def close_client(self) -> None:
+        """受け取り手が居なくなったときに、繋がってしまった接続を捨てる.
+
+        閉じないと打鍵側は「使用中」のまま残り、次に開いたときに**自分自身の
+        古い接続**に busy で撥ねられる (``TxDialog.shutdown`` と同じ理由)。
+        """
+        self._client.close()
+
+
 class TxDialog(QDialog):
-    """送信ダイアログ."""
+    """交信ダイアログ."""
 
     def __init__(
         self,
@@ -156,33 +321,42 @@ class TxDialog(QDialog):
         templates_path: Path | str = DEFAULT_TEMPLATES_PATH,
         received_wpm: float | None = None,
         profile_path: Path | str | None = None,
+        hamlog_window_factory: Callable[[], object | None] = find_input_window,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("送信")
+        self.setWindowTitle("交信")
         self._settings = settings
         self._profile = profile if profile is not None else load_profile()
         self._client_factory = client_factory
+        # Hamlog の入力ウィンドウの探し方。**テストは代役を渡すこと**
+        # (本番は同じ PC で動いている Hamlog を探す)。
+        self._hamlog_window_factory = hamlog_window_factory
         self._client: NetKeyClient | None = None
         self._worker: _SendWorker | None = None
-        # **確認が通った文字列。** これと今の文字列が一致するときだけ送れる
-        self._confirmed_text: str | None = None
+        # 繋ぎに行っているスレッド。**同時に 1 本だけ** (打鍵側は同時 1 接続
+        # しか受けない)。終わったら必ず None に戻す。
+        self._connect_worker: _ConnectWorker | None = None
+        # その接続が自動の繋ぎ直しか (失敗を画面に書かない) と、その行き先
+        self._connect_quiet = False
+        self._connect_endpoint = ""
+        # 並べた送信欄と、いま選んでいる欄の番号。**``_build_ui`` より前に置く。**
+        # 「確認が通った文字列」は**欄ごと** (``TxMessagePanel``) に移した
+        self._panels: list[TxMessagePanel] = []
+        self._active_index = 0
         # **送り終えた (文字列, 速度) の組。** 一度打鍵側が「この速度で
         # 送れる」と答え、実際に最後まで送れたものは、確認を押し直さずに
         # 送れるようにする (運用者の要望、2026-08-12)。交信中に同じ文を
         # 送り直すたびに確認の往復を待つのが、実運用で一番効く無駄だった。
         # **画面を閉じれば忘れる。** 古い確認結果で送る事故を残さないため。
         self._sent_ok: set[tuple[str, float]] = set()
-        # 型を入れる直前の (本文, wrap_check の状態) の組 (`[元に戻す]` 用)。
-        # 戻したら捨てる。**wrap_check も一緒に覚える。** `apply_template` は
-        # 中身を見て自動で ``wrap_check`` を書き換えるので、本文だけ戻すと
-        # 和文の本文なのに囲み OFF のまま残り、無囲みの和文がそのまま送信されて
-        # 相手のデコーダで化ける (「送れるのに化ける」2026-08-12 最終レビュー)。
-        self._state_before_template: tuple[str, bool] | None = None
-        # **送信ワーカーへ渡した (文字列, 速度) の組。** ``run_send`` がワーカーを
-        # 作った時点で確定させ、``_on_sent`` はこれを使う。完了時に
+        # **送信ワーカーへ渡した (欄, 文字列, 速度) の組。** ``run_send`` が
+        # ワーカーを作った時点で確定させ、``_on_sent`` はこれを使う。完了時に
         # ``wpm_spin.value()`` を読み直すと、送信中に運用者が速度を変えたときに
         # 実際に送った速度と違う値を「送れた」記録として覚えてしまう。
         self._send_pending: tuple[str, float] | None = None
+        # **どの欄から送ったか。** 送り終えた欄の確認済みの印だけを落とすため
+        # (他の欄の印まで落とすと、用意しておいた文が送れなくなる)。
+        self._send_panel: "TxMessagePanel | None" = None
         # **画面が今表示しているモード** (``auto`` を含む)。設定ファイルの
         # ``mode`` ではない — あれは画面を閉じるときにしか書き戻されないので、
         # 画面が和文でも設定が欧文なら和文の型が消えていた
@@ -199,6 +373,7 @@ class TxDialog(QDialog):
         self._templates = templates_for_mode(load_templates(self._templates_path), mode)
 
         self._build_ui()
+        self._fit_to_content()
         self._fill_from_received(received_text)
         self._update_buttons()
 
@@ -224,7 +399,7 @@ class TxDialog(QDialog):
         self.connect_btn = QPushButton("接続")
         # **``clicked`` は ``checked: bool`` を渡す。** そのまま繋ぐと第 1 引数の
         # ``quiet`` に入る。引数の食い違いは過去にこのリポジトリで実際に踏んでいる
-        self.connect_btn.clicked.connect(lambda: self.connect_to_keyer())
+        self.connect_btn.clicked.connect(lambda: self.begin_connect())
         top.addWidget(self.connect_btn)
         top.addWidget(QLabel("速度:"))
         self.wpm_spin = QDoubleSpinBox()
@@ -261,7 +436,52 @@ class TxDialog(QDialog):
         self.rst_edit = QLineEdit("599")
         self.rst_edit.setMaxLength(3)
         fields.addWidget(self.rst_edit)
+        # **もらった RST は別の欄。** Hamlog は送った側 (RSTs) と
+        # もらった側 (RSTr) を別々に記録する
+        # **Hamlog の言い方では「送る RST」= His、「もらった RST」= My。**
+        # 画面では紛れないよう「送る/もらった」と書く
+        fields.addWidget(QLabel("もらった RST:"))
+        self.received_rst_edit = QLineEdit("599")
+        self.received_rst_edit.setMaxLength(3)
+        fields.addWidget(self.received_rst_edit)
         layout.addLayout(fields)
+
+        # **交信記録 (Hamlog) 用の欄。** 送信そのものには使わない。
+        # 周波数は**保存しない** — 前回の値が残っていると、band を変えたのに
+        # 気づかず違う周波数で記録してしまう (天気の欄と同じ考え方)
+        log_row = QHBoxLayout()
+        log_row.addWidget(QLabel("周波数:"))
+        self.freq_edit = QLineEdit()
+        self.freq_edit.setPlaceholderText("7.026")
+        self.freq_edit.setMaximumWidth(90)
+        log_row.addWidget(self.freq_edit)
+        log_row.addWidget(QLabel("MHz"))
+        log_row.addWidget(QLabel("住所:"))
+        self.qth_edit = QLineEdit()
+        self.qth_edit.setPlaceholderText("神奈川県横浜市")
+        log_row.addWidget(self.qth_edit, 1)
+        # **入力欄に入れるだけ。** 確定 (ログへの書き込み) は Hamlog 側で
+        # 運用者が Enter を押す (2026-08-30 の運用者の判断)
+        self.hamlog_btn = QPushButton("hamlog登録")
+        self.hamlog_btn.setToolTip(
+            "同じ PC で動いている Hamlog の入力欄へ交信データを入れます "
+            "(登録の確定は Hamlog 側で Enter を押してください)"
+        )
+        self.hamlog_btn.clicked.connect(lambda: self.register_to_hamlog())
+        log_row.addWidget(self.hamlog_btn)
+        layout.addLayout(log_row)
+
+        # **備考は別の行。** 1 行に詰めると欄が 60 px ほどになり読めない
+        remarks_row = QHBoxLayout()
+        remarks_row.addWidget(QLabel("備考1:"))
+        self.remarks1_edit = QLineEdit()
+        self.remarks1_edit.setPlaceholderText("Hamlog の Remarks1 へ")
+        remarks_row.addWidget(self.remarks1_edit, 1)
+        remarks_row.addWidget(QLabel("備考2:"))
+        self.remarks2_edit = QLineEdit()
+        self.remarks2_edit.setPlaceholderText("Remarks2 へ")
+        remarks_row.addWidget(self.remarks2_edit, 1)
+        layout.addLayout(remarks_row)
 
         # **天気と気温は経歴ではなくここに置く** (設計書 §5)。相手コールや RST と
         # 同じ「その交信のもの」であり、経歴に入れると運用のたびに経歴の画面を
@@ -279,7 +499,15 @@ class TxDialog(QDialog):
         self.temp_edit.setPlaceholderText("20")
         self.temp_edit.setMaxLength(4)
         weather.addWidget(self.temp_edit)
-        weather.addStretch(1)
+        # **気温の右の空きに置く** (2026-08-30 の運用者の指示)。天気の欄が
+        # 伸びるので、ボタンは行の右端に寄る
+        self.clear_qso_btn = QPushButton("交信欄クリア")
+        self.clear_qso_btn.setToolTip(
+            "相手コール・相手名前・住所・備考・天気・気温を空にします\n"
+            "(RST と周波数は残ります。送信文は各欄の [クリア] で消してください)"
+        )
+        self.clear_qso_btn.clicked.connect(lambda: self.clear_qso_fields())
+        weather.addWidget(self.clear_qso_btn)
         layout.addLayout(weather)
 
         picker = QHBoxLayout()
@@ -318,55 +546,159 @@ class TxDialog(QDialog):
         picker.addWidget(self.edit_templates_btn)
         layout.addLayout(picker)
 
-        source_row = QHBoxLayout()
-        source_row.addWidget(QLabel("日本語 (漢字かな交じりで可):"))
-        source_row.addStretch(1)
-        # **1 回の交信で何度も打ち直す。** 全選択して消すのは手数が多い。
-        # 消すのは本文だけ — 相手コール・RST・天気は交信のあいだ変わらないので
-        # 巻き込むと打ち直しになる。
-        self.clear_btn = QPushButton("クリア")
-        self.clear_btn.setToolTip("日本語ボックスを空にします (相手・RST・天気はそのまま)")
-        self.clear_btn.clicked.connect(lambda: self.clear_text())
-        source_row.addWidget(self.clear_btn)
-        layout.addLayout(source_row)
+        # **送信欄を ``PANEL_COUNT`` 個並べる。** 画面が狭い PC でも全部に手が
+        # 届くよう、欄の列だけを縦にスクロールさせる (上の共有の欄と下の
+        # [中止] は常に見えたままにする)。
+        panel_host = QWidget()
+        panel_column = QVBoxLayout(panel_host)
+        panel_column.setContentsMargins(0, 0, 0, 0)
+        for number in range(1, PANEL_COUNT + 1):
+            panel = TxMessagePanel(number)
+            # **``clicked`` は ``checked: bool`` を渡す。** 欄を引数に取る
+            # メソッドへ直に繋ぐと、その ``bool`` が欄の引数に入る
+            # (引数の食い違いは過去にこのリポジトリで実際に踏んでいる)。
+            panel.japanese_edit.textChanged.connect(
+                lambda p=panel: self.refresh_kana(p)
+            )
+            panel.wrap_check.toggled.connect(
+                lambda _checked=False, p=panel: self.refresh_kana(p)
+            )
+            panel.clear_btn.clicked.connect(
+                lambda _checked=False, p=panel: self.clear_text(p)
+            )
+            panel.check_btn.clicked.connect(
+                lambda _checked=False, p=panel: self.run_check(p)
+            )
+            panel.send_btn.clicked.connect(
+                lambda _checked=False, p=panel: self.run_send(p)
+            )
+            # **どの欄の [中止] も同じ 1 通を止める** (運用者の指示)
+            panel.stop_btn.clicked.connect(lambda _checked=False: self.run_stop())
+            # 本文に触った欄を「選んでいる欄」にする (型はそこへ入る)
+            panel.japanese_edit.installEventFilter(self)
+            self._panels.append(panel)
+            panel_column.addWidget(panel)
+        panel_column.addStretch(1)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(panel_host)
+        layout.addWidget(scroll, 1)
+        # 開くときの高さを決めるために覚えておく (``_fit_to_content``)
+        self._panel_host = panel_host
+        self._panel_scroll = scroll
 
-        self.japanese_edit = QPlainTextEdit()
-        self.japanese_edit.textChanged.connect(self.refresh_kana)
-        layout.addWidget(self.japanese_edit)
-
-        self.wrap_check = QCheckBox("和文をホレ/ラタで囲む")
-        self.wrap_check.setChecked(True)
-        self.wrap_check.toggled.connect(self.refresh_kana)
-        layout.addWidget(self.wrap_check)
-
-        layout.addWidget(QLabel("送信される文字:"))
-        self.kana_view = QPlainTextEdit()
-        self.kana_view.setReadOnly(True)
-        layout.addWidget(self.kana_view)
-
-        self.status_label = QLabel("未接続")
-        self.status_label.setWordWrap(True)
+        # **共有の 1 行。** 接続の結果と送信の結果を出す。本文から分かる警告と
+        # 確認の結果は**欄ごとの行**に出る (``TxMessagePanel.status_label``)。
+        # 接続時の「符号表が両 PC で違います」は改行を含む 2 行なので 2 行取る
+        self.status_label = _StatusLabel("未接続", lines=2)
         layout.addWidget(self.status_label)
 
-        buttons = QHBoxLayout()
-        self.check_btn = QPushButton("確認")
-        self.check_btn.clicked.connect(self.run_check)
-        buttons.addWidget(self.check_btn)
-        buttons.addStretch(1)
-        self.send_btn = QPushButton("送信")
-        self.send_btn.clicked.connect(self.run_send)
-        buttons.addWidget(self.send_btn)
-        self.stop_btn = QPushButton("中止")
-        self.stop_btn.clicked.connect(self.run_stop)
-        buttons.addWidget(self.stop_btn)
-        layout.addLayout(buttons)
+    def _fit_to_content(self) -> None:
+        """送信欄が全部見える高さで開く. **画面からはみ出さない範囲で。**
+
+        ``QScrollArea`` の ``sizeHint`` は頭打ちになる (Qt の仕様) ので、
+        中身 (欄の列) の ``sizeHint`` から必要な高さを足し直す。足りなければ
+        スクロールするので、狭い画面でも全部に手が届く。
+
+        **開く前に決める。** 出してから広げ直すと、開いた瞬間に窓が跳ねる。
+        """
+        base = self.sizeHint().height() - self._panel_scroll.sizeHint().height()
+        want = base + self._panel_host.sizeHint().height() + 8
+        screen = QApplication.primaryScreen()
+        if screen is not None:
+            want = min(want, screen.availableGeometry().height() - 60)
+        self.resize(600, max(want, 400))
+
+    # ---- 欄 ----
+    @property
+    def panels(self) -> tuple["TxMessagePanel", ...]:
+        """並べた送信欄 (上から順)."""
+        return tuple(self._panels)
+
+    @property
+    def active_panel(self) -> "TxMessagePanel":
+        """いま選んでいる欄. 型と ``[元に戻す]`` はここに効く."""
+        return self._panels[self._active_index]
+
+    def set_active_panel(self, index: int) -> None:
+        """選んでいる欄を変える (本文に触ると自動で変わる)."""
+        if not 0 <= index < len(self._panels):
+            return
+        self._active_index = index
+        self._update_buttons()
+
+    def eventFilter(self, watched, event) -> bool:      # noqa: N802
+        """本文に入力の焦点が来た欄を「選んでいる欄」にする.
+
+        **クリックしてから型を選ぶ**、が自然な手順になる。
+        """
+        if event.type() == QEvent.Type.FocusIn:
+            for index, panel in enumerate(self._panels):
+                if watched is panel.japanese_edit:
+                    self.set_active_panel(index)
+                    break
+        return super().eventFilter(watched, event)
+
+    # 既存の呼び名は**選んでいる欄**を指す。積み上げてきた関門のテストを
+    # そのまま回帰網として使えるようにするための約束である。
+    @property
+    def japanese_edit(self) -> QPlainTextEdit:
+        return self.active_panel.japanese_edit
+
+    @property
+    def wrap_check(self) -> QCheckBox:
+        return self.active_panel.wrap_check
+
+    @property
+    def kana_view(self) -> QPlainTextEdit:
+        return self.active_panel.kana_view
+
+    @property
+    def clear_btn(self) -> QPushButton:
+        return self.active_panel.clear_btn
+
+    @property
+    def check_btn(self) -> QPushButton:
+        return self.active_panel.check_btn
+
+    @property
+    def send_btn(self) -> QPushButton:
+        return self.active_panel.send_btn
+
+    @property
+    def stop_btn(self) -> QPushButton:
+        return self.active_panel.stop_btn
+
+    @property
+    def _confirmed_text(self) -> str | None:
+        """選んでいる欄の「確認が通った文字列」.
+
+        **中の処理はこれを使わず ``panel._confirmed_text`` を直接読むこと。**
+        欄を 4 つにした今、どの欄の話なのかを暗黙にしてはいけない。
+        ここは 1 欄だった頃からの関門テストを生かしておくための橋である。
+        """
+        return self.active_panel._confirmed_text
+
+    @_confirmed_text.setter
+    def _confirmed_text(self, value: str | None) -> None:
+        self.active_panel._confirmed_text = value
+
+    def status_text(self) -> str:
+        """共有の 1 行と、全欄の 1 行を繋げたもの.
+
+        画面では別々の行に出ている (接続の結果は共有、送れない文字の警告は
+        その欄)。「どこかに出ているか」を見たいときはここを読む。
+        """
+        lines = [self.status_label.text()]
+        lines.extend(panel.status_label.text() for panel in self._panels)
+        return "\n".join(line for line in lines if line)
 
     # ---- 文字 ----
-    def wire_text(self) -> str:
-        """LAN に流す確定テキスト."""
-        return self.kana_view.toPlainText().strip()
+    def wire_text(self, panel: "TxMessagePanel | None" = None) -> str:
+        """LAN に流す確定テキスト (既定は**選んでいる欄**)."""
+        return (panel or self.active_panel).kana_view.toPlainText().strip()
 
-    def refresh_kana(self) -> None:
+    def refresh_kana(self, panel: "TxMessagePanel | None" = None) -> None:
         """日本語をカタカナに直し、**関門を閉じ直す**.
 
         送信できるかの判定は **``encoder.find_unsendable`` を使う**。
@@ -375,17 +707,20 @@ class TxDialog(QDialog):
         打鍵側 (``key_server.prepare``) と同じ規則で判定しないと、
         画面と実際の可否が食い違う。
         """
-        source = self.japanese_edit.toPlainText()
+        panel = panel or self.active_panel
+        source = panel.japanese_edit.toPlainText()
         result = to_sendable_kana(source, self._profile)
-        wrap_on = self.wrap_check.isChecked()
+        wrap_on = panel.wrap_check.isChecked()
         text = wrap_japanese(result.text) if wrap_on else result.text
-        self.kana_view.setPlainText(text)
-        self._confirmed_text = None            # 編集したら確認をやり直す
-        self._show_text_warnings(text, wrap_on=wrap_on, unwrapped=result.text)
+        panel.kana_view.setPlainText(text)
+        # **書き直した欄の関門だけを閉じる。** 全部閉じると、先に確認して
+        # おいた他の文まで送れなくなり、4 つ並べた意味が無くなる
+        panel._confirmed_text = None
+        self._show_text_warnings(panel, text, wrap_on=wrap_on, unwrapped=result.text)
         self._update_buttons()
 
     def _show_text_warnings(
-        self, wire_text: str, *, wrap_on: bool, unwrapped: str
+        self, panel: "TxMessagePanel", wire_text: str, *, wrap_on: bool, unwrapped: str
     ) -> None:
         """本文から分かる警告を出す。**直ったら消え、複数起きたら全部出す。**
 
@@ -404,7 +739,7 @@ class TxDialog(QDialog):
 
         **「和文が無いのに囲んでいる」は ``apply_template`` を使わず
         ``japanese_edit`` に直接打つ経路のためのもの。** ``wrap_check`` は
-        運用者が明示的に操作するチェックボックスであり、既定がオンなので、
+        運用者が明示的に操作するチェックボックスであり、入れたまま
         和文の無い本文 (``「FT991」`` など) を直接打つと `{HORE}「FT991」{RATA}`
         が**警告なしで**できてしまう。中身は欧文として符号化できるので
         「送信できない文字」にはならず、**送れるのに化ける**という一番
@@ -439,9 +774,9 @@ class TxDialog(QDialog):
                 "欧文が読めなくなります。「和文をホレ/ラタで囲む」を外してください。"
             )
         if warnings:
-            self.status_label.setText("\n".join(warnings))
-        elif self.status_label.text().startswith(_TEXT_WARNING_PREFIXES):
-            self.status_label.clear()
+            panel.status_label.setText("\n".join(warnings))
+        elif panel.status_label.text().startswith(_TEXT_WARNING_PREFIXES):
+            panel.status_label.clear()
 
     def _fill_from_received(self, received_text: str) -> None:
         """受信テキストから拾えた欄を入れる. **拾えなければ空のまま。**
@@ -478,11 +813,128 @@ class TxDialog(QDialog):
         # 「値が無い」と「欄そのものを渡していない」の区別が消える
         return values
 
-    def clear_text(self) -> None:
-        """日本語ボックスを空にする.
+    # ---- 交信の欄 ----
+    #: 欄の名前 → その欄のウィジェット名。**主画面はこの名前で呼ぶ**
+    #: (``set_qso_field``)。画面の作りを外から触らせないための入口である。
+    QSO_FIELDS: dict[str, str] = {
+        "their_call": "their_call_edit",
+        "their_name": "their_name_edit",
+        "qth": "qth_edit",
+        "rst_sent": "rst_edit",
+        "rst_received": "received_rst_edit",
+        "freq_mhz": "freq_edit",
+        "remarks1": "remarks1_edit",
+        "remarks2": "remarks2_edit",
+    }
 
-        **消すのは本文だけ。** 相手コール・相手名前・RST・天気・気温は
+    #: 欄の名前 → 画面に出す呼び名 (右クリックのメニューが使う。**並ぶ順**)。
+    QSO_FIELD_LABELS: dict[str, str] = {
+        "their_call": "相手コール",
+        "their_name": "相手名前",
+        "qth": "住所",
+        "rst_sent": "送る RST",
+        "rst_received": "もらった RST",
+    }
+
+    #: ``[交信欄クリア]`` で**消さない**欄。RST と周波数は、同じバンド・同じ
+    #: 運用のあいだ変わらないので残す (2026-08-30 の運用者の指示)。
+    QSO_KEEP_ON_CLEAR: tuple[str, ...] = ("rst_sent", "rst_received", "freq_mhz")
+
+    def clear_qso_fields(self) -> None:
+        """相手ごとに変わる欄を空にする. **RST と周波数は残す。**
+
+        次の相手に移るときに使う。消えるのは相手コール・相手名前・住所・
+        備考1・備考2・天気・気温。
+
+        **送信文の欄は触らない。** 用意しておいた文を巻き添えにしないため
+        (送信文には欄ごとの ``[クリア]`` がある)。
+        """
+        for field, widget_name in self.QSO_FIELDS.items():
+            if field in self.QSO_KEEP_ON_CLEAR:
+                continue
+            getattr(self, widget_name).clear()
+        # 天気・気温は Hamlog へ渡す欄ではない (型に差し込む値) ので別に消す
+        self.weather_edit.clear()
+        self.temp_edit.clear()
+
+    def set_qso_field(self, field: str, value: str) -> None:
+        """交信の欄に値を入れる. **名前で指すこと** (``QSO_FIELDS``).
+
+        受信文から拾った文字をそのまま入れられるよう、ここで軽く整える:
+
+        * 相手コール — 前後の空白を落として大文字に
+        * RST — RST らしい塊を探し、**略号数字を数字に直す**
+          (``UR 579`` → ``579``、``5NN`` → ``599``)。
+          RST らしい塊が無ければ**空にする** (当てにならない値を入れない)
+        * それ以外 — 前後の空白を落とすだけ
+
+        知らない名前は黙って無視する (呼び出し側の綴り間違いで落とさない)。
+        """
+        widget_name = self.QSO_FIELDS.get(field)
+        if widget_name is None:
+            return
+        text = value.strip()
+        if field == "their_call":
+            text = text.upper()
+        elif field in ("rst_sent", "rst_received"):
+            text = normalise_rst(text)
+        getattr(self, widget_name).setText(text)
+
+    # ---- 交信記録 (Hamlog) ----
+    def hamlog_entry(self) -> QsoEntry:
+        """いま画面にある値から、Hamlog へ渡す 1 交信分を作る.
+
+        **日時は今 (JST)。** 交信の途中で何度押しても、押した時刻が入る。
+        モードは ``CW`` で固定 (このアプリが扱うのは CW だけ)。
+        """
+        return QsoEntry.at(
+            _dt.datetime.now(_dt.timezone.utc),
+            call=self.their_call_edit.text().strip(),
+            rst_sent=self.rst_edit.text().strip(),
+            rst_received=self.received_rst_edit.text().strip(),
+            freq_mhz=self.freq_edit.text().strip(),
+            name=self.their_name_edit.text().strip(),
+            qth=self.qth_edit.text().strip(),
+            remarks1=self.remarks1_edit.text().strip(),
+            remarks2=self.remarks2_edit.text().strip(),
+        )
+
+    def register_to_hamlog(self) -> None:
+        """Hamlog の入力欄へ交信データを入れる. **確定はしない。**
+
+        確定 (ログへの書き込み) は運用者が Hamlog 側で Enter を押す。値を
+        間違えたまま書き込むと Hamlog 側で消す手間がかかるためである
+        (2026-08-30 の運用者の判断)。
+
+        **相手のコールサインが無いときは何もしない。** コールサインの無い
+        交信記録は意味を持たない。
+        """
+        entry = self.hamlog_entry()
+        if not entry.call:
+            self.status_label.setText(
+                "相手のコールサインが空です。「相手:」欄を埋めてから押してください。"
+            )
+            return
+        try:
+            hamlog_register(entry, self._hamlog_window_factory())
+        except HamlogNotRunning as exc:
+            self.status_label.setText(str(exc))
+            return
+        except OSError as exc:                      # 窓は在るが送れなかった
+            self.status_label.setText(f"Hamlog へ渡せませんでした: {exc}")
+            return
+        self.status_label.setText(
+            f"Hamlog の入力欄に入れました — {entry.call} {entry.date} {entry.time} "
+            f"{entry.freq_mhz or '(周波数なし)'} MHz {entry.mode}。"
+            "内容を確かめて Hamlog 側で Enter を押すと登録されます。"
+        )
+
+    def clear_text(self, panel: "TxMessagePanel | None" = None) -> None:
+        """その欄の日本語ボックスを空にする.
+
+        **消すのはその欄の本文だけ。** 相手コール・相手名前・RST・天気・気温は
         交信のあいだ変わらないので、巻き込むと打ち直しになる。
+        **他の欄に用意した文も巻き込まない** (先に何通か書いておくため)。
 
         空にすれば ``textChanged`` → ``refresh_kana`` が走り、**確認は
         やり直しになる** (送信される文字も空になるので ``[確認]`` も押せない)。
@@ -490,7 +942,7 @@ class TxDialog(QDialog):
         **送信中は押せない** (``_update_buttons``)。打鍵している最中に本文が
         消えると、何を送っているのか画面から分からなくなる。
         """
-        self.japanese_edit.clear()
+        (panel or self.active_panel).japanese_edit.clear()
 
     def open_profile_dialog(self) -> None:
         """経歴の編集画面を開き、**閉じたら読み直す**.
@@ -554,12 +1006,13 @@ class TxDialog(QDialog):
         本文を戻す — 逆にすると本文の ``setPlainText`` が起こす
         ``refresh_kana`` が一瞬古い ``wrap_check`` のままの警告を出しかねない。
         """
-        if self._state_before_template is None:
+        panel = self.active_panel
+        if panel._state_before_template is None:
             return
-        text, wrap_checked = self._state_before_template
-        self._state_before_template = None
-        self.wrap_check.setChecked(wrap_checked)
-        self.japanese_edit.setPlainText(text)
+        text, wrap_checked = panel._state_before_template
+        panel._state_before_template = None
+        panel.wrap_check.setChecked(wrap_checked)
+        panel.japanese_edit.setPlainText(text)
         self.undo_template_btn.setEnabled(False)
 
     def apply_template(self) -> None:
@@ -568,8 +1021,9 @@ class TxDialog(QDialog):
         **欄を差し込んでから入れる。** 逆にすると ``{相手コール}`` が
         カナ変換器を通って壊れる (設計書 §6.1)。
 
-        **囲むかどうかは中身で決める。** ``wrap_check`` の既定はオンなので、
-        合わせずに欧文の型を流すと中の欧文が丸ごと ``{HORE}``/``{RATA}`` に
+        **囲むかどうかは中身で決める。ただし自動でオンにはしない** (既定は
+        オフ、使うときだけチェック。2026-08-30 の運用者の指示)。チェックが
+        入ったまま欧文の型を流すと中の欧文が丸ごと ``{HORE}``/``{RATA}`` に
         囲まれ、「送信できない文字」として弾かれる (``find_unsendable`` は
         打鍵側 ``key_server.prepare`` と同じ関数なので、確認を押しても実機側で
         弾かれる)。逆に**型の ``mode`` で決めると ``any`` の型に和文を書いた
@@ -608,18 +1062,26 @@ class TxDialog(QDialog):
         # **直後の ``setChecked`` より前に読む。** ここで捕まえておかないと
         # 「元に戻す」が本文だけ戻し、和文の本文なのに囲み OFF のまま残る
         # (送れるのに化ける)。
-        previous = self.japanese_edit.toPlainText()
-        self._state_before_template = (
-            (previous, self.wrap_check.isChecked()) if previous else None
+        panel = self.active_panel
+        previous = panel.japanese_edit.toPlainText()
+        panel._state_before_template = (
+            (previous, panel.wrap_check.isChecked()) if previous else None
         )
         self.undo_template_btn.setEnabled(bool(previous))
         # setChecked は値が変わったときだけ toggled (→ refresh_kana) を
         # 起こす。その後の setPlainText でも textChanged (→ refresh_kana)
         # が起きるので、多くても 2 回で確定する (どちらも副作用は無い)。
-        self.wrap_check.setChecked(HORE not in filled and needs_japanese_wrap(converted))
+        # **自動でオンにはしない** (既定オフ、使うときだけチェック。2026-08-30)。
+        # チェックが入ったまま欧文の型を入れたときだけ外す (欧文を丸ごと囲んで
+        # 「送信できない」にする経路を塞ぐ歯止めは残す)
+        panel.wrap_check.setChecked(
+            panel.wrap_check.isChecked()
+            and HORE not in filled
+            and needs_japanese_wrap(converted)
+        )
         # setPlainText が textChanged を起こし refresh_kana が走る
         # (関門もそこで閉じ直り、警告もそこで出る)
-        self.japanese_edit.setPlainText(filled)
+        panel.japanese_edit.setPlainText(filled)
 
     def match_received_wpm(self) -> None:
         """送信の速度を、受信信号から測った速度に合わせる.
@@ -649,7 +1111,7 @@ class TxDialog(QDialog):
         self._confirmed_text = None
         self._update_buttons()
 
-    def can_send(self) -> bool:
+    def can_send(self, panel: "TxMessagePanel | None" = None) -> bool:
         """送れるか. **確認が通っているか、前に送り終えたものと同じなら送れる。**
 
         関門を外したわけではない。打鍵側が「その文字列はこの速度で送れる」と
@@ -659,11 +1121,12 @@ class TxDialog(QDialog):
 
         **打鍵側が居なければ送れない**のは変わらない。
         """
-        text = self.wire_text()
+        panel = panel or self.active_panel
+        text = self.wire_text(panel)
         if not text or self._client is None:
             return False
         return (
-            self._confirmed_text == text
+            panel._confirmed_text == text
             or (text, self.wpm_spin.value()) in self._sent_ok
         )
 
@@ -687,28 +1150,79 @@ class TxDialog(QDialog):
             return
         if not self.endpoint_edit.text().strip():
             return
-        self.connect_to_keyer(quiet=True)
+        self.begin_connect(quiet=True)
 
-    def connect_to_keyer(self, quiet: bool = False) -> None:
-        """打鍵側へ繋ぐ.
+    def begin_connect(self, quiet: bool = False) -> None:
+        """打鍵側へ繋ぐ. **待たない** — 実際に繋ぐのは別スレッド (:class:`_ConnectWorker`).
+
+        **運用の経路はこちら。** GUI スレッドで ``connect()`` を待つと、打鍵側が
+        応答しないあいだ画面がまるごと止まる (実測 2〜5 秒。3 秒おきの
+        ``retry_tick`` から呼んでいたので、打鍵サーバを立てていない交信では
+        受信の画面がほぼ止まりっぱなしになっていた。2026-08-31 運用者の報告)。
 
         Args:
             quiet: 真なら失敗しても画面に書かない (自動の繋ぎ直しから呼ぶため。
                 3 秒おきに赤い文字が書き換わると読めない)。
+        """
+        if self._connect_worker is not None and self._connect_worker.isRunning():
+            # **繋ぎに行っている最中は重ねない。** 打鍵側は同時 1 接続しか
+            # 受けず、2 本目は自分自身の 1 本目に busy で撥ねられる。
+            return
+        prepared = self._prepare_connect(quiet)
+        if prepared is None:
+            return
+        client, endpoint = prepared
+        worker = _ConnectWorker(client)
+        worker.connected.connect(self._on_connect_ok)
+        worker.failed.connect(self._on_connect_failed)
+        self._connect_worker = worker
+        self._connect_quiet = quiet
+        self._connect_endpoint = endpoint
+        if not quiet:
+            self.status_label.setText(f"繋いでいます… ({endpoint})")
+        self._update_buttons()
+        worker.start()
+
+    def connect_to_keyer(self, quiet: bool = False) -> None:
+        """打鍵側へ繋ぐ. **繋ぎ終わるまで戻らない (同期)。**
+
+        **GUI スレッドから直に呼ばないこと** — 画面が止まる。運用の経路は
+        :meth:`begin_connect` である。ここは「繋がった状態」を待って作りたい
+        場面 (テスト) のために残してある。結果の扱いは別スレッド経由と同じ
+        ``_on_connect_ok`` / ``_on_connect_failed`` を通す。
+        """
+        prepared = self._prepare_connect(quiet)
+        if prepared is None:
+            return
+        client, endpoint = prepared
+        self._connect_quiet = quiet
+        self._connect_endpoint = endpoint
+        try:
+            hello = client.connect()
+        except NetKeyError as exc:          # NetKeyRejected (busy 等) も含む
+            self._on_connect_failed(client, exc)
+            return
+        self._on_connect_ok(client, hello)
+
+    def _prepare_connect(self, quiet: bool) -> tuple[NetKeyClient, str] | None:
+        """行き先を確かめ、古い接続を畳んで、新しいクライアントを作る.
+
+        Returns:
+            ``(client, endpoint)``。行き先が読めないなら ``None``。
         """
         endpoint = self.endpoint_edit.text().strip()
         if not endpoint:
             if not quiet:
                 self.status_label.setText("打鍵側の host:port を入れてください。")
             self._update_buttons()
-            return
+            return None
         try:
             host, port = parse_endpoint(endpoint, default_port=DEFAULT_KEY_PORT)
         except ValueError as exc:
             if not quiet:
                 self.status_label.setText(f"打鍵側の指定が読めません: {exc}")
             self._update_buttons()
-            return
+            return None
 
         if self._client is not None:
             # **繋ぎ直す前に必ず古い接続を閉じる。** 打鍵側は同時 1 接続しか
@@ -722,31 +1236,33 @@ class TxDialog(QDialog):
             self._client.close()
             self._client = None
 
-        client = self._client_factory(host, port)
-        try:
-            hello = client.connect()
-        except NetKeyRejected as exc:
-            # **``NetKeyError`` より先に捕まえる。** busy は「繋がらない」の
-            # 一般文言に埋もれさせず、理由が分かる文言にする。
-            self._client = None
-            if not quiet:
-                if exc.code == "busy":
-                    self.status_label.setText(
-                        f"打鍵側は今、別の運用者が使用中です。しばらく待って再接続してください。({exc})"
-                    )
-                else:
-                    self.status_label.setText(str(exc))
-            self._update_buttons()
-            return
-        except NetKeyError as exc:
-            self._client = None
-            if not quiet:
-                self.status_label.setText(str(exc))
-            self._update_buttons()
-            return
+        return self._client_factory(host, port), endpoint
 
+    def _on_connect_failed(self, client: NetKeyClient, exc: Exception) -> None:
+        """繋げなかった. **同期・別スレッドのどちらの経路もここを通る。**"""
+        if self._connect_worker is not None and not self._connect_worker.isRunning():
+            self._connect_worker = None
+        # **繋ぎかけを畳んでおく。** 名乗りが来ないまま抜けた接続を残すと、
+        # 打鍵側から見て「使用中」のままになる。
+        client.close()
+        self._client = None
+        if not self._connect_quiet:
+            if isinstance(exc, NetKeyRejected) and exc.code == "busy":
+                # **``NetKeyError`` の一般文言に埋もれさせない。** busy は
+                # 理由が分かる文言にする。
+                self.status_label.setText(
+                    f"打鍵側は今、別の運用者が使用中です。しばらく待って再接続してください。({exc})"
+                )
+            else:
+                self.status_label.setText(str(exc))
+        self._update_buttons()
+
+    def _on_connect_ok(self, client: NetKeyClient, hello: Hello) -> None:
+        """繋がった. **同期・別スレッドのどちらの経路もここを通る。**"""
+        if self._connect_worker is not None and not self._connect_worker.isRunning():
+            self._connect_worker = None
         self._client = client
-        self._settings.tx_endpoint = endpoint
+        self._settings.tx_endpoint = self._connect_endpoint or self.endpoint_edit.text().strip()
         message = f"接続しました — {hello.describe_wiring()}"
         if not hello.fingerprint_matches:
             # **静かな食い違いを見える警告にする** (設計書 §2.1)
@@ -756,47 +1272,62 @@ class TxDialog(QDialog):
             # (2026-08-13 最終レビュー Critical 1)。
             self._forget_sent_texts()
         self.status_label.setText(message)
-        self._confirmed_text = None
+        # **全部の欄の確認を落とす。** 別の PC・別の符号表かもしれないので、
+        # 1 番目だけ落とすのでは足りない
+        for panel in self._panels:
+            panel._confirmed_text = None
         self._update_buttons()
 
-    def run_check(self) -> None:
-        """**打鍵しない検査。** これが通って初めて送れる."""
+    def run_check(self, panel: "TxMessagePanel | None" = None) -> None:
+        """**打鍵しない検査。** これが通って初めてその欄が送れる.
+
+        欄ごとに押せる。**先に 4 通とも確認しておき**、相手の信号に合う 1 通を
+        [送信] で出す、というのが狙いの使い方である (2026-08-30)。
+        """
+        panel = panel or self.active_panel
         if self._client is None:
             return
-        text = self.wire_text()
+        text = self.wire_text(panel)
         if not text:
             return
         try:
             result = self._client.check(text, self.wpm_spin.value())
         except NetKeyRejected as exc:
-            self._confirmed_text = None
+            panel._confirmed_text = None
             # **撥ねられたら「送り終えた」記録も当てにならない。** 打鍵側が
             # 「もう通らない」と言っているのに、以前送れた記録だけで [送信] を
             # 有効なままにしない (2026-08-13 最終レビュー Important 4)。
             self._sent_ok.discard((text, self.wpm_spin.value()))
             detail = "".join(bad["char"] for bad in exc.unsendable)
-            self.status_label.setText(f"{exc}: {detail}" if detail else str(exc))
+            panel.status_label.setText(f"{exc}: {detail}" if detail else str(exc))
         except NetKeyError as exc:
             self._client = None
-            self._confirmed_text = None
-            self.status_label.setText(str(exc))
+            panel._confirmed_text = None
+            panel.status_label.setText(str(exc))
         else:
-            self._confirmed_text = text
-            self.status_label.setText(
+            panel._confirmed_text = text
+            panel.status_label.setText(
                 f"確認しました — {result.chars} 文字 / {result.elements} 要素 / {result.seconds:.1f} 秒"
             )
         self._update_buttons()
 
-    def run_send(self) -> None:
-        if not self.can_send() or self._client is None:
+    def run_send(self, panel: "TxMessagePanel | None" = None) -> None:
+        """その欄の文を打鍵側へ送る.
+
+        **打鍵器は 1 台。** 送信中は全部の欄の [送信]/[確認]/[クリア] が
+        無効になる (``_update_buttons``) ので、2 通目が重なることはない。
+        """
+        panel = panel or self.active_panel
+        if not self.can_send(panel) or self._client is None:
             return
         self.status_label.setText("送信中…")
-        text = self.wire_text()
+        text = self.wire_text(panel)
         wpm = self.wpm_spin.value()
         # **ここで確定させる。** ``_on_sent`` が完了時に ``wpm_spin.value()`` を
         # 読み直すと、送信中に運用者が速度を変えたときに実際に送った速度と
         # 違う値を「送れた」記録にしてしまう (2026-08-13 最終レビュー Minor 6)。
         self._send_pending = (text, wpm)
+        self._send_panel = panel
         self._worker = _SendWorker(self._client, text, wpm)
         self._worker.finished_ok.connect(self._on_sent)
         self._worker.failed.connect(self._on_send_failed)
@@ -810,10 +1341,13 @@ class TxDialog(QDialog):
     def _on_sent(self, result: SendResult) -> None:
         self._worker = None
         sent_pair = self._send_pending
+        sent_panel = self._send_panel or self.active_panel
         self._send_pending = None
+        self._send_panel = None
         # **確認済みの印は落とす** (編集したら送れない、を保つため)。
-        # 代わりに「送り終えた」ほうへ移す
-        self._confirmed_text = None
+        # 代わりに「送り終えた」ほうへ移す。**落とすのは送った欄だけ** —
+        # 他の欄の印まで落とすと、用意しておいた文が送れなくなる
+        sent_panel._confirmed_text = None
         if not result.aborted and sent_pair is not None:
             # **最後まで送れたものだけ覚える。** 途中で止めたものは
             # 「送れた」とは言えない。**中止しても、それより前に完了した
@@ -849,7 +1383,11 @@ class TxDialog(QDialog):
     def _on_send_failed(self, message: str) -> None:
         self._worker = None
         self._client = None
-        self._confirmed_text = None
+        self._send_pending = None
+        self._send_panel = None
+        # **打鍵側が居なくなった。** どの欄の確認結果も当てにならない
+        for panel in self._panels:
+            panel._confirmed_text = None
         self.status_label.setText(message)
         self._update_buttons()
 
@@ -857,13 +1395,27 @@ class TxDialog(QDialog):
     def _update_buttons(self) -> None:
         sending = self._worker is not None and self._worker.isRunning()
         connected = self._client is not None
-        self.connect_btn.setEnabled(not sending)
-        # **送信中は消させない。** 打鍵中に本文が消えると、いま何が電波に
-        # 出ているのか画面から分からなくなる
-        self.clear_btn.setEnabled(not sending and bool(self.japanese_edit.toPlainText()))
-        self.check_btn.setEnabled(connected and not sending and bool(self.wire_text()))
-        self.send_btn.setEnabled(self.can_send() and not sending)
-        self.stop_btn.setEnabled(sending)
+        # **繋ぎに行っている最中も押させない。** 押せてしまうと 2 本目の接続を
+        # 作り、自分自身の 1 本目に busy で撥ねられる (``begin_connect`` 参照)。
+        connecting = self._connect_worker is not None and self._connect_worker.isRunning()
+        self.connect_btn.setEnabled(not sending and not connecting)
+        # **送信中はどの欄も触らせない。** 打鍵器は 1 台なので 2 通目を
+        # 重ねて出させないこと、そして打鍵中に本文が消えると、いま何が電波に
+        # 出ているのか画面から分からなくなること、の 2 つの理由がある
+        for panel in self._panels:
+            panel.clear_btn.setEnabled(
+                not sending and bool(panel.japanese_edit.toPlainText())
+            )
+            panel.check_btn.setEnabled(
+                connected and not sending and bool(self.wire_text(panel))
+            )
+            panel.send_btn.setEnabled(self.can_send(panel) and not sending)
+            # **どの欄の [中止] も同時に効く** (押した欄がどれでも同じ 1 通を止める)
+            panel.stop_btn.setEnabled(sending)
+        # ``[元に戻す]`` は**選んでいる欄**に効く (欄を変えると押せる/押せないも変わる)
+        self.undo_template_btn.setEnabled(
+            self.active_panel._state_before_template is not None
+        )
 
     # ---- 後片付け ----
     def is_sending(self) -> bool:
@@ -877,6 +1429,19 @@ class TxDialog(QDialog):
         参照)。``main_window`` もダイアログを捨てる前にここを呼ぶ。
         """
         self._retry_timer.stop()
+        connect_worker, self._connect_worker = self._connect_worker, None
+        if connect_worker is not None:
+            # **繋ぎに行っている最中に畳まれた。** 結果を受け取る先はもう無いので
+            # シグナルを外し、スレッドが終わるのを待ってから、繋がってしまった
+            # 接続をここで閉じる。閉じないと打鍵側は「使用中」のまま残り、次に
+            # 開いたときに**自分自身の古い接続**に busy で撥ねられる。
+            try:
+                connect_worker.connected.disconnect()
+                connect_worker.failed.disconnect()
+            except (RuntimeError, TypeError):       # 既に外れている
+                pass
+            connect_worker.wait(_WORKER_WAIT_MS)
+            connect_worker.close_client()
         if self.is_sending():
             # **送信中に閉じられても、スレッドを残さない。** [中止] と同じ経路で
             # 打鍵側へ停止を伝え、スレッドが実際に終わるのを待ってから閉じる。

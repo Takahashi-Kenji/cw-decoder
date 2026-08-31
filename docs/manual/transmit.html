@@ -36,7 +36,7 @@
 <pre><code>無線機 ── 電鍵/PTT ケーブル ── PC-A（打鍵側・cw_key_server.py）
                               │  LAN（家庭内ネットワーク）
                               ↓
-                          PC-B（cw-decoder 本体・[送信…] の画面）</code></pre>
+                          PC-B（cw-decoder 本体・[交信…] の画面）</code></pre>
 
 <p>
   <a href="receive.html#lan">受信の LAN 接続</a>とは別の接続です。
@@ -108,7 +108,7 @@
 </figure>
 
 <ol class="steps">
-  <li><p>主画面の <span class="ui">送信…</span> を押します。</p></li>
+  <li><p>主画面の <span class="ui">交信…</span> を押します。</p></li>
   <li>
     <p><span class="ui">打鍵側:</span> に PC-A の <code>host:port</code> を入れて <span class="ui">接続</span> を押します。</p>
     <pre><code>接続しました — COM3  電鍵 DTR / PTT RTS</code></pre>
@@ -153,19 +153,94 @@
   実受信 90 件で測った誤差の中央値は +1.6% です。
 </p>
 
+<h2 id="hamlog">交信データを Hamlog へ渡す</h2>
+
+<p>
+  同じ PC で <strong>Turbo HAMLOG/Win</strong> が動いていれば、
+  <span class="ui">hamlog登録</span> ボタンで交信データを Hamlog の入力ウィンドウへ渡せます。
+  コールサイン・日付・時刻（JST）・His/My の RST・周波数・モード（CW）・名前・住所・備考1/2 が入ります。
+</p>
+
+<div class="note">
+  <span class="label">入力欄に入れるだけです</span>
+  <p>
+    <strong>登録はしません。</strong>内容を確かめてから、Hamlog 側で <span class="ui">Save</span> を押してください。
+    cw-decoder と Hamlog は<strong>同じ権限で</strong>動かしてください（片方だけ「管理者として実行」していると届きません）。
+  </p>
+</div>
+
+<h2 id="clearqso">交信欄をまとめて消す</h2>
+
+<p>
+  気温欄の右の <span class="ui">交信欄クリア</span> で、
+  相手コール・相手名前・住所・備考1・備考2・天気・気温がまとめて空になります。
+  <strong>送る RST・もらった RST・周波数は残ります</strong>（同じバンド・同じ運用のあいだ変わらないため）。
+  送信文の 4 つの欄は消えません（それぞれの <span class="ui">クリア</span> をお使いください）。
+</p>
+
+<h2 id="rightclick">受信本文を右クリックして欄へ入れる</h2>
+
+<p>
+  受信本文・欧文ストリーム・清書表示を右クリックすると、選んだ文字を
+  <strong>相手コール / 相手名前 / 住所 / 送る RST / もらった RST</strong> の欄へ入れられます。
+  <strong>選ばずに語の上で右クリックするだけでも構いません。</strong>
+  交信ダイアログを開いていなければ、自動で開いてから入ります。
+</p>
+
+<div class="note">
+  <span class="label">5NN は 599 になります</span>
+  <p>
+    CW では RST の <strong>9 を <code>N</code> と打つ</strong>のが日常的です
+    （<code>5NN</code> = <code>599</code>、<code>57N</code> = <code>579</code>）。
+    RST の欄へ入れるときに <strong><code>N</code> → <code>9</code> だけを直します</strong>。
+    <code>TU</code>（ありがとう）のように数字を含まない語は RST と見なしません。
+  </p>
+</div>
+
+<div class="note">
+  <span class="label">和文のときは欧文ストリームから</span>
+  <p>
+    和文を受信しているときは、本文がカナで出るためコールサインが読めません。
+    <strong>欧文ストリームの行</strong>（同じ符号を欧文表で読んだもの）をなぞって右クリックしてください。
+  </p>
+</div>
+
+<h2 id="panels">送信欄は 4 つあります</h2>
+
+<p>
+  送信画面には <span class="ui">送信文 1</span>〜<span class="ui">送信文 4</span> の
+  欄が縦に並んでいます。交信中に返信を組み立てる時間はないので、
+  <strong>先に何通か書いて 4 つとも [確認] まで通しておき</strong>、相手の信号を
+  聞いてから合う 1 通の [送信] を押す、という使い方をします。
+</p>
+
+<ul>
+  <li>本文・囲みチェック・送信される文字・[クリア] [確認] [送信] [中止]・警告の行は<strong>欄ごと</strong>です。</li>
+  <li>打鍵側の接続・速度・相手コール・RST・天気・型は<strong>4 つの欄で共通</strong>です。</li>
+  <li>型と [元に戻す] は<strong>最後に本文へ触った欄</strong>に効きます。欄をクリックしてから型を選んでください。</li>
+</ul>
+
+<div class="note">
+  <span class="label">同時に送れるのは 1 通だけ</span>
+  <p>
+    打鍵器は 1 台です。送信中は<strong>他の欄の [確認]・[送信]・[クリア] も押せなくなります</strong>。
+    [中止] は [送信] の右隣にあり、<strong>どの欄のものを押しても同じ 1 通が止まります</strong>。
+  </p>
+</div>
+
 <h2 id="hore">和文をホレ／ラタで囲む</h2>
 
 <p>
   <span class="ui">和文をホレ/ラタで囲む</span> にチェックを入れると、
   和文の前後にホレ（和文開始）とラタ（和文終了）が自動で付きます。
+  <strong>初期値は OFF</strong> です（使うときだけチェック。型を使っても自動では ON になりません）。
 </p>
 
 <div class="note">
-  <span class="label">欧文はホレの外に置いてください</span>
+  <span class="label">和文の中の欧文はそのまま送れます</span>
   <p>
-    コールサインや RST など欧文で打つものは、ホレとラタの<strong>外側</strong>に置きます。
-    和文の中でどうしても欧文を打ちたいときは、<code>「…」</code> で囲んでください
-    （和文の中の欧文区間として扱われます）。
+    コールサインや RST など、A〜Z を含む語は和文の中にあっても<strong>自動的に欧文の符号</strong>で送ります。
+    <code>「…」</code> で囲む必要はありません（囲んでも従来どおり動きます）。
   </p>
 </div>
 

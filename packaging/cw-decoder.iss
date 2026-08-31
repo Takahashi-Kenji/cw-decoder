@@ -1,4 +1,4 @@
-; cw-decoder Windows インストーラ (Inno Setup 6)
+﻿; cw-decoder Windows インストーラ (Inno Setup 6)
 ;
 ;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\cw-decoder.iss
 ;
@@ -9,7 +9,7 @@
 ; 無線機の隣の PC が会社/家族共用で、管理者になれないことがあるため。
 
 #define AppName      "cw-decoder"
-#define AppVersion   "0.7.0"
+#define AppVersion   "0.8.0"
 #define AppPublisher "cw-decoder"
 #define AppExeName   "cw-decoder.exe"
 #define SourceDir    "..\dist\cw-decoder"

@@ -282,13 +282,15 @@ class TestValidation:
         t = ReplyTemplate(name="小書き", mode="japanese", text="{HORE}キョウテン{RATA}")
         assert unsendable_in_template(t) == ""
 
-    def test_ホレの中の欧文を見つける(self) -> None:
-        """**型を書くときに一番間違えやすいところ** (設計書 §4.3).
+    def test_ホレの中の欧文は送れる(self) -> None:
+        """2026-08-30 まで「型を書くときに一番間違えやすいところ」として警告していた.
 
-        RST は欧文で送るものなので、ホレの中に書くと送れない。
+        **和文の場合、欧文が含まれていても送信する** (運用者の指示。
+        `encoder._split_latin_words`)。RST やコールサインを和文の型に
+        そのまま書けるので、警告は出さない。
         """
-        t = ReplyTemplate(name="悪い例", mode="japanese", text="{HORE}コンニチハ RST 599{RATA}")
-        assert "R" in unsendable_in_template(t)
+        t = ReplyTemplate(name="応答", mode="japanese", text="{HORE}コンニチハ RST 599{RATA}")
+        assert unsendable_in_template(t) == ""
 
     def test_符号表に無い文字を見つける(self) -> None:
         """``+`` は AR プロサインとして符号表にあるため使えない。
@@ -329,8 +331,11 @@ class TestValidation:
             callsign="JH0ILL",
             rig=BilingualField(european="FT-991", japanese="エフティー キュウキュウイチ"),
         )
-        assert unsendable_in_template(t, profile) != ""
-        # 経歴を渡さない (仮の値だけの) 検証では見つからない = 渡すことに意味がある
+        # 2026-08-30 まではここが != "" だった (欧文が全滅)。和文の中の欧文の語を
+        # 欧文の符号で送るようになり、この型も送れる。**経歴を渡す意味は残る**
+        # (実際に差し込まれる値で調べる)。ただし送れても、ホレの外に読みが出ると
+        # 相手は欧文表で読むので化ける。それは ``needs_japanese_wrap`` の関心
+        assert unsendable_in_template(t, profile) == ""
         assert unsendable_in_template(t) == ""
 
     def test_読みをホレの中に置いた型は送れる(self) -> None:

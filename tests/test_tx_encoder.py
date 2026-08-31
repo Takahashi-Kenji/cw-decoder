@@ -115,10 +115,64 @@ class TestModeInference:
     def test_マーカー無しの和文が符号になる(self) -> None:
         assert encode("コンニチハ") == encode(f"{HORE}コンニチハ{RATA}")[1:-1]
 
-    def test_欧文と和文が混ざると欧文側が撥ねられる(self) -> None:
-        """**黙って落とさない。** マーカーで分けるべき場面だと運用者に見せる."""
-        bad = find_unsendable("JA1ABC コンニチハ")
-        assert [b.char for b in bad] == list("JAABC")
+    def test_欧文と和文が混ざっても欧文の語は送れる(self) -> None:
+        """2026-08-30 まで `JAABC` を「送れない」と撥ねていた.
+
+        運用者の判断: **和文の場合、欧文が含まれていても送信してほしい**
+        (和文の交信でもコールサインは欧文で打つ)。`TestLatinWordsInJapanese` 参照。
+        """
+        assert find_unsendable("JA1ABC コンニチハ") == ()
+
+
+class TestLatinWordsInJapanese:
+    """和文の中の欧文の語 (コールサイン等) は、囲まなくても欧文の符号で送る.
+
+    2026-08-30 の運用者報告: ``JH0ILL ホレ JH0ILL JH0ILL ワ`` で ``JHILL`` が
+    「送信できない文字」になっていた (`「…」` で囲んだときしか通らなかった)。
+    **和文の場合、欧文が含まれていても送信してほしい** が運用者の指示。
+
+    語 (空白で区切られた一続き) に欧文のアルファベットが含まれ、語の全部が
+    欧文表にあるなら、その語を欧文区間として送る。数字だけの語 (``599``) は
+    両方の表にあるので和文のまま (区間を無駄に割らない)。
+    """
+
+    def test_コールサインは送れる(self) -> None:
+        assert find_unsendable("JH0ILL ホレ JH0ILL JH0ILL ワ") == ()
+
+    def test_コールサインは欧文区間になる(self) -> None:
+        segments = [(s.text, s.mode) for s in split_segments("JH0ILL ホレ JH0ILL ワ")]
+        assert segments == [
+            ("JH0ILL", "european"),
+            (" ホレ ", "japanese"),
+            ("JH0ILL", "european"),
+            (" ワ", "japanese"),
+        ]
+
+    def test_囲んだときと同じ符号が出る(self) -> None:
+        """`「…」` は段落 `。` を余分に出すので、それを除いて一致すること."""
+        bare = encode("ナマエ ハ JH0ILL デス")
+        wrapped = encode("ナマエ ハ 「JH0ILL」 デス")
+        danraku = JAPANESE_CHAR_TO_CODES["。"][0]
+        assert bare == [c for c in wrapped if c != danraku]
+
+    def test_数字だけの語は和文のまま(self) -> None:
+        segments = [(s.text, s.mode) for s in split_segments("シグナル 599 デス")]
+        assert segments == [("シグナル 599 デス", "japanese")]
+
+    def test_小文字も通る(self) -> None:
+        assert find_unsendable("jh0ill ホレ") == ()
+
+    def test_漢字が混ざった語は撥ねられ位置も正しい(self) -> None:
+        text = "JH0ILL 晴レ"
+        bad = find_unsendable(text)
+        assert [(b.index, b.char) for b in bad] == [(text.index("晴"), "晴")]
+
+    def test_ラタのマーカーは語として扱わない(self) -> None:
+        segments = [(s.text, s.mode) for s in split_segments(f"ワ {RATA}TU")]
+        assert segments == [(f"ワ {RATA}", "japanese"), ("TU", "european")]
+
+    def test_欧文の本文は変わらない(self) -> None:
+        assert [s.mode for s in split_segments("CQ CQ DE JH0ILL K")] == ["european"]
 
 
 class TestEuropeanSpan:
