@@ -43,6 +43,59 @@
   音声を受け取る向きと、文字を送り出す向きが逆になります。
 </p>
 
+<h2 id="install">打鍵側の入れかた</h2>
+
+<p>
+  PC-A（無線機を繋いだ PC）には <strong>cw-key-server</strong> を入れます。
+  受信アプリとは<strong>別のインストーラ</strong>です。別々の PC で使うことがあるため分けてあります。
+</p>
+
+<table>
+  <tbody>
+    <tr>
+      <td><code>cw-key-server-x.y.z-setup.exe</code></td>
+      <td>これを PC-A で実行します。Python は要りません</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  入れると、スタートメニューに <span class="ui">cw-decoder 打鍵サーバ</span> ができます。
+  <strong>クリックすると窓が開き、COM ポートを番号で選ぶだけです。</strong>
+  コマンドを打つ必要はありません。2 回目からは前回選んだものが既定になるので、Enter だけで始まります。
+</p>
+
+<pre><code>  使えるシリアルポート:
+    1) COM3  USB-SERIAL CH340
+    2) COM5  Prolific USB-to-Serial
+  番号を選んでください [前回: COM3] &gt; 1
+
+  電鍵の線 … / PTT の線 … を選ぶ
+
+  ⚠ ポートを開くと、変換器によってはその瞬間に電波が出ます。
+     無線機の電源を切るか、ダミーロードを付けてください。
+  準備はできましたか [Enter で続行 / n でやめる] &gt;
+
+  ポート 45679 で待機中... (Ctrl+C で終了)</code></pre>
+
+<p>
+  <strong>この窓は開いたままにしておきます。</strong>打鍵の様子がここに流れます。
+  終わるときは窓を閉じるか <kbd>Ctrl</kbd>+<kbd>C</kbd> を押します。
+</p>
+
+<p>
+  PC-B（受信アプリ側）では、<a href="#send">交信の画面</a>の宛先欄に
+  <code>PC-A のアドレス:45679</code> を入れます。
+</p>
+
+<div class="note">
+  <span class="label">ソースから動かすこともできます</span>
+  以下の説明は <code>python scripts/cw_key_server.py</code> で動かす場合のものです。
+  インストーラを使う場合は、同じ指定を
+  <code>cw-key-server.exe</code> の引数として渡せます
+  （インストール時に「PATH に追加する」を選んでおくと、どのフォルダからでも打てます）。
+</div>
+
 <h2 id="first">初めて繋ぐとき</h2>
 
 <div class="note danger">

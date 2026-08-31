@@ -14,7 +14,7 @@
 import os
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_dynamic_libs
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 ROOT = Path(SPECPATH).parent          # noqa: F821  (SPECPATH は PyInstaller が入れる)
 
@@ -24,6 +24,15 @@ ROOT = Path(SPECPATH).parent          # noqa: F821  (SPECPATH は PyInstaller �
 datas = [
     (str(ROOT / "web" / "public" / "model" / "cw.onnx"), "model"),
 ]
+
+# **pykakasi の辞書 (約 9.5 MB) を必ず入れること。**
+# PyInstaller は import を辿るだけなので、データファイルは自動では入らない。
+# 入れ忘れると ``pykakasi.kakasi()`` が ``FileNotFoundError`` (kanwadict4.db) を
+# 投げ、送信画面のカナ欄が空のままになる → **[確認] が押せない**。
+# 窓が無いので例外は表示されず、「ボタンがアクティブにならない」としか見えない
+# (2026-08-31 に運用者の実機で発覚)。
+# 歯止め: ``tests/test_packaging.py`` の ``TestPykakasiDataIsBundled``
+datas += collect_data_files("pykakasi")
 
 # 切替リスト (src/infer/model_recommend.py) にあるモデルは**すべて同梱する**
 # (運用者、2026-08-28)。リストにあるのに実体が無いとトラブルになる。
@@ -67,7 +76,18 @@ binaries = collect_dynamic_libs("sounddevice") + collect_dynamic_libs("soundfile
 EXCLUDES = [
     # 学習・評価まわり。**ここが本体の削減 (2.8 GB)**
     "torch", "torchaudio", "torchvision", "onnx", "sympy", "networkx",
-    "src.train", "src.synth", "src.finetune", "src.eval",
+    "src.train", "src.finetune", "src.eval",
+    # **``src.synth`` を丸ごと除外してはいけない。** 送信側 (``src/tx/encoder.py``)
+    # が ``src.synth.keying`` を使っている — 合成器と送信で同じ打鍵列生成を
+    # 共有するためで、これは意図した設計である (encoder.py の冒頭を参照)。
+    # 丸ごと外すと [交信…] [経歴] [返信の型] が**押しても無反応**になる
+    # (窓が無いので ModuleNotFoundError はどこにも出ない。2026-08-31 に実際に
+    # 配布物で発生)。``keying`` は numpy と ``src.tokens`` しか要らないので
+    # 入れても増えない。重いのは torch を使う ``dataset`` と scipy を使う
+    # ``noise`` 系なので、そちらだけを名指しで外す。
+    # 歯止め: ``tests/test_frozen_imports.py``
+    "src.synth.dataset", "src.synth.synthesizer",
+    "src.synth.noise", "src.synth.text_generator",
     # 開発用
     "pytest", "_pytest", "ruff", "mypy", "PyInstaller",
     "IPython", "jupyter", "notebook",

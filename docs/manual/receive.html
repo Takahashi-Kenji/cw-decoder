@@ -199,16 +199,41 @@
 </p>
 
 <p><strong>受信機側の PC で:</strong></p>
-<pre><code>python scripts/audio_send.py --list          # 入力デバイス一覧
-python scripts/audio_send.py --device 13     # 送信開始 (Ctrl+C で終了)</code></pre>
-
-<p><strong>読み取る側の PC で:</strong></p>
-<pre><code>python scripts/run_app.py --ckpt models/full/best_infer.pt --net-source 192.168.0.10</code></pre>
 
 <p>
-  この起動をすると、主画面の入力デバイスのコンボは<strong>灰色になって選べなくなります</strong>。
+  <code>cw-audio-send-x.y.z-setup.exe</code> を入れます。受信アプリとは<strong>別のインストーラ</strong>です
+  （別々の PC で使うことがあるため分けてあります）。Python は要りません。
+</p>
+
+<p>
+  スタートメニューの <span class="ui">cw-decoder 音声送出</span> をクリックすると窓が開き、
+  <strong>入力デバイスを番号で選ぶだけです。</strong>
+  2 回目からは前回選んだものが既定になるので Enter だけで始まります。
+  窓は開いたままにしておき、終わるときは閉じるか <kbd>Ctrl</kbd>+<kbd>C</kbd> を押します。
+</p>
+
+<p><strong>読み取る側の PC で:</strong></p>
+
+<p>
+  <a href="settings.html#input">設定 → 入力タブ</a>の
+  <span class="ui">LAN から受け取る</span> に、受信機側 PC のアドレスを入れます
+  （例: <code>192.168.0.10</code>。既定ポート 45678）。
+  <strong>次の「開始」から効きます。</strong>空にすればマイク入力に戻ります。
+</p>
+
+<p>
+  この指定をすると、主画面の入力デバイスのコンボは<strong>灰色になって選べなくなります</strong>。
   音の出どころが LAN に固定されるためです。
 </p>
+
+<div class="note">
+  <span class="label">ソースから動かすこともできます</span>
+  <pre><code>python scripts/audio_send.py --list          # 入力デバイス一覧
+python scripts/audio_send.py --device 13     # 送信開始 (Ctrl+C で終了)
+python scripts/run_app.py --ckpt models/full/best_infer.pt --net-source 192.168.0.10</code></pre>
+  <p><code>--net-source</code> は設定より優先されます。一時的に別の PC から受けたいときに、
+  保存した宛先を書き換えずに済みます。</p>
+</div>
 
 <div class="note warn">
   <span class="label">家庭内 LAN でだけ使ってください</span>

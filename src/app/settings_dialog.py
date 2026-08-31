@@ -65,7 +65,7 @@ _LATER_NOTE = "⟳ … 次回の「開始」から反映されます"
 # 両者の一致は ``tests/test_settings_dialog.py`` の ``TestDeferredMarks`` が見る。
 DEFERRED_SETTING_LABELS: dict[str, str] = {
     "sample_rate": "サンプルレート",
-    "checkpoint_path": "モデル",
+    "net_source": "LAN から受け取る",
     "decode_device": "デコード装置",
     "decode_threads": "スレッド数",
     "hop_s": "デコード間隔",
@@ -177,6 +177,17 @@ class SettingsDialog(QDialog):
         )
         form.addRow("スケルチ保持時間", self.squelch_hold)
 
+        # LAN 音声の受け取り先。**空ならマイク入力** (従来どおり)。
+        # 配布版には `--net-source` を渡す手段が無いので、ここが唯一の入口になる。
+        self.net_source = QLineEdit(s.net_source)
+        self.net_source.setPlaceholderText("空ならマイク入力")
+        self.net_source.setToolTip(
+            "無線機 PC の音声送出 (cw-audio-send) の宛先。\n"
+            "例: 192.168.0.10 (既定ポート 45678) / 192.168.0.10:45678\n"
+            "入れると入力デバイスの選択は無効になります。"
+        )
+        form.addRow("LAN から受け取る" + _LATER, self.net_source)
+
         self.recording_enabled = QCheckBox("受信を自動で録音する")
         self.recording_enabled.setChecked(s.recording_enabled)
         form.addRow(self.recording_enabled)
@@ -190,9 +201,12 @@ class SettingsDialog(QDialog):
         form = QFormLayout(page)
         s = self._settings
 
-        self.checkpoint_path = QLineEdit(s.checkpoint_path or "")
-        self.checkpoint_path.setPlaceholderText("models/full/best_infer.pt")
-        form.addRow("モデル" + _LATER, self.checkpoint_path)
+        # **モデルの欄はここには置かない** (運用者の指示、2026-08-31)。
+        # 主画面のコンボと [読込…] が唯一の経路である。ここに 1 行入力があると、
+        # 空欄のときに出る灰色の入力例が「既定値」に読めてしまい (実際に
+        # 「既定が models/full/best_infer.pt になっている」と報告された)、
+        # しかもその例は配布版では読めない `.pt` だった。
+        # 歯止め: tests/test_settings_dialog.py の TestModelIsChosenOnTheMainWindow
 
         self.decode_device = QComboBox()
         self.decode_device.addItems(["cpu", "cuda", "auto"])
@@ -527,7 +541,9 @@ class SettingsDialog(QDialog):
             squelch_hold_sec=self.squelch_hold.value(),
             recording_enabled=self.recording_enabled.isChecked(),
             recording_dir=self.recording_dir.text().strip() or "data/real",
-            checkpoint_path=self.checkpoint_path.text().strip() or None,
+            net_source=self.net_source.text().strip(),
+            # checkpoint_path は書き換えない。主画面で選んだ値を ``replace`` が
+            # そのまま持ち越す (設定画面 OK で選択が消えないこと)。
             decode_device=self.decode_device.currentText(),
             decode_threads=int(self.decode_threads.value()),
             confidence_threshold=self.confidence_threshold.value(),

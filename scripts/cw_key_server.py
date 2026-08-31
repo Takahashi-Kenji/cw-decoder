@@ -47,6 +47,14 @@ from src.tx.key_server import (  # noqa: E402
     persistent_opener,
     prepare,
 )
+from src.cli.prompt import (  # noqa: E402
+    REMEMBERED_DIR,
+    Choice,
+    ask_choice,
+    ask_yes,
+    load_remembered,
+    save_remembered,
+)
 from src.tx.keyer import Keyer  # noqa: E402
 from src.tx.protocol import (  # noqa: E402
     CODE_BUSY,
@@ -444,8 +452,78 @@ def serve(
         active.start()
 
 
+REMEMBERED_PATH = REMEMBERED_DIR / "key_server.json"
+
+
+def wants_interactive(args: argparse.Namespace, isatty: bool) -> bool:
+    """起動時の対話に入るか.
+
+    **引数で指定されていれば入らない。** 従来の使い方・自動化・テストが
+    対話待ちで固まってはいけない。端末が無いとき (ログへリダイレクト、
+    サービス起動) も入らない。
+    """
+    return isatty and not args.port and not args.dry_run
+
+
+def interactive_setup(args: argparse.Namespace) -> bool:
+    """COM ポートと結線を対話で決めて ``args`` に書き戻す. 続行なら ``True``.
+
+    **選んだ直後にポートを開かない。** 多くの USB シリアル変換器はポートを
+    開いた瞬間に DTR/RTS を上げる = 開いただけで電波が出る。無線機の電源を
+    切ったかを確かめてから先へ進む。
+    """
+    from serial.tools import list_ports
+
+    remembered = load_remembered(REMEMBERED_PATH)
+    print("\n  cw-decoder 打鍵サーバ")
+
+    # **一覧に出すのは label だけ** (``Choice`` の説明を参照)。COM ポートは
+    # 値そのものが名前なので、先頭に自分で入れる。
+    ports = [
+        Choice(
+            value=p.device,
+            label=f"{p.device}  {(p.description or '').replace('(' + p.device + ')', '').strip()}".rstrip(),
+        )
+        for p in sorted(list_ports.comports(), key=lambda p: p.device)
+    ]
+    try:
+        port = ask_choice("シリアルポート", ports, remembered.get("port"), input, print)
+    except LookupError:
+        print(
+            "\n  シリアルポートが見つかりません。\n"
+            "  USB シリアル変換器を挿してから、もう一度起動してください。\n"
+            "  (シリアルに触らずに試すなら --dry-run を付けます)"
+        )
+        input("  Enter で終了します > ")
+        return False
+
+    lines = (Choice(value="DTR"), Choice(value="RTS"))
+    key_line = ask_choice("電鍵の線", lines, remembered.get("key_line", "DTR"), input, print)
+    ptt_choices = (Choice(value="RTS"), Choice(value="DTR"), Choice(value="NONE", label="PTT を使わない"))
+    ptt_line = ask_choice("PTT の線", ptt_choices, remembered.get("ptt_line", "RTS"), input, print)
+
+    args.port = port.value
+    args.key_line = key_line.value
+    args.ptt_line = ptt_line.value
+    save_remembered(
+        REMEMBERED_PATH,
+        {"port": args.port, "key_line": args.key_line, "ptt_line": args.ptt_line},
+    )
+
+    print(
+        f"\n  {args.port} / 電鍵 {args.key_line} / PTT {args.ptt_line} で始めます。\n"
+        "  ⚠ ポートを開くと、変換器によっては**その瞬間に電波が出ます**。\n"
+        "     無線機の電源を切るか、ダミーロードを付けてください。"
+    )
+    return ask_yes("準備はできましたか", input, print)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if wants_interactive(args, sys.stdin is not None and sys.stdin.isatty()):
+        if not interactive_setup(args):
+            return 1
 
     if not args.dry_run and not args.port:
         print(

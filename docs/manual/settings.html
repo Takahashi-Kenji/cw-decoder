@@ -58,6 +58,7 @@
     <tr><td>帯域通過フィルタを使う</td><td>ON</td><td><a href="receive.html#bpf">BPF</a>。LAN 経由で音を受けるときは<strong>必ず ON</strong></td></tr>
     <tr><td>中心周波数</td><td>600 Hz</td><td>受信している CW トーンの高さに合わせます（200〜2000）</td></tr>
     <tr><td>帯域幅</td><td>400 Hz</td><td>狭いほどノイズに強く、合わせ込みはシビアに（50〜2000）</td></tr>
+    <tr><td>LAN から受け取る ⟳</td><td>（空）</td><td>受信機側 PC のアドレス <code>host[:port]</code>（既定ポート 45678）。<strong>空ならマイク入力</strong>。入れると入力デバイスの選択は無効になります</td></tr>
     <tr><td>スケルチ保持時間</td><td>1.0 秒</td><td>信号が切れてから無音とみなすまでの猶予（0〜10）</td></tr>
     <tr><td>受信を自動で録音する</td><td>OFF</td><td>開始と同時に録音を始めます</td></tr>
     <tr><td>録音の保存先</td><td><code>data/real</code></td><td>WAV とデコード結果の置き場所</td></tr>
@@ -73,11 +74,16 @@
   <img src="images/settings-decode.png" alt="設定画面「デコード」タブ">
 </figure>
 
+<p>
+  <strong>モデルの選択はこのタブにはありません。</strong>
+  主画面のコンボボックスと <span class="ui">読込…</span> で行います（<a href="screens.html">画面の説明</a>）。
+  選んだモデルはすぐに切り替わり、次に起動したときも保たれます。
+</p>
+
 <div class="table-scroll">
 <table>
   <thead><tr><th>項目</th><th>初期値</th><th>説明</th></tr></thead>
   <tbody>
-    <tr><td>モデル ⟳</td><td>—</td><td>チェックポイントのファイル。空なら起動時の <code>--ckpt</code> の値</td></tr>
     <tr>
       <td>デコードに使う装置 ⟳</td><td><code>cpu</code></td>
       <td><code>cpu</code> / <code>cuda</code> / <code>auto</code>。
