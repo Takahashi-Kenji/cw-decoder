@@ -214,8 +214,12 @@ class CWDecoderWindow(QMainWindow):
         self.record_btn.setCheckable(True)
         second.addWidget(self.record_btn)
 
-        self.tx_btn = QPushButton("送信…")
-        self.tx_btn.setToolTip("無線機を繋いだ PC に打鍵させます")
+        # **「送信」ではなく「交信」** (2026-08-30 の運用者の指示)。打鍵して
+        # 送るだけの画面ではなく、相手の情報を集めて Hamlog へ渡すまでを含む
+        self.tx_btn = QPushButton("交信…")
+        self.tx_btn.setToolTip(
+            "交信の画面を開きます (無線機を繋いだ PC に打鍵させ、Hamlog へ交信データを渡します)"
+        )
         self.tx_btn.clicked.connect(self._open_tx_dialog)
         second.addWidget(self.tx_btn)
 
@@ -320,6 +324,7 @@ class CWDecoderWindow(QMainWindow):
 
         self.text_view = QTextEdit()
         self.text_view.setReadOnly(True)
+        self._install_qso_menu(self.text_view)
         font = QFont("Consolas", 14)
         self.text_view.setFont(font)
         body.addWidget(self.text_view, 5)
@@ -353,6 +358,11 @@ class CWDecoderWindow(QMainWindow):
         self.euro_stream_view.setFixedHeight(
             self.euro_stream_view.fontMetrics().height() + 12
         )
+        # **ここでも右クリックで交信の欄へ入れられるようにする** (2026-08-30
+        # 運用者の指示)。**和文の受信中はコールサインを拾う手立てがここしかない**
+        # — 本文はカナで出るので、コールサインは欧文表で読んだこの行にしか
+        # 現れない。左ボタンでなぞって右クリック、で欄へ送れる
+        self._install_qso_menu(self.euro_stream_view)
         root.addWidget(self.euro_stream_view)
 
         # ---- スペクトログラム (見え方のスライダ付き) ----
@@ -372,6 +382,7 @@ class CWDecoderWindow(QMainWindow):
         self.llm_text_view.setReadOnly(True)
         self.llm_text_view.setFont(QFont("Yu Gothic UI", 13))
         self.llm_text_view.setPlaceholderText("LLM 清書結果 (確定=黒 / 推測=赤)")
+        self._install_qso_menu(self.llm_text_view)
         root.addWidget(self.llm_text_view, 3)
 
         llm_bar = QHBoxLayout()
@@ -1271,6 +1282,73 @@ class CWDecoderWindow(QMainWindow):
         except OSError:
             pass
 
+    # ---- 右クリックで交信の欄へ入れる ----
+    def _install_qso_menu(self, view) -> None:
+        """本文の右クリックに「交信欄へ入れる」を足す.
+
+        **標準のメニューは残す** (コピー・すべて選択)。奪うと、読めた本文を
+        コピーする今までの操作ができなくなる。
+        """
+        from PySide6.QtCore import Qt
+
+        view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        view.customContextMenuRequested.connect(
+            lambda pos, v=view: self._popup_qso_menu(v, pos)
+        )
+
+    def _popup_qso_menu(self, view, pos) -> None:
+        menu = self.build_qso_menu(view, pos)
+        menu.exec(view.viewport().mapToGlobal(pos))
+
+    def qso_text_at(self, view, pos) -> str:
+        """交信の欄へ入れる文字を決める.
+
+        選択されていればそれ。**選択が無ければ右クリックした位置の語**を拾う
+        (コールサインをなぞってから右クリック、では手数が 1 つ多い)。
+        """
+        from PySide6.QtGui import QTextCursor
+
+        selected = view.textCursor().selectedText().strip()
+        if selected:
+            # Qt は段落区切りに U+2029 を使う。1 行に均す
+            return selected.replace("\u2029", " ").strip()
+        if pos is None:
+            return ""
+        cursor = view.cursorForPosition(pos)
+        cursor.select(QTextCursor.SelectionType.WordUnderCursor)
+        return cursor.selectedText().strip()
+
+    def build_qso_menu(self, view, pos):
+        """標準のメニューに「交信欄へ入れる」を足したものを返す.
+
+        **押す前に何が入るか見えるようにする** — 項目に実際の文字列を出す。
+        文字が拾えないときは足さない (押せない項目を並べない)。
+        """
+        from src.app.tx_dialog import TxDialog
+
+        menu = view.createStandardContextMenu()
+        text = self.qso_text_at(view, pos)
+        if not text:
+            return menu
+        shown = text if len(text) <= 20 else text[:20] + "…"
+        menu.addSeparator()
+        for field, label in TxDialog.QSO_FIELD_LABELS.items():
+            action = menu.addAction(f"{label} ← 「{shown}」")
+            action.triggered.connect(
+                lambda _checked=False, f=field, t=text: self.fill_qso_field(f, t)
+            )
+        return menu
+
+    def fill_qso_field(self, field: str, text: str) -> None:
+        """交信ダイアログの欄へ入れる. **閉じていれば開いてから入れる。**
+
+        取りこぼさないため。開いていなければ選べない、では交信中に使えない。
+        """
+        if self._tx_dialog is None:
+            self._open_tx_dialog()
+        if self._tx_dialog is not None:
+            self._tx_dialog.set_qso_field(field, text)
+
     def _open_tx_dialog(self) -> None:
         """送信ダイアログを開く.
 
@@ -1293,7 +1371,7 @@ class CWDecoderWindow(QMainWindow):
         """
         from src.app.tx_dialog import TxDialog
 
-        # **二枚目を作らない。** 画面が固まらなくなった以上 [送信…] は何度でも
+        # **二枚目を作らない。** 画面が固まらなくなった以上 [交信…] は何度でも
         # 押せる。二枚目を開くと、打鍵側は 1 つしか繋がないので後から開いた
         # ほうが**自分自身の接続**に busy で撥ねられる。
         if self._tx_dialog is not None:
@@ -1374,7 +1452,11 @@ class CWDecoderWindow(QMainWindow):
         _mode_index = {"european": 0, "japanese": 1, "auto": 1}   # auto は和文へ縮退
         self.mode_combo.setCurrentIndex(_mode_index.get(s.mode, 0))
         self._set_ckpt_label(s.checkpoint_path)
-        self._recorder = Recorder(out_dir=Path(s.recording_dir))
+        # **作り直さない。** ワーカーは開始時に ``self._recorder.add_block`` を
+        # 録音フックとして握っている。ここで新しい Recorder に差し替えると、
+        # 音は古い方へ流れ続け、ボタンで始めた新しい方は空のまま
+        # 「録音内容なし」になる (2026-08-30 に実受信で表面化)
+        self._recorder.out_dir = Path(s.recording_dir)
 
         # --- 非表示にしたウィジェット (ここが本体) ---
         self.threshold_slider.setValue(int(round(s.confidence_threshold * 100)))

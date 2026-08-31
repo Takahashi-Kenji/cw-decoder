@@ -173,6 +173,54 @@ def _initial_mode(text: str) -> str:
     return "japanese" if any(_JAPANESE_ONLY_RE.match(ch) for ch in head) else "european"
 
 
+# 和文区間の中で「欧文の語」と見なす語。空白で区切られた一続きのうち、欧文の
+# アルファベットを 1 つ以上含むもの (数字だけ・記号だけの語は両方の表にあるので
+# 和文のまま。区間を無駄に割らない)。
+_LATIN_LETTER_RE = re.compile(r"[A-Za-z]")
+_WORD_RE = re.compile(r"\S+")
+
+
+def _is_latin_word(word: str) -> bool:
+    """和文の中で欧文の符号表で送るべき語か.
+
+    マーカー (``{RATA}`` 等) を含む語は対象外 (マーカーは和文側の符号として
+    別に解釈される)。語の**全部**が欧文表にあるときだけ欧文にする。
+    ``JH0ILL晴`` のように混ざった語は和文のまま残し、``find_unsendable`` が
+    漢字を名指しできるようにする。
+    """
+    if _MARKER_RE.search(word) or not _LATIN_LETTER_RE.search(word):
+        return False
+    return all(ch.upper() in _EUROPEAN_TX_CHARS for ch in word)
+
+
+def _split_latin_words(text: str, mode: str) -> list[Segment]:
+    """モードが和文なら、欧文の語を欧文区間として切り出す.
+
+    **和文の場合、欧文が含まれていても送信する** (2026-08-30 の運用者の指示)。
+    和文の交信でもコールサインは欧文で打つので、``JH0ILL ホレ JH0ILL`` を
+    ``「JH0ILL」`` と囲まなくても送れなければ使い物にならない
+    (囲んだときしか通らず ``JHILL`` が「送信できない文字」になっていた)。
+
+    語の前後の空白は和文側の segment に残す (``「…」`` のときと同じ形。
+    ``encode`` の語間の補完がその形を前提にしている)。segment は元テキストの
+    部分文字列のまま (``find_unsendable`` の位置解決の前提)。
+    """
+    if mode != "japanese":
+        return [Segment(text, mode)]
+    segments: list[Segment] = []
+    cursor = 0
+    for match in _WORD_RE.finditer(text):
+        if not _is_latin_word(match.group()):
+            continue
+        if match.start() > cursor:
+            segments.append(Segment(text[cursor:match.start()], "japanese"))
+        segments.append(Segment(match.group(), "european"))
+        cursor = match.end()
+    if cursor < len(text):
+        segments.append(Segment(text[cursor:], "japanese"))
+    return segments
+
+
 def split_segments(text: str) -> list[Segment]:
     """``{HORE}`` … ``{RATA}`` と ``「…」`` を境にモードを切り替えて刻む.
 
@@ -199,12 +247,12 @@ def split_segments(text: str) -> list[Segment]:
     while index < len(text):
         if text.startswith(HORE, index):
             buffer += HORE
-            segments.append(Segment(buffer, mode))
+            segments.extend(_split_latin_words(buffer, mode))
             buffer, mode = "", "japanese"
             index += len(HORE)
         elif text.startswith(RATA, index):
             buffer += RATA
-            segments.append(Segment(buffer, mode))
+            segments.extend(_split_latin_words(buffer, mode))
             buffer, mode = "", "european"
             index += len(RATA)
         elif text.startswith(SPAN_OPEN, index):
@@ -221,7 +269,7 @@ def split_segments(text: str) -> list[Segment]:
                 continue
             # 区間の前までを今のモードで確定させる
             if buffer:
-                segments.append(Segment(buffer, mode))
+                segments.extend(_split_latin_words(buffer, mode))
                 buffer = ""
             # ``「`` ``」`` のすぐ内側の空白は**飾りとして書かれた余白**であり、
             # 語間ではない。取り除かないと、``「`` 自体は符号を出さないので
@@ -245,7 +293,7 @@ def split_segments(text: str) -> list[Segment]:
             buffer += text[index]
             index += 1
     if buffer:
-        segments.append(Segment(buffer, mode))
+        segments.extend(_split_latin_words(buffer, mode))
     # **空文字列の segment だけを落とす。空白だけの segment は残す。**
     # 空文字列は空の区間 (``「」``) の inner から生じる、意味の無いものである。
     # 一方、空白だけの segment は連続する区間の間の語間 ("「A」 「B」" の

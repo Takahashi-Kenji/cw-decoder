@@ -5,7 +5,9 @@
 """
 from __future__ import annotations
 
-from src.tx.qso_fields import QsoFields, extract_fields, strip_guess_marks
+import pytest
+
+from src.tx.qso_fields import QsoFields, extract_fields, strip_guess_marks, normalise_rst
 
 
 class TestStripGuessMarks:
@@ -100,3 +102,70 @@ class TestQsoFields:
         text = "JH0ILL DE JA1ABC K " * 5000
         result = extract_fields(text)
         assert result.their_call == "JA1ABC"
+
+
+class TestNormaliseRst:
+    """**略号数字を数字に直す** (2026-08-30 の運用者の指示).
+
+    CW では数字を短い符号の文字で代える習慣がある (略号数字)。RST では
+    ``5NN`` が ``599`` の意味で日常的に使われる。受信画面や欧文ストリームから
+    ``5NN`` をコピーして RST の欄へ入れたら ``599`` になってほしい。
+
+    **語を RST と取り違えないこと。** ``TU`` (ありがとう) は T と U が
+    どちらも略号数字だが、数字を 1 つも含まないので RST ではない。
+    """
+
+    @pytest.mark.parametrize(
+        ("source", "expected"),
+        [
+            ("5NN", "599"),
+            ("5nn", "599"),
+            ("599", "599"),
+            ("579", "579"),
+            ("59", "59"),
+            ("UR 5NN", "599"),
+            ("UR5NN", "599"),          # 語間が出ないことがある (実運用)
+            ("RST 5NN K", "599"),
+            ("UR 579", "579"),
+            ("RST 599 QSL", "599"),
+            ("57N", "579"),            # 579 を 57N と打つことがある
+            ("5N9", "599"),
+        ],
+    )
+    def test_直る(self, source: str, expected: str) -> None:
+        assert normalise_rst(source) == expected
+
+    @pytest.mark.parametrize("source", ["TU", "TU DE", "NN", "AN"])
+    def test_数字が無い語はRSTにしない(self, source: str) -> None:
+        """``TU`` を ``02`` にしてはいけない."""
+        assert normalise_rst(source) == ""
+
+    @pytest.mark.parametrize("source", ["5NT", "5TT", "5AN", "5UN"])
+    def test_N以外の略号数字は直さない(self, source: str) -> None:
+        """**N=9 だけを直す** (2026-08-30 の運用者の指示).
+
+        RST に 0 は現れない (R は 1〜5、S と T は 1〜9) ので ``T``=0 は要らない。
+        当てにならない値を入れるより、空にして手で打ってもらう。
+        """
+        assert normalise_rst(source) == ""
+
+    def test_コールサインは拾わない(self) -> None:
+        assert normalise_rst("JA1ABC") == ""
+
+    @pytest.mark.parametrize("source", ["5NN9", "5999", "NN59"])
+    def test_長さが合わない塊は当て推量しない(self, source: str) -> None:
+        """全部 RST に使える文字なのに長さが合わないものは、切る場所が決まらない.
+
+        ``5NN9`` の末尾 3 文字は ``NN9`` = ``999`` になってしまう。
+        **当てにならないものを黙って埋めない。**
+        """
+        assert normalise_rst(source) == ""
+
+    def test_語とくっついていれば末尾を切る(self) -> None:
+        """``UR5NN`` は R が RST に使えないので「語 + RST」と分かる."""
+        assert normalise_rst("UR5NN") == "599"
+        assert normalise_rst("TNX599") == "599"
+
+    def test_見つからなければ空(self) -> None:
+        assert normalise_rst("") == ""
+        assert normalise_rst("QSL TNX") == ""

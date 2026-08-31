@@ -26,6 +26,7 @@ from __future__ import annotations
 import os
 import tempfile
 import threading
+import time
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -34,7 +35,7 @@ import pytest
 from PySide6.QtWidgets import QApplication
 
 from src.infer.settings import AppSettings
-from src.tx.net_key import CheckResult, Hello, NetKeyRejected, SendResult
+from src.tx.net_key import CheckResult, Hello, NetKeyError, NetKeyRejected, SendResult
 from src.tx.profile import BilingualField, OperatorProfile
 from src.tx.templates import ReplyTemplate, save_templates
 
@@ -206,10 +207,22 @@ def _isolate_operator_files(monkeypatch) -> None:
 
 
 def wait_for_worker(dialog) -> None:
-    """送信ワーカーの完了を待ち、Qt のシグナル配送のためイベントを回す."""
+    """送信ワーカーの完了を待ち、Qt のシグナル配送のためイベントを回す.
+
+    **``processEvents()`` 1 回では足りない。** ワーカー側の ``finished_ok`` は
+    別スレッドから積まれるので、1 回回しただけでは配送が間に合わないことが
+    ある。全部のテストを通しで走らせたときにだけ
+    ``test_中止理由_LAN切断だと分かり接続が切れる`` が落ちる、という形で
+    表面化した (2026-08-30)。``_on_sent`` / ``_on_send_failed`` が
+    ``_worker`` を ``None`` に戻すので、**それを待つ**。
+    """
     worker = dialog._worker
     assert worker is not None
     worker.wait(2000)
+    deadline = time.monotonic() + 3.0
+    while dialog._worker is not None and time.monotonic() < deadline:
+        QApplication.processEvents()
+        time.sleep(0.005)
     QApplication.processEvents()
 
 
@@ -286,7 +299,7 @@ def test_送れない文字があると送信できない(qapp) -> None:
     dialog.refresh_kana()
     dialog.run_check()
     assert dialog.can_send() is False
-    assert "髙" in dialog.status_label.text()
+    assert "髙" in dialog.status_text()
 
 
 def test_確認で撥ねられたら送り終えた記録も消える(qapp) -> None:
@@ -370,7 +383,7 @@ def test_busyで撥ねられると理由が分かる文言が出る(qapp) -> Non
 
     dialog = build_with_factory(qapp, BusyClient)
     dialog.connect_to_keyer()
-    assert "しばらく待って再接続してください" in dialog.status_label.text()
+    assert "しばらく待って再接続してください" in dialog.status_text()
     assert dialog.check_btn.isEnabled() is False
     assert dialog.send_btn.isEnabled() is False
 
@@ -385,8 +398,8 @@ def test_busy以外の接続エラーは汎用文言になる(qapp) -> None:
 
     dialog = build_with_factory(qapp, BrokenClient)
     dialog.connect_to_keyer()
-    assert "しばらく待って再接続してください" not in dialog.status_label.text()
-    assert "繋がりません" in dialog.status_label.text()
+    assert "しばらく待って再接続してください" not in dialog.status_text()
+    assert "繋がりません" in dialog.status_text()
 
 
 def test_busy以外のNetKeyRejectedは撥ねられた理由がそのまま出る(qapp) -> None:
@@ -398,8 +411,8 @@ def test_busy以外のNetKeyRejectedは撥ねられた理由がそのまま出�
 
     dialog = build_with_factory(qapp, OtherRejectClient)
     dialog.connect_to_keyer()
-    assert "しばらく待って再接続してください" not in dialog.status_label.text()
-    assert "reject: malformed request" in dialog.status_label.text()
+    assert "しばらく待って再接続してください" not in dialog.status_text()
+    assert "reject: malformed request" in dialog.status_text()
 
 
 def test_接続を繰り返すと古い接続を閉じてから繋ぎ直す(qapp) -> None:
@@ -436,7 +449,7 @@ def test_符号表の指紋が食い違うと警告が出る(qapp) -> None:
 
     dialog = build_with_factory(qapp, MismatchedClient)
     dialog.connect_to_keyer()
-    assert "符号表が両 PC で違います" in dialog.status_label.text()
+    assert "符号表が両 PC で違います" in dialog.status_text()
 
 
 def test_中止理由_運用者による停止と分かる(qapp) -> None:
@@ -450,7 +463,7 @@ def test_中止理由_運用者による停止と分かる(qapp) -> None:
     dialog.run_send()
     wait_for_worker(dialog)
 
-    status = dialog.status_label.text()
+    status = dialog.status_text()
     # 運用者自身が止めたと分かる、この分岐でしか出ない文言であること
     # (``reason`` の分岐そのものを削っても通ってしまう空洞テストにしない)
     assert "運用者による中止" in status
@@ -470,7 +483,7 @@ def test_中止理由_LAN切断だと分かり接続が切れる(qapp) -> None:
     dialog.run_send()
     wait_for_worker(dialog)
 
-    status = dialog.status_label.text()
+    status = dialog.status_text()
     # LAN が止まったと分かる、この分岐でしか出ない文言であること
     assert "打鍵側との通信が途切れました" in status
     assert "運用者による中止" not in status
@@ -493,7 +506,7 @@ def test_中止理由が無ければ汎用文言になる(qapp) -> None:
     dialog.run_send()
     wait_for_worker(dialog)
 
-    status = dialog.status_label.text()
+    status = dialog.status_text()
     assert "運用者による中止" not in status
     assert "打鍵側との通信が途切れました" not in status
     assert "中止しました" in status
@@ -583,7 +596,7 @@ def test_送信中のEscでは閉じず中止を促す(qapp) -> None:
     assert dialog._worker.isRunning()     # 打鍵は続いている
     assert dialog._client is not None     # 接続も生きている
     assert dialog.stop_btn.isEnabled() is True
-    assert "中止" in dialog.status_label.text()
+    assert "中止" in dialog.status_text()
 
     dialog.run_stop()                     # 後始末
     wait_for_worker(dialog)
@@ -770,22 +783,22 @@ class TestSendableCheck:
         dialog.wrap_check.setChecked(False)
         dialog.japanese_edit.setPlainText("JA1ABC DE JH0ILL {HORE}コンニチハ{RATA} K")
         dialog.refresh_kana()
-        assert "送信できない" not in dialog.status_label.text()
+        assert "送信できない" not in dialog.status_text()
 
     def test_欧文だけの文が赤くならない(self, qapp) -> None:
         dialog, _ = build(qapp)
         dialog.wrap_check.setChecked(False)
         dialog.japanese_edit.setPlainText("CQ CQ DE JH0ILL K")
         dialog.refresh_kana()
-        assert "送信できない" not in dialog.status_label.text()
+        assert "送信できない" not in dialog.status_text()
 
     def test_本当に送れない文字は赤くなる(self, qapp) -> None:
         """**歯止めを外さない。** 符号表に無い文字は今までどおり弾く."""
         dialog, _ = build(qapp)
         dialog.japanese_edit.setPlainText("コンニチハ+")
         dialog.refresh_kana()
-        assert "送信できない" in dialog.status_label.text()
-        assert "+" in dialog.status_label.text()
+        assert "送信できない" in dialog.status_text()
+        assert "+" in dialog.status_text()
 
     def test_直すと警告が消える(self, qapp) -> None:
         """**直したのに警告が残ると、運用者は「まだ送れない」と誤解する.**
@@ -796,11 +809,11 @@ class TestSendableCheck:
         dialog, _ = build(qapp)
         dialog.japanese_edit.setPlainText("コンニチハ+")
         dialog.refresh_kana()
-        assert "送信できない" in dialog.status_label.text()
+        assert "送信できない" in dialog.status_text()
 
         dialog.japanese_edit.setPlainText("コンニチハ")
         dialog.refresh_kana()
-        assert "送信できない" not in dialog.status_label.text()
+        assert "送信できない" not in dialog.status_text()
 
     def test_他の表示を消さない(self, qapp) -> None:
         """**肝心な歯止め。** 警告を消すとき、接続結果などの別の文言を巻き込まない.
@@ -812,12 +825,12 @@ class TestSendableCheck:
         dialog, _ = build(qapp)
         dialog.wrap_check.setChecked(False)     # 欧文だけの文をホレ/ラタで囲ませない
         dialog.connect_to_keyer()
-        message = dialog.status_label.text()
+        message = dialog.status_text()
         assert message.startswith("接続しました")
 
         dialog.japanese_edit.setPlainText("CQ CQ DE JH0ILL K")
         dialog.refresh_kana()
-        assert dialog.status_label.text() == message
+        assert dialog.status_text() == message
 
 
 # ---- ここから: Task 5 (型と欄) ----
@@ -884,8 +897,8 @@ class TestTemplates:
 
         assert dialog.japanese_edit.toPlainText() == "? DE ? K"
         # **送れる文字である** (`?` は両方の符号表にある) ので警告は出ない
-        assert "送信できない文字" not in dialog.status_label.text()
-        assert "埋まっていない" not in dialog.status_label.text()
+        assert "送信できない文字" not in dialog.status_text()
+        assert "埋まっていない" not in dialog.status_text()
 
     def test_RSTの既定は599(self, qapp, tmp_path) -> None:
         from src.app.tx_dialog import TxDialog
@@ -934,12 +947,12 @@ class TestTemplates:
         dialog.apply_template()                      # 落ちないこと
 
         assert dialog.japanese_edit.toPlainText() == ""
-        assert "このモードの型がありません" in dialog.status_label.text()
+        assert "このモードの型がありません" in dialog.status_text()
 
     # ---- 2026-08-11 レビュー: 欧文の型が既定の囲みで送れなくなる ----
 
     def test_欧文の型は囲まれない(self, qapp, tmp_path) -> None:
-        """**肝心。** ``wrap_check`` の既定 (オン) のまま欧文の型を流すと、
+        """**肝心。** ``wrap_check`` を入れたまま欧文の型を流すと、
         中の欧文がまるごと ``{HORE}``/``{RATA}`` に囲まれ「送信できない」に
         なる (CQ を出すという一番基本の操作が既定状態で使えなくなっていた)。
         """
@@ -950,24 +963,44 @@ class TestTemplates:
         settings = AppSettings(tx_endpoint="127.0.0.1:45679")
         profile = OperatorProfile(callsign="JH0ILL")
         dialog = TxDialog(settings, profile=profile, templates_path=path, mode="european")
-        assert dialog.wrap_check.isChecked() is True     # 既定はオン
+        assert dialog.wrap_check.isChecked() is False    # 既定はオフ (2026-08-30)
+        dialog.wrap_check.setChecked(True)               # 入れたままでも
 
         dialog.apply_template()
 
         assert dialog.wrap_check.isChecked() is False
         assert "{HORE}" not in dialog.wire_text()
         assert "{RATA}" not in dialog.wire_text()
-        assert "送信できない" not in dialog.status_label.text()
+        assert "送信できない" not in dialog.status_text()
 
-    def test_和文の型は囲まれる(self, qapp, tmp_path) -> None:
-        """和文の型 (マーカー無しのカタカナ本文) を使うと囲まれる."""
+    def test_和文の型でも自動では囲まない(self, qapp, tmp_path) -> None:
+        """**囲みは使うときだけチェック** (2026-08-30 の運用者の指示).
+
+        2026-08-30 までは和文の型を入れると自動でオンになっていた。運用者は
+        ホレをカナで本文に打つので、自動で囲むと二重になる。
+        """
         from src.app.tx_dialog import TxDialog
 
         path = tmp_path / "templates.json"
         save_templates([ReplyTemplate(name="挨拶", mode="japanese", text="コンニチハ")], path)
         settings = AppSettings(tx_endpoint="127.0.0.1:45679")
         dialog = TxDialog(settings, profile=OperatorProfile(), templates_path=path, mode="japanese")
-        dialog.wrap_check.setChecked(False)               # 手で切り替えていても
+        assert dialog.wrap_check.isChecked() is False     # 既定はオフ
+
+        dialog.apply_template()
+
+        assert dialog.wrap_check.isChecked() is False
+        assert "{HORE}" not in dialog.wire_text()
+
+    def test_和文の型はチェックが入っていれば囲まれる(self, qapp, tmp_path) -> None:
+        """チェックを入れてから和文の型を使えば、そのまま囲まれる (外されない)."""
+        from src.app.tx_dialog import TxDialog
+
+        path = tmp_path / "templates.json"
+        save_templates([ReplyTemplate(name="挨拶", mode="japanese", text="コンニチハ")], path)
+        settings = AppSettings(tx_endpoint="127.0.0.1:45679")
+        dialog = TxDialog(settings, profile=OperatorProfile(), templates_path=path, mode="japanese")
+        dialog.wrap_check.setChecked(True)
 
         dialog.apply_template()
 
@@ -1086,6 +1119,7 @@ class TestTemplates:
         save_templates([ReplyTemplate(name="お礼", mode="any", text="アリガトウ")], path)
         settings = AppSettings(tx_endpoint="127.0.0.1:45679")
         dialog = TxDialog(settings, profile=OperatorProfile(), templates_path=path, mode="auto")
+        dialog.wrap_check.setChecked(True)               # 既定はオフ (2026-08-30)。手で入れる
 
         dialog.apply_template()
 
@@ -1107,7 +1141,7 @@ class TestTemplates:
 
         assert dialog.wrap_check.isChecked() is False
         assert "{HORE}" not in dialog.wire_text()
-        assert "送信できない" not in dialog.status_label.text()
+        assert "送信できない" not in dialog.status_text()
 
     def test_和文の型を漢字かな交じりで書いても囲まれる(self, qapp, tmp_path) -> None:
         """判定は**変換後**の文で行う (型は漢字かな交じりで書いてよい)."""
@@ -1117,6 +1151,7 @@ class TestTemplates:
         save_templates([ReplyTemplate(name="挨拶", mode="any", text="こんにちは")], path)
         settings = AppSettings(tx_endpoint="127.0.0.1:45679")
         dialog = TxDialog(settings, profile=OperatorProfile(), templates_path=path, mode="auto")
+        dialog.wrap_check.setChecked(True)               # 既定はオフ (2026-08-30)。手で入れる
 
         dialog.apply_template()
 
@@ -1138,7 +1173,7 @@ class TestTemplates:
         dialog.japanese_edit.setPlainText("JA1ABC DE JH0ILL K")
 
         assert "?" not in dialog.wire_text()
-        assert dialog.status_label.text() in ("", "未接続")
+        assert dialog.status_text() in ("", "未接続")
 
     def test_手で書いた欄は送れない文字として見える(self, qapp, tmp_path) -> None:
         """**Minor 2 の名残。** 差し込みを通らない ``{…}`` は黙って通さない."""
@@ -1152,7 +1187,7 @@ class TestTemplates:
 
         # 手で書いた `{相手コール}` は差し込みを通らないので、そのまま
         # 「送信できない文字」として見える (`{` `}` は符号表に無い)
-        status = dialog.status_label.text()
+        status = dialog.status_text()
         assert "送信できない文字があります" in status
         assert "#" in status
         assert "{" in status
@@ -1210,7 +1245,7 @@ class TestTemplates:
         assert dialog.wrap_check.isChecked() is False
         assert "{HORE}" not in dialog.wire_text()
         assert "{RATA}" not in dialog.wire_text()
-        assert "送信できない" not in dialog.status_label.text()
+        assert "送信できない" not in dialog.status_text()
 
     def test_和文に欧文区間があればホレが付く(self, qapp, tmp_path) -> None:
         """``コチラノ リグ ハ 「FT991」`` にはホレが付くこと (従来の振る舞いを壊さない).
@@ -1226,6 +1261,7 @@ class TestTemplates:
         )
         settings = AppSettings(tx_endpoint="127.0.0.1:45679")
         dialog = TxDialog(settings, profile=OperatorProfile(), templates_path=path, mode="auto")
+        dialog.wrap_check.setChecked(True)               # 既定はオフ (2026-08-30)。手で入れる
 
         dialog.apply_template()
 
@@ -1242,7 +1278,7 @@ class TestNeedlessWrapWarning:
     いた。`apply_template` は中身を見て `wrap_check` を自動設定するので
     そもそも問題にならないが、**運用者が `japanese_edit` に直接打つ経路
     (`refresh_kana`) は `wrap_check.isChecked()` をそのまま使うだけ**で、
-    既定がオンなので `「FT991」` のように和文の無い本文を直接打つと
+    チェックを入れたまま `「FT991」` のように和文の無い本文を直接打つと
     `{HORE}「FT991」{RATA}` が**警告なしで**できていた。中身は欧文として
     符号化できるので「送信できない文字」にはならず、**送れるのに化ける**
     という一番気づきにくい壊れ方をする。
@@ -1261,13 +1297,13 @@ class TestNeedlessWrapWarning:
 
         settings = AppSettings(tx_endpoint="127.0.0.1:45679")
         dialog = TxDialog(settings, profile=OperatorProfile(), templates_path=tmp_path / "なし.json")
-        assert dialog.wrap_check.isChecked() is True     # 既定はオン
+        dialog.wrap_check.setChecked(True)               # 既定はオフ (2026-08-30)。手で入れる
 
         dialog.japanese_edit.setPlainText("「FT991」")
         dialog.refresh_kana()
 
         assert "{HORE}" in dialog.wire_text()    # 既定のチェックは黙って無視しない
-        assert "和文がありません" in dialog.status_label.text()
+        assert "和文がありません" in dialog.status_text()
 
     def test_和文があれば警告は出ない(self, qapp, tmp_path) -> None:
         """``コチラノ リグ ハ 「FT991」`` では警告が出ないこと (打つ経路)."""
@@ -1275,12 +1311,13 @@ class TestNeedlessWrapWarning:
 
         settings = AppSettings(tx_endpoint="127.0.0.1:45679")
         dialog = TxDialog(settings, profile=OperatorProfile(), templates_path=tmp_path / "なし.json")
+        dialog.wrap_check.setChecked(True)               # 既定はオフ (2026-08-30)。手で入れる
 
         dialog.japanese_edit.setPlainText("コチラノ リグ ハ 「FT991」")
         dialog.refresh_kana()
 
         assert "{HORE}" in dialog.wire_text()
-        assert "和文がありません" not in dialog.status_label.text()
+        assert "和文がありません" not in dialog.status_text()
 
     def test_手で囲んだ本文には警告が出ない(self, qapp, tmp_path) -> None:
         """本文に ``{HORE}…{RATA}`` と手で書いてあるときは鳴らないこと.
@@ -1295,12 +1332,12 @@ class TestNeedlessWrapWarning:
 
         settings = AppSettings(tx_endpoint="127.0.0.1:45679")
         dialog = TxDialog(settings, profile=OperatorProfile(), templates_path=tmp_path / "なし.json")
-        assert dialog.wrap_check.isChecked() is True     # 既定はオンのまま
+        dialog.wrap_check.setChecked(True)               # 既定はオフ (2026-08-30)。手で入れる
 
         dialog.japanese_edit.setPlainText("{HORE}コンニチハ{RATA}")
         dialog.refresh_kana()
 
-        assert "和文がありません" not in dialog.status_label.text()
+        assert "和文がありません" not in dialog.status_text()
         # 二重には囲まない (電波は正しい)
         assert dialog.wire_text().count("{HORE}") == 1
 
@@ -1310,14 +1347,15 @@ class TestNeedlessWrapWarning:
 
         settings = AppSettings(tx_endpoint="127.0.0.1:45679")
         dialog = TxDialog(settings, profile=OperatorProfile(), templates_path=tmp_path / "なし.json")
+        dialog.wrap_check.setChecked(True)               # 既定はオフ (2026-08-30)。手で入れる
         dialog.japanese_edit.setPlainText("「FT991」")
         dialog.refresh_kana()
-        assert "和文がありません" in dialog.status_label.text()
+        assert "和文がありません" in dialog.status_text()
 
         dialog.wrap_check.setChecked(False)
 
         assert "{HORE}" not in dialog.wire_text()
-        assert "和文がありません" not in dialog.status_label.text()
+        assert "和文がありません" not in dialog.status_text()
 
     def test_空の本文では警告が出ない(self, qapp, tmp_path) -> None:
         """ダイアログを開いた直後 (本文が空、`wrap_check` は既定でオン) に警告が出ないこと.
@@ -1330,7 +1368,7 @@ class TestNeedlessWrapWarning:
         settings = AppSettings(tx_endpoint="127.0.0.1:45679")
         dialog = TxDialog(settings, profile=OperatorProfile(), templates_path=tmp_path / "なし.json")
 
-        assert "和文がありません" not in dialog.status_label.text()
+        assert "和文がありません" not in dialog.status_text()
 
 
 class TestMatchReceivedWpm:
@@ -1761,3 +1799,642 @@ class TestTemplateAppliesOnSelect:
         dialog = self._dialog(tmp_path, [])
         assert dialog.template_combo.count() == 0
         assert dialog.japanese_edit.toPlainText() == ""
+
+
+class TestMultiplePanels:
+    """送信欄を 4 つ並べ、そのうち 1 つの [送信] で送れること (2026-08-30 の運用者の要望).
+
+    **交信中に返信を組み立てる時間が無い。** 先に何通か書いて全部 [確認] まで
+    通しておき、相手の信号に合う 1 通だけを [送信] で出す、という使い方をする。
+
+    打鍵器は 1 台しかないので**同時に送れるのは 1 通だけ**である。
+    """
+
+    def test_送信欄が4つある(self, qapp) -> None:
+        dialog, _ = build(qapp)
+        assert len(dialog.panels) == 4
+
+    def test_既存の呼び名は選んでいる欄を指す(self, qapp) -> None:
+        """既存の関門テスト 1700 行をそのまま回帰網として使うための約束."""
+        dialog, _ = build(qapp)
+        assert dialog.japanese_edit is dialog.panels[0].japanese_edit
+        assert dialog.wrap_check is dialog.panels[0].wrap_check
+        assert dialog.kana_view is dialog.panels[0].kana_view
+        assert dialog.send_btn is dialog.panels[0].send_btn
+
+        dialog.set_active_panel(2)
+
+        assert dialog.japanese_edit is dialog.panels[2].japanese_edit
+        assert dialog.send_btn is dialog.panels[2].send_btn
+
+    def test_欄ごとに別の文を持てる(self, qapp) -> None:
+        dialog, _ = build(qapp)
+        dialog.panels[0].japanese_edit.setPlainText("こんにちは")
+        dialog.panels[1].japanese_edit.setPlainText("ありがとう")
+        assert dialog.wire_text(dialog.panels[0]) == "コンニチハ"
+        assert dialog.wire_text(dialog.panels[1]) == "アリガトウ"
+
+    def test_ある欄を書いても他の欄の確認は落ちない(self, qapp) -> None:
+        """**これが要。** 落ちると「先に全部確認しておく」使い方が成り立たない."""
+        dialog, _ = build(qapp)
+        dialog.connect_to_keyer()
+        dialog.panels[1].japanese_edit.setPlainText("こんにちは")
+        dialog.run_check(dialog.panels[1])
+        assert dialog.panels[1].send_btn.isEnabled() is True
+
+        dialog.panels[0].japanese_edit.setPlainText("ありがとう")
+
+        assert dialog.can_send(dialog.panels[1]) is True
+        assert dialog.panels[1].send_btn.isEnabled() is True
+
+    def test_全部の欄を先に確認しておける(self, qapp) -> None:
+        dialog, _ = build(qapp)
+        dialog.connect_to_keyer()
+        for panel, text in zip(dialog.panels, ["こんにちは", "ありがとう", "さようなら", "またね"]):
+            panel.japanese_edit.setPlainText(text)
+            dialog.run_check(panel)
+
+        assert [p.send_btn.isEnabled() for p in dialog.panels] == [True] * 4
+
+    def test_押した欄の文が送られる(self, qapp) -> None:
+        dialog, clients = build(qapp)
+        dialog.connect_to_keyer()
+        dialog.panels[0].japanese_edit.setPlainText("こんにちは")
+        dialog.panels[2].japanese_edit.setPlainText("ありがとう")
+        dialog.run_check(dialog.panels[2])
+
+        dialog.panels[2].send_btn.click()
+        wait_for_worker(dialog)
+
+        assert clients[0].sent == [("アリガトウ", 20.0)]
+
+    def test_送信中は他の欄も押せない(self, qapp) -> None:
+        """打鍵器は 1 台。**2 通目を重ねて出させない.**"""
+        dialog = build_with_factory(qapp, SlowClient)
+        dialog.connect_to_keyer()
+        for panel, text in [(dialog.panels[0], "こんにちは"), (dialog.panels[1], "ありがとう")]:
+            panel.japanese_edit.setPlainText(text)
+            dialog.run_check(panel)
+        assert dialog.panels[1].send_btn.isEnabled() is True
+
+        dialog.run_send(dialog.panels[0])
+
+        assert dialog._worker is not None and dialog._worker.isRunning()
+        assert dialog.panels[1].send_btn.isEnabled() is False
+        assert dialog.panels[1].check_btn.isEnabled() is False
+        assert dialog.panels[1].clear_btn.isEnabled() is False
+
+        dialog.run_stop()
+        wait_for_worker(dialog)
+
+    def test_クリアは自分の欄だけ(self, qapp) -> None:
+        dialog, _ = build(qapp)
+        dialog.panels[0].japanese_edit.setPlainText("こんにちは")
+        dialog.panels[1].japanese_edit.setPlainText("ありがとう")
+
+        dialog.panels[0].clear_btn.click()
+
+        assert dialog.panels[0].japanese_edit.toPlainText() == ""
+        assert dialog.panels[1].japanese_edit.toPlainText() == "ありがとう"
+
+    def test_接続し直すと全部の欄の確認が落ちる(self, qapp) -> None:
+        """別の PC・別の符号表かもしれない。**1 番目だけ落とすのでは足りない.**"""
+        dialog, _ = build(qapp)
+        dialog.connect_to_keyer()
+        for panel, text in [(dialog.panels[0], "こんにちは"), (dialog.panels[1], "ありがとう")]:
+            panel.japanese_edit.setPlainText(text)
+            dialog.run_check(panel)
+
+        dialog.connect_to_keyer()
+
+        assert [p.send_btn.isEnabled() for p in dialog.panels] == [False] * 4
+
+    def test_警告は欄ごとに出る(self, qapp) -> None:
+        """**共有の 1 行に出すと、別の欄を触った瞬間に消えて見えなくなる.**"""
+        dialog, _ = build(qapp)
+        dialog.panels[0].japanese_edit.setPlainText("髙")
+        dialog.panels[1].japanese_edit.setPlainText("こんにちは")
+
+        assert "髙" in dialog.panels[0].status_label.text()
+        assert "髙" not in dialog.panels[1].status_label.text()
+
+    def test_型は選んでいる欄に入る(self, qapp, tmp_path) -> None:
+        from src.app.tx_dialog import TxDialog
+
+        path = tmp_path / "templates.json"
+        save_templates([ReplyTemplate(name="CQ", mode="european", text="CQ DE {自局コール} K")], path)
+        settings = AppSettings(tx_endpoint="127.0.0.1:45679")
+        dialog = TxDialog(
+            settings, profile=OperatorProfile(callsign="JH0ILL"),
+            client_factory=FakeClient, templates_path=path, mode="european",
+        )
+        dialog.set_active_panel(3)
+
+        dialog.apply_template()
+
+        assert "CQ DE JH0ILL K" in dialog.panels[3].japanese_edit.toPlainText()
+        assert dialog.panels[0].japanese_edit.toPlainText() == ""
+
+    def test_元に戻すも選んでいる欄に効く(self, qapp, tmp_path) -> None:
+        from src.app.tx_dialog import TxDialog
+
+        path = tmp_path / "templates.json"
+        save_templates([ReplyTemplate(name="CQ", mode="european", text="CQ DE {自局コール} K")], path)
+        settings = AppSettings(tx_endpoint="127.0.0.1:45679")
+        dialog = TxDialog(
+            settings, profile=OperatorProfile(callsign="JH0ILL"),
+            client_factory=FakeClient, templates_path=path, mode="european",
+        )
+        dialog.set_active_panel(1)
+        dialog.panels[1].japanese_edit.setPlainText("テガキ")
+        dialog.apply_template()
+
+        dialog.undo_template_btn.click()
+
+        assert dialog.panels[1].japanese_edit.toPlainText() == "テガキ"
+
+    def test_欄を触るとそこが選んだ欄になる(self, qapp) -> None:
+        """本文をクリックしてから型を選ぶ、が自然な手順になるように.
+
+        **画面を出してから確かめる。** 表示していないダイアログでは Qt が
+        ``FocusIn`` を配らないので、``setFocus()`` だけでは何も起きない
+        (仕組みが壊れているのではなく、届いていないだけ)。
+        """
+        dialog, _ = build(qapp)
+        dialog.show()
+        QApplication.processEvents()
+        try:
+            dialog.panels[2].japanese_edit.setFocus()
+            QApplication.processEvents()
+
+            assert dialog.japanese_edit is dialog.panels[2].japanese_edit
+        finally:
+            dialog.close()
+
+
+class TestStopButtonPerPanel:
+    """[中止] は**送信ボタンの右隣**にある (2026-08-30 の運用者の指示).
+
+    「どの中止ボタンを押しても、動作は共通で構わない」— 打鍵しているのは常に
+    1 通なので、どれを押しても同じ 1 通が止まる。
+    """
+
+    def test_中止は欄ごとにある(self, qapp) -> None:
+        dialog, _ = build(qapp)
+        assert all(hasattr(panel, "stop_btn") for panel in dialog.panels)
+
+    def test_送信中でなければ押せない(self, qapp) -> None:
+        dialog, _ = build(qapp)
+        dialog.connect_to_keyer()
+        assert [p.stop_btn.isEnabled() for p in dialog.panels] == [False] * 4
+
+    def test_送信中はどの欄の中止も押せる(self, qapp) -> None:
+        dialog = build_with_factory(qapp, SlowClient)
+        dialog.connect_to_keyer()
+        dialog.panels[0].japanese_edit.setPlainText("こんにちは")
+        dialog.run_check(dialog.panels[0])
+        dialog.run_send(dialog.panels[0])
+
+        assert [p.stop_btn.isEnabled() for p in dialog.panels] == [True] * 4
+
+        dialog.run_stop()
+        wait_for_worker(dialog)
+
+    def test_別の欄の中止でも止まる(self, qapp) -> None:
+        """**打鍵しているのは 1 通。** 押した欄がどれでも同じ 1 通を止める."""
+        dialog = build_with_factory(qapp, SlowClient)
+        dialog.connect_to_keyer()
+        client = dialog._client
+        dialog.panels[0].japanese_edit.setPlainText("こんにちは")
+        dialog.run_check(dialog.panels[0])
+        dialog.run_send(dialog.panels[0])
+
+        dialog.panels[3].stop_btn.click()          # 送ったのは 1 欄目
+        wait_for_worker(dialog)
+
+        assert client.stopped is True
+
+
+class TestBoxesDoNotGrow:
+    """**[確認] を押しても箱が縦に伸びないこと** (2026-08-30 の運用者の報告).
+
+    「確認ボタンを押すと、テキストボックスの縦が 3 倍、送信される文字のボックスも
+    約 2 倍、縦長になる。何も入っていない部分も一様に縦に伸びる」。
+
+    実測 (本物の画面): 本文 52 → 192、カナ 40 → 90 が**4 欄とも**起きていた。
+    ``QPlainTextEdit`` の既定の縦の方針が ``Expanding`` で、状態表示に文字が
+    入って ``updateGeometry()`` が走った拍子に、スクロール領域の中身が組み直され、
+    余った高さが箱に配られていた。**箱の高さを固定する**ことで断つ。
+    """
+
+    def test_確認しても箱の高さが変わらない(self, qapp) -> None:
+        dialog, _ = build(qapp)
+        dialog.show()
+        QApplication.processEvents()
+        try:
+            dialog.connect_to_keyer()
+            QApplication.processEvents()
+            before = [(p.japanese_edit.height(), p.kana_view.height()) for p in dialog.panels]
+
+            dialog.panels[0].japanese_edit.setPlainText("こんにちは")
+            dialog.run_check(dialog.panels[0])
+            QApplication.processEvents()
+
+            after = [(p.japanese_edit.height(), p.kana_view.height()) for p in dialog.panels]
+            assert after == before
+        finally:
+            dialog.close()
+
+    def test_箱は伸び縮みしない(self, qapp) -> None:
+        """伸びる余地そのものを無くす (方針が ``Expanding`` だと再発する)."""
+        from PySide6.QtWidgets import QSizePolicy
+
+        dialog, _ = build(qapp)
+        for panel in dialog.panels:
+            for box in (panel.japanese_edit, panel.kana_view):
+                assert box.sizePolicy().verticalPolicy() == QSizePolicy.Policy.Fixed
+                assert box.minimumHeight() == box.maximumHeight()
+
+    def test_窓を広げても箱は変わらない(self, qapp) -> None:
+        """余った高さは欄の下の余白へ行く (箱に配らない)."""
+        dialog, _ = build(qapp)
+        dialog.show()
+        QApplication.processEvents()
+        try:
+            before = [(p.japanese_edit.height(), p.kana_view.height()) for p in dialog.panels]
+            dialog.resize(dialog.width(), dialog.height() + 300)
+            QApplication.processEvents()
+            after = [(p.japanese_edit.height(), p.kana_view.height()) for p in dialog.panels]
+            assert after == before
+        finally:
+            dialog.close()
+
+
+class FakeHamlogWindow:
+    """Hamlog の入力ウィンドウの代役."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[int, str]] = []
+        self.cleared = False
+
+    def clear(self) -> None:
+        self.cleared = True
+
+    def send_field(self, command: int, text: str) -> None:
+        self.calls.append((command, text))
+
+
+def build_with_hamlog(qapp, window):
+    """Hamlog の窓の代役を渡してダイアログを作る."""
+    from src.app.tx_dialog import TxDialog
+
+    settings = AppSettings(tx_endpoint="127.0.0.1:45679", tx_wpm=20.0)
+    dialog = TxDialog(
+        settings,
+        profile=OperatorProfile(callsign="JH0ILL"),
+        templates_path=_isolated_templates_path(),
+        hamlog_window_factory=lambda: window,
+    )
+    return dialog
+
+
+class TestHamlogRegistration:
+    """[hamlog登録] で、同じ PC の Hamlog の入力欄へ交信データを流し込む.
+
+    2026-08-30 の運用者の要望。**入力欄に入れるだけで確定はしない** —
+    値を間違えたまま書き込むと Hamlog 側で消す手間がかかるので、運用者が
+    入力ウィンドウを見てから Enter を押す。
+    """
+
+    def _filled(self, dialog) -> None:
+        dialog.their_call_edit.setText("JA1ABC")
+        dialog.their_name_edit.setText("タロウ")
+        dialog.rst_edit.setText("599")
+        dialog.received_rst_edit.setText("579")
+        dialog.freq_edit.setText("7.026")
+        dialog.qth_edit.setText("神奈川県横浜市")
+        dialog.remarks1_edit.setText("CW デコーダから登録")
+        dialog.remarks2_edit.setText("東京区")
+
+    def test_欄がある(self, qapp) -> None:
+        dialog, _ = build(qapp)
+        assert dialog.freq_edit is not None
+        assert dialog.received_rst_edit is not None
+        assert dialog.qth_edit is not None
+        assert dialog.remarks1_edit is not None
+        assert dialog.remarks2_edit is not None
+        assert dialog.hamlog_btn is not None
+
+    def test_押すと入力欄に入る(self, qapp) -> None:
+        from src.tx.hamlog import FIELD_COMMANDS
+
+        window = FakeHamlogWindow()
+        dialog = build_with_hamlog(qapp, window)
+        self._filled(dialog)
+
+        dialog.hamlog_btn.click()
+
+        sent = {command & 0xFFFF: text for command, text in window.calls}
+        assert sent[FIELD_COMMANDS["call"]] == "JA1ABC"    # フラグは下で落とす
+        assert sent[FIELD_COMMANDS["rst_sent"]] == "599"
+        assert sent[FIELD_COMMANDS["rst_received"]] == "579"
+        assert sent[FIELD_COMMANDS["freq_mhz"]] == "7.026"
+        assert sent[FIELD_COMMANDS["mode"]] == "CW"
+        assert sent[FIELD_COMMANDS["name"]] == "タロウ"
+        assert sent[FIELD_COMMANDS["qth"]] == "神奈川県横浜市"
+        assert sent[FIELD_COMMANDS["remarks1"]] == "CW デコーダから登録"
+        assert sent[FIELD_COMMANDS["remarks2"]] == "東京区"
+
+    def test_日付と時刻が入る(self, qapp) -> None:
+        """**押した時刻 (JST)** を入れる."""
+        from src.tx.hamlog import FIELD_COMMANDS
+
+        window = FakeHamlogWindow()
+        dialog = build_with_hamlog(qapp, window)
+        self._filled(dialog)
+
+        dialog.hamlog_btn.click()
+
+        sent = {command & 0xFFFF: text for command, text in window.calls}
+        assert len(sent[FIELD_COMMANDS["date"]]) == 8      # yy/mm/dd
+        assert len(sent[FIELD_COMMANDS["time"]]) == 5      # HH:MM
+
+    def test_相手コールが空なら送らない(self, qapp) -> None:
+        """**空の記録を作らない。** 何が足りないか知らせる."""
+        window = FakeHamlogWindow()
+        dialog = build_with_hamlog(qapp, window)
+        self._filled(dialog)
+        dialog.their_call_edit.setText("")
+
+        dialog.hamlog_btn.click()
+
+        assert window.calls == []
+        assert "相手のコールサイン" in dialog.status_text()
+
+    def test_Hamlogが無ければ知らせる(self, qapp) -> None:
+        """**黙って捨てない。**"""
+        dialog = build_with_hamlog(qapp, None)
+        self._filled(dialog)
+
+        dialog.hamlog_btn.click()
+
+        assert "Hamlog" in dialog.status_text()
+
+    def test_入れたことを知らせる(self, qapp) -> None:
+        """確定は Hamlog 側で押す、と分かる文言であること."""
+        window = FakeHamlogWindow()
+        dialog = build_with_hamlog(qapp, window)
+        self._filled(dialog)
+
+        dialog.hamlog_btn.click()
+
+        status = dialog.status_text()
+        assert "JA1ABC" in status
+        assert "Enter" in status
+
+    def test_保存はしない(self, qapp) -> None:
+        """**保存のコマンドは送らない** (運用者が Hamlog 側で [Save] を押す)."""
+        from src.tx.hamlog import SAVE_COMMAND
+
+        window = FakeHamlogWindow()
+        dialog = build_with_hamlog(qapp, window)
+        self._filled(dialog)
+
+        dialog.hamlog_btn.click()
+
+        assert all(command != SAVE_COMMAND for command, _ in window.calls)
+
+
+class TestClearQsoFields:
+    """[交信欄クリア] は**相手ごとに変わる欄だけ**を空にする.
+
+    2026-08-30 の運用者の指示: 「相手と自分の RST と周波数以外は、クリアボタンで
+    クリアできるようにして」。RST と周波数は同じバンド・同じ運用のあいだ変わらない
+    ので残す。次の相手に移るときの打ち直しを減らすためのボタンである。
+    """
+
+    def _filled(self, dialog) -> None:
+        dialog.their_call_edit.setText("JA1ABC")
+        dialog.their_name_edit.setText("タロウ")
+        dialog.qth_edit.setText("神奈川県横浜市")
+        dialog.remarks1_edit.setText("CW デコーダから登録")
+        dialog.remarks2_edit.setText("東京区")
+        dialog.weather_edit.setText("ハレ")
+        dialog.temp_edit.setText("20")
+        dialog.rst_edit.setText("589")
+        dialog.received_rst_edit.setText("579")
+        dialog.freq_edit.setText("7.026")
+
+    def test_ボタンがある(self, qapp) -> None:
+        dialog, _ = build(qapp)
+        assert dialog.clear_qso_btn is not None
+
+    def test_相手ごとの欄が消える(self, qapp) -> None:
+        dialog, _ = build(qapp)
+        self._filled(dialog)
+
+        dialog.clear_qso_btn.click()
+
+        assert dialog.their_call_edit.text() == ""
+        assert dialog.their_name_edit.text() == ""
+        assert dialog.qth_edit.text() == ""
+        assert dialog.remarks1_edit.text() == ""
+        assert dialog.remarks2_edit.text() == ""
+        assert dialog.weather_edit.text() == ""
+        assert dialog.temp_edit.text() == ""
+
+    def test_RSTと周波数は残る(self, qapp) -> None:
+        """**同じバンド・同じ運用のあいだ変わらない。** 消すと打ち直しになる."""
+        dialog, _ = build(qapp)
+        self._filled(dialog)
+
+        dialog.clear_qso_btn.click()
+
+        assert dialog.rst_edit.text() == "589"
+        assert dialog.received_rst_edit.text() == "579"
+        assert dialog.freq_edit.text() == "7.026"
+
+    def test_送信文は触らない(self, qapp) -> None:
+        """**用意しておいた文を消さない。** 送信文には欄ごとの [クリア] がある."""
+        dialog, _ = build(qapp)
+        self._filled(dialog)
+        dialog.panels[0].japanese_edit.setPlainText("こんにちは")
+        dialog.panels[2].japanese_edit.setPlainText("ありがとう")
+
+        dialog.clear_qso_btn.click()
+
+        assert dialog.panels[0].japanese_edit.toPlainText() == "こんにちは"
+        assert dialog.panels[2].japanese_edit.toPlainText() == "ありがとう"
+
+    def test_気温の行にある(self, qapp) -> None:
+        """運用者の指示どおり、気温の入力の右側に置く.
+
+        ``parentWidget().layout()`` ではダイアログの縦の並びが返る (行は
+        その中の入れ子)。**入れ子を辿って、同じ行に居ることを見る。**
+        """
+        dialog, _ = build(qapp)
+
+        def row_of(widget):
+            stack = [dialog.layout()]
+            while stack:
+                lay = stack.pop()
+                for i in range(lay.count()):
+                    item = lay.itemAt(i)
+                    if item.widget() is widget:
+                        return lay
+                    child = item.layout()
+                    if child is not None:
+                        stack.append(child)
+            return None
+
+        row = row_of(dialog.temp_edit)
+        assert row is not None
+        assert row_of(dialog.clear_qso_btn) is row
+        # 気温より右にあること
+        order = [row.itemAt(i).widget() for i in range(row.count())]
+        assert order.index(dialog.clear_qso_btn) > order.index(dialog.temp_edit)
+
+    def test_何度押しても落ちない(self, qapp) -> None:
+        dialog, _ = build(qapp)
+        dialog.clear_qso_btn.click()
+        dialog.clear_qso_btn.click()
+        assert dialog.their_call_edit.text() == ""
+
+
+# ---- 打鍵側へ繋ぐあいだ画面を止めない (2026-08-31 運用者の報告) ----
+
+
+def _slow_connect_factory(clients, delay_s=0.6, fail_with=None):
+    """繋ぐのに時間の掛かる打鍵側のふりをする ``client_factory`` を返す.
+
+    **本物の ``NetKeyClient.connect`` は応答があるまで戻らない。** 実測で、
+    打鍵サーバが動いていないと 2.06 秒、PC ごと落ちていると 5.01 秒
+    (``connect_timeout_s`` の 5 秒で切れる) 掛かる。
+    """
+
+    def factory(host, port=45679, **kwargs):
+        client = SlowConnectClient(host, port, **kwargs)
+        client.delay_s = delay_s
+        client.fail_with = fail_with
+        clients.append(client)
+        return client
+
+    return factory
+
+
+class SlowConnectClient(FakeClient):
+    """``connect()`` に時間が掛かる打鍵側のふり."""
+
+    delay_s = 0.6
+    fail_with: Exception | None = None
+
+    def connect(self) -> Hello:
+        time.sleep(self.delay_s)
+        if self.fail_with is not None:
+            raise self.fail_with
+        return super().connect()
+
+
+def wait_for_connect(dialog) -> None:
+    """接続スレッドの完了を待ち、Qt のシグナル配送のためイベントを回す."""
+    worker = dialog._connect_worker
+    if worker is not None:
+        worker.wait(5000)
+    deadline = time.monotonic() + 3.0
+    while dialog._connect_worker is not None and time.monotonic() < deadline:
+        QApplication.processEvents()
+        time.sleep(0.005)
+    QApplication.processEvents()
+
+
+class Test繋ぎ直しが画面を止めない:
+    """**打鍵サーバが動いていないと受信の画面が止まる** (2026-08-31 運用者の報告).
+
+    ``retry_tick`` は 3 秒おきに走る。そこから同期の ``connect()`` を呼ぶと、
+    打鍵側が応答しないあいだ GUI スレッドがまるごと止まり、スペクトラムも
+    確定テキストも更新されなくなる (デコードはワーカースレッドで生きているが、
+    画面に出ないので「止まった」ように見える)。
+    """
+
+    def test_繋ぎ直しは待たずに戻る(self, qapp) -> None:
+        clients: list[FakeClient] = []
+        dialog = build_with_factory(qapp, _slow_connect_factory(clients, delay_s=1.0))
+        start = time.monotonic()
+        dialog.retry_tick()
+        elapsed = time.monotonic() - start
+        assert elapsed < 0.3, f"GUI スレッドが {elapsed:.2f} 秒止まっている"
+        wait_for_connect(dialog)
+        dialog.shutdown()
+
+    def test_繋ぎ終われば接続済みになる(self, qapp) -> None:
+        clients: list[FakeClient] = []
+        dialog = build_with_factory(qapp, _slow_connect_factory(clients, delay_s=0.1))
+        dialog.retry_tick()
+        wait_for_connect(dialog)
+        assert dialog._client is not None
+        assert "接続しました" in dialog.status_label.text()
+        dialog.shutdown()
+
+    def test_繋ぎに行っている間は二重に始めない(self, qapp) -> None:
+        """3 秒タイマが重なっても接続は 1 本だけ. 打鍵側は同時 1 接続しか受けない."""
+        clients: list[FakeClient] = []
+        dialog = build_with_factory(qapp, _slow_connect_factory(clients, delay_s=0.5))
+        dialog.retry_tick()
+        dialog.retry_tick()
+        dialog.retry_tick()
+        assert len(clients) == 1
+        wait_for_connect(dialog)
+        dialog.shutdown()
+
+    def test_繋がらなくても画面は動き続ける(self, qapp) -> None:
+        clients: list[FakeClient] = []
+        dialog = build_with_factory(
+            qapp,
+            _slow_connect_factory(
+                clients, delay_s=0.4, fail_with=NetKeyError("打鍵側に繋がりません")
+            ),
+        )
+        start = time.monotonic()
+        dialog.retry_tick()
+        assert time.monotonic() - start < 0.3
+        wait_for_connect(dialog)
+        assert dialog._client is None
+        dialog.shutdown()
+
+    def test_自動の繋ぎ直しは失敗を画面に書かない(self, qapp) -> None:
+        """3 秒おきに赤い文字が書き換わると読めない (``quiet`` の約束)."""
+        clients: list[FakeClient] = []
+        dialog = build_with_factory(
+            qapp,
+            _slow_connect_factory(
+                clients, delay_s=0.05, fail_with=NetKeyError("打鍵側に繋がりません")
+            ),
+        )
+        dialog.status_label.setText("そのまま残る文言")
+        dialog.retry_tick()
+        wait_for_connect(dialog)
+        assert dialog.status_label.text() == "そのまま残る文言"
+        dialog.shutdown()
+
+    def test_接続ボタンなら失敗を画面に書く(self, qapp) -> None:
+        clients: list[FakeClient] = []
+        dialog = build_with_factory(
+            qapp,
+            _slow_connect_factory(
+                clients, delay_s=0.05, fail_with=NetKeyError("打鍵側に繋がりません")
+            ),
+        )
+        dialog.connect_btn.click()
+        wait_for_connect(dialog)
+        assert "繋がりません" in dialog.status_label.text()
+        dialog.shutdown()
+
+    def test_接続中に閉じてもスレッドを残さない(self, qapp) -> None:
+        """**繋ぎに行っている最中に畳まれても、スレッドと接続を残さない。**"""
+        clients: list[FakeClient] = []
+        dialog = build_with_factory(qapp, _slow_connect_factory(clients, delay_s=0.3))
+        dialog.retry_tick()
+        dialog.shutdown()
+        assert dialog._connect_worker is None or not dialog._connect_worker.isRunning()
+        assert dialog._client is None
+        assert clients[0].closed is True

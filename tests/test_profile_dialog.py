@@ -35,13 +35,15 @@ class TestUnsendableInValue:
         ("value", "mode", "sendable"),
         [
             ("TARO", "european", True),
-            ("TARO", "japanese", False),      # 和文の中に裸の欧文は置けない
+            ("TARO", "japanese", True),       # 2026-08-30 から和文の中の欧文の語は送れる
             ("タロウ", "japanese", True),
             ("タロウ", "european", False),
             ("「FT991」", "japanese", True),     # 欧文区間なので和文でも送れる
             ("「FT991」", "european", True),     # 欧文では括弧が落ちる
             ("50W", "european", True),
-            ("50W", "japanese", False),        # W は和文表に無い
+            ("50W", "japanese", True),         # 語に A-Z があれば欧文の符号で送る
+            ("#", "japanese", False),          # どちらの表にも無い
+            ("#", "european", False),
             ("JH0ILL", "european", True),
         ],
     )
@@ -164,9 +166,15 @@ class TestDictionaryTable:
 class TestWarnings:
     """**警告は止めるためではなく、見せるためのもの。**"""
 
-    def test_和文の欄に欧文を書くと警告(self, qapp, tmp_path) -> None:
+    def test_和文の欄の欧文は警告しない(self, qapp, tmp_path) -> None:
+        """2026-08-30 まで警告していた。和文の中の欧文の語は送れる (`encoder._split_latin_words`)."""
         d = _dialog(tmp_path)
         d.field_edits["name"][1].setText("TARO")
+        assert not any("和文で送れません" in w for w in d.warnings())
+
+    def test_和文の欄に符号表に無い文字を書くと警告(self, qapp, tmp_path) -> None:
+        d = _dialog(tmp_path)
+        d.field_edits["name"][1].setText("タロウ#")
         assert any("和文で送れません" in w and "名前" in w for w in d.warnings())
 
     def test_欧文の欄に漢字を書くと警告(self, qapp, tmp_path) -> None:
@@ -181,11 +189,15 @@ class TestWarnings:
         d.field_edits["rig"][1].setText("「FT991」")
         assert d.warnings() == []
 
-    def test_括弧を忘れると警告(self, qapp, tmp_path) -> None:
-        """**これが一番よくある書き間違いである.**"""
+    def test_括弧が無くても警告しない(self, qapp, tmp_path) -> None:
+        """2026-08-30 まで「一番よくある書き間違い」として警告していた.
+
+        括弧無しの ``FT991`` も欧文の語として送れるようになった。
+        """
         d = _dialog(tmp_path)
+        d.field_edits["rig"][0].setText("FT991")
         d.field_edits["rig"][1].setText("FT991")
-        assert any("和文で送れません" in w and "リグ" in w for w in d.warnings())
+        assert d.warnings() == []
 
     def test_自局コールは欧文で見る(self, qapp, tmp_path) -> None:
         d = _dialog(tmp_path)
@@ -211,7 +223,7 @@ class TestWarnings:
         """**書きかけを保存できないと育てるのが苦痛になる.**"""
         d = _dialog(tmp_path)
         d.callsign_edit.setText("JH0ILL")
-        d.field_edits["name"][1].setText("TARO")      # 和文の欄に欧文
+        d.field_edits["name"][1].setText("タロウ#")     # 和文の欄に表に無い文字
 
         d.save()
 

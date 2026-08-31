@@ -282,3 +282,206 @@ class TestStatusBarDiagnostics:
         assert "window=30s" in message
         assert "lag=2.0s" in message
         assert "decode=112ms" in message
+
+
+class TestRecorderSurvivesSettings:
+    """録音は**設定画面を通っても**続くこと.
+
+    ワーカーは開始時に ``self._recorder.add_block`` を録音フックとして受け取る。
+    設定画面の OK で ``_recorder`` を作り直すと、ワーカーは古い Recorder に
+    音を流し続け、ボタンで始めた新しい Recorder は空のまま →
+    「録音内容なし」になる (2026-08-30 に実受信で表面化した)。
+    """
+
+    def test_worker_hook_still_feeds_the_button_recorder(self, window) -> None:
+        import numpy as np
+
+        hook = window._recorder.add_block          # ワーカーが握る参照
+        window._apply_settings_to_widgets()        # 設定画面 OK と同じ経路
+        window.record_btn.setChecked(True)         # 録音開始
+        hook(np.zeros(800, dtype=np.float32))      # ワーカーからの音
+        assert window._recorder.duration_s > 0.0
+
+    def test_recording_dir_change_is_still_honoured(self, window, tmp_path) -> None:
+        s = window._settings
+        window._settings = type(s)(**{**vars(s), "recording_dir": str(tmp_path / "rec")})
+        window._apply_settings_to_widgets()
+        assert window._recorder.out_dir == tmp_path / "rec"
+
+class TestQsoFieldMenu:
+    """受信本文・清書の**右クリックで、選んだ文字を交信ダイアログの欄へ入れる**.
+
+    2026-08-30 の運用者の要望。交信中に相手のコールや名前を手で打ち直すのは
+    時間の勝負で負ける。読めた文字をそのまま欄へ送り込む。
+
+    **選択していなければ右クリックした位置の語を拾う** — コールサインを
+    なぞってから右クリック、では手数が 1 つ多い。
+    """
+
+    @pytest.fixture(autouse=True)
+    def _isolate(self, monkeypatch, tmp_path):
+        """利用者の実ファイル (経歴・型) を読みに行かせない."""
+        from src.tx.profile import OperatorProfile
+
+        monkeypatch.setattr("src.app.tx_dialog.load_templates", lambda path: [])
+        monkeypatch.setattr(
+            "src.app.tx_dialog.load_profile", lambda *a, **kw: OperatorProfile()
+        )
+
+    def _view(self, window):
+        return window.text_view
+
+    def test_選択した文字を拾う(self, window) -> None:
+        from PySide6.QtGui import QTextCursor
+
+        view = self._view(window)
+        view.setPlainText("CQ DE JA1ABC K")
+        cursor = view.textCursor()
+        cursor.setPosition(6)
+        cursor.setPosition(12, QTextCursor.MoveMode.KeepAnchor)
+        view.setTextCursor(cursor)
+
+        assert window.qso_text_at(view, None) == "JA1ABC"
+
+    def test_選択が無ければ位置の語を拾う(self, window) -> None:
+        """**画面を出してから測る。** 表示していないビューは文字の座標を
+        まだ決めておらず、``cursorRect`` が先頭を指してしまう
+        (仕組みの不具合ではなく、並べ終わっていないだけ)。
+        """
+        from PySide6.QtWidgets import QApplication
+
+        view = self._view(window)
+        window.show()
+        QApplication.processEvents()
+        try:
+            view.setPlainText("CQ DE JA1ABC K")
+            QApplication.processEvents()
+            # 「JA1ABC」の中ほどの座標を求める
+            cursor = view.textCursor()
+            cursor.setPosition(9)
+            rect = view.cursorRect(cursor)
+
+            assert window.qso_text_at(view, rect.center()) == "JA1ABC"
+        finally:
+            window.hide()
+
+    def test_メニューに5項目が並ぶ(self, window) -> None:
+        view = self._view(window)
+        view.setPlainText("JA1ABC")
+        view.selectAll()
+
+        menu = window.build_qso_menu(view, None)
+
+        labels = [a.text() for a in menu.actions() if a.text()]
+        for expected in ("相手コール", "相手名前", "住所", "送る RST", "もらった RST"):
+            assert any(expected in label for label in labels), labels
+
+    def test_文字が無ければ項目を出さない(self, window) -> None:
+        view = self._view(window)
+        view.setPlainText("")
+
+        menu = window.build_qso_menu(view, None)
+
+        assert not any("相手コール" in a.text() for a in menu.actions())
+
+    def test_選ぶと交信ダイアログの欄に入る(self, window) -> None:
+        window.fill_qso_field("their_call", "ja1abc")
+        try:
+            assert window._tx_dialog is not None      # 閉じていれば開く
+            assert window._tx_dialog.their_call_edit.text() == "JA1ABC"
+        finally:
+            window._tx_dialog.shutdown()
+
+    def test_名前と住所はそのまま入る(self, window) -> None:
+        window.fill_qso_field("their_name", " タロウ ")
+        window.fill_qso_field("qth", "神奈川県横浜市")
+        try:
+            assert window._tx_dialog.their_name_edit.text() == "タロウ"
+            assert window._tx_dialog.qth_edit.text() == "神奈川県横浜市"
+        finally:
+            window._tx_dialog.shutdown()
+
+    def test_RSTは数字だけ取り出す(self, window) -> None:
+        """受信文では ``RST 599`` や ``UR 579`` のように前後に語が付く."""
+        window.fill_qso_field("rst_received", "UR 579")
+        window.fill_qso_field("rst_sent", "RST 599 QSL")
+        try:
+            assert window._tx_dialog.received_rst_edit.text() == "579"
+            assert window._tx_dialog.rst_edit.text() == "599"
+        finally:
+            window._tx_dialog.shutdown()
+
+    def test_欧文ストリームでも効く(self, window) -> None:
+        """**和文の受信中はここにしかコールサインが現れない** (本文はカナ).
+
+        2026-08-30 の運用者の指示。和文でコールサインを登録する手立てが
+        他に無いため、この行でも右クリックできなければならない。
+        """
+        view = window.euro_stream_view
+        view.setPlainText("CQ DE JA1ABC K")
+        view.selectAll()
+
+        menu = window.build_qso_menu(view, None)
+
+        assert any("相手コール" in a.text() for a in menu.actions())
+
+    def test_欧文ストリームから欄へ入る(self, window) -> None:
+        from PySide6.QtGui import QTextCursor
+
+        view = window.euro_stream_view
+        view.setPlainText("CQ DE JA1ABC K")
+        cursor = view.textCursor()
+        cursor.setPosition(6)
+        cursor.setPosition(12, QTextCursor.MoveMode.KeepAnchor)
+        view.setTextCursor(cursor)
+
+        window.fill_qso_field("their_call", window.qso_text_at(view, None))
+        try:
+            assert window._tx_dialog.their_call_edit.text() == "JA1ABC"
+        finally:
+            window._tx_dialog.shutdown()
+
+    def test_清書側でも効く(self, window) -> None:
+        view = window.llm_text_view
+        view.setPlainText("JA1ABC")
+        view.selectAll()
+
+        menu = window.build_qso_menu(view, None)
+
+        assert any("相手コール" in a.text() for a in menu.actions())
+
+    def test_標準のメニューも残る(self, window) -> None:
+        """**コピーを奪わない。** 本文を選んでコピーする操作は今までどおり."""
+        view = self._view(window)
+        view.setPlainText("JA1ABC")
+        view.selectAll()
+
+        menu = window.build_qso_menu(view, None)
+
+        assert len(menu.actions()) > 5
+
+
+class TestQsoDialogNaming:
+    """**「送信」ではなく「交信」** (2026-08-30 の運用者の指示).
+
+    打鍵して送るだけの画面ではなく、相手の情報を集めて Hamlog へ渡すまでを
+    含む「交信」の画面になったため。
+    """
+
+    def test_主画面のボタンは交信(self, window) -> None:
+        assert window.tx_btn.text() == "交信…"
+
+    def test_ダイアログの題は交信(self, qapp, tmp_path, monkeypatch) -> None:
+        from src.app.tx_dialog import TxDialog
+        from src.infer.settings import AppSettings as _S
+        from src.tx.profile import OperatorProfile
+
+        dialog = TxDialog(
+            _S(tx_endpoint="127.0.0.1:45679"),
+            profile=OperatorProfile(),
+            templates_path=tmp_path / "none.json",
+        )
+        try:
+            assert dialog.windowTitle() == "交信"
+        finally:
+            dialog.shutdown()

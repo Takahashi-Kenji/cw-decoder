@@ -249,13 +249,26 @@ class TestPreview:
 
 
 class TestWarnings:
-    def test_ホレの中の欧文を見つける(self, qapp, tmp_path, profile) -> None:
-        """**一番よく起きる書き間違い。交信中に気づくのでは遅い.**"""
+    def test_符号表に無い文字を見つける(self, qapp, tmp_path, profile) -> None:
+        """交信中に気づくのでは遅い.
+
+        2026-08-30 までは ``{HORE}コンニチハ RST 599{RATA}`` (ホレの中の欧文)
+        を例にしていたが、和文の中の欧文は送れるようになった
+        (`encoder._split_latin_words`)。表に本当に無い ``#`` で確認する。
+        """
+        d = _dialog(
+            tmp_path, profile,
+            [ReplyTemplate(name="応答", mode="japanese", text="{HORE}コンニチハ ###{RATA}")],
+        )
+        assert any("送信できない文字" in w and "応答" in w for w in d.warnings())
+
+    def test_ホレの中の欧文は警告しない(self, qapp, tmp_path, profile) -> None:
+        """和文の型にコールサインや RST をそのまま書ける (2026-08-30)."""
         d = _dialog(
             tmp_path, profile,
             [ReplyTemplate(name="応答", mode="japanese", text="{HORE}コンニチハ RST 599{RATA}")],
         )
-        assert any("送信できない文字" in w and "応答" in w for w in d.warnings())
+        assert not any("送信できない文字" in w for w in d.warnings())
 
     def test_知らない欄を見つける(self, qapp, tmp_path, profile) -> None:
         d = _dialog(
@@ -271,7 +284,7 @@ class TestWarnings:
         """**保存する前の欄をそのまま検証する** (書き戻してから調べる)."""
         d = _dialog(tmp_path, profile, _three())
         d.list_widget.setCurrentRow(1)
-        d.text_edit.setPlainText("{HORE}コンニチハ RST 599{RATA}")
+        d.text_edit.setPlainText("{HORE}コンニチハ ###{RATA}")
         assert any("送信できない文字" in w for w in d.warnings())
 
 
@@ -303,7 +316,7 @@ class TestSave:
         """**書きかけを保存できないと育てるのが苦痛になる.**"""
         d = _dialog(
             tmp_path, profile,
-            [ReplyTemplate(name="応答", mode="japanese", text="{HORE}コンニチハ RST 599{RATA}")],
+            [ReplyTemplate(name="応答", mode="japanese", text="{HORE}コンニチハ ###{RATA}")],
         )
 
         d.save()
